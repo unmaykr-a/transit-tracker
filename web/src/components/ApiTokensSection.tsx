@@ -3,15 +3,18 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, tokens } from "@/api";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { relative } from "@/lib/format";
+import { useNow } from "@/lib/useLive";
 
 const KEY = ["my-tokens"];
 
 /** Personal API tokens, for the Home Assistant integration and scripts. */
 export function ApiTokensSection() {
   const { t, i18n } = useTranslation();
+  const now = useNow(30_000);
   const qc = useQueryClient();
   const list = useQuery({ queryKey: KEY, queryFn: ({ signal }) => tokens.list(signal) });
   const [name, setName] = useState("Home Assistant");
@@ -79,12 +82,18 @@ export function ApiTokensSection() {
                 <p className="truncate font-medium">{tok.name}</p>
                 <p className="truncate text-muted-foreground">
                   <span className="font-mono">{tok.prefix}…</span> ·{" "}
-                  {tok.last_used_at ? t("tokens.lastUsed", { when: relative(tok.last_used_at, i18n.resolvedLanguage) }) : t("tokens.neverUsed")}
+                  {tok.last_used_at ? t("tokens.lastUsed", { when: relative(tok.last_used_at, i18n.resolvedLanguage, now) }) : t("tokens.neverUsed")}
                 </p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => revoke.mutate(tok.id)} aria-label={t("tokens.revokeNamed", { name: tok.name })}>
+              <ConfirmButton
+                variant="ghost"
+                size="sm"
+                onConfirm={() => revoke.mutate(tok.id)}
+                question={t("tokens.revokeQuestion")}
+                aria-label={t("tokens.revokeNamed", { name: tok.name })}
+              >
                 {t("tokens.revoke")}
-              </Button>
+              </ConfirmButton>
             </li>
           ))}
         </ul>

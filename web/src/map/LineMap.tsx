@@ -5,7 +5,7 @@ import type { PatternStop } from "@/api";
 import { useTheme } from "@/lib/theme";
 import type { Vehicle } from "@/lib/types";
 
-import { collapseAttribution, maplibregl, STYLE_URL } from "./setup";
+import { collapseAttribution, maplibregl, styleUrl } from "./setup";
 
 interface Props {
   shape: [number, number][];
@@ -26,29 +26,11 @@ export default function LineMap({ shape, stops, vehicles, color }: Props) {
     data.current = { shape, stops, vehicles, color };
   });
 
-  const apply = (map: MLMap) => {
-    const { shape, stops, vehicles, color } = data.current;
-    map.getSource<GeoJSONSource>("shape")?.setData({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: shape } });
-    map.getSource<GeoJSONSource>("stops")?.setData({
-      type: "FeatureCollection",
-      features: stops.map((s) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [s.lon, s.lat] } })),
-    });
-    map.getSource<GeoJSONSource>("line-vehicles")?.setData({
-      type: "FeatureCollection",
-      features: vehicles.map((v) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [v.lon, v.lat] } })),
-    });
-    if (map.getLayer("shape")) {
-      map.setPaintProperty("shape", "line-color", color);
-      map.setPaintProperty("line-stops", "circle-stroke-color", color);
-      map.setPaintProperty("line-vehicles", "circle-color", color);
-    }
-  };
-
   useEffect(() => {
     if (!el.current) return;
     const map = new maplibregl.Map({
       container: el.current,
-      style: STYLE_URL[theme],
+      style: styleUrl(theme),
       bounds: bounds(data.current.shape),
       fitBoundsOptions: { padding: 24 },
       attributionControl: { compact: true },
@@ -67,7 +49,7 @@ export default function LineMap({ shape, stops, vehicles, color }: Props) {
       map.addLayer({ id: "shape", type: "line", source: "shape", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-width": 4 } });
       map.addLayer({ id: "line-stops", type: "circle", source: "stops", paint: { "circle-radius": 3.5, "circle-color": "#ffffff", "circle-stroke-width": 2 } });
       map.addLayer({ id: "line-vehicles", type: "circle", source: "line-vehicles", paint: { "circle-radius": 7, "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
-      apply(map);
+      apply(map, data.current);
     });
     return () => {
       map.remove();
@@ -78,8 +60,14 @@ export default function LineMap({ shape, stops, vehicles, color }: Props) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.isStyleLoaded()) apply(map);
-  }, [shape, stops, vehicles, color]);
+    if (map?.isStyleLoaded()) apply(map, data.current);
+  }, [shape, stops, color]);
+
+  // Vehicles change every couple of seconds; the shape and stops need not be re-uploaded with them.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded()) applyVehicles(map, vehicles);
+  }, [vehicles]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -104,4 +92,25 @@ function bounds(shape: [number, number][]): [[number, number], [number, number]]
     n = Math.max(n, y);
   }
   return [[w, s], [e, n]];
+}
+
+function applyVehicles(map: MLMap, vehicles: Vehicle[]) {
+  map.getSource<GeoJSONSource>("line-vehicles")?.setData({
+    type: "FeatureCollection",
+    features: vehicles.map((v) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [v.lon, v.lat] } })),
+  });
+}
+
+function apply(map: MLMap, { shape, stops, vehicles, color }: Props) {
+  map.getSource<GeoJSONSource>("shape")?.setData({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: shape } });
+  map.getSource<GeoJSONSource>("stops")?.setData({
+    type: "FeatureCollection",
+    features: stops.map((s) => ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [s.lon, s.lat] } })),
+  });
+  applyVehicles(map, vehicles);
+  if (map.getLayer("shape")) {
+    map.setPaintProperty("shape", "line-color", color);
+    map.setPaintProperty("line-stops", "circle-stroke-color", color);
+    map.setPaintProperty("line-vehicles", "circle-color", color);
+  }
 }

@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Footprints, Pencil, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DashboardEntry } from "@/api";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { Button } from "@/components/ui/button";
 import { clock, countdown, minutesUntil } from "@/lib/format";
 import { judge } from "@/lib/verdict";
@@ -97,9 +98,9 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
                 </Link>
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t("home.remove")}>
+            <ConfirmButton variant="ghost" size="icon" onConfirm={() => onRemove?.()} question={t("home.removeLine")} aria-label={t("home.remove")}>
               <Trash2 className="size-4" />
-            </Button>
+            </ConfirmButton>
           </div>
         )}
       </header>
@@ -110,7 +111,7 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
         <p className="text-sm text-muted-foreground">{entry.error ? t("stop.error") : t("home.noDepartures")}</p>
       ) : (
         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-          <div className="flex items-baseline gap-3" aria-live="polite">
+          <div className="flex items-baseline gap-3">
             {trip && <LinePill mode={head.mode} line={head.line} className="h-7 min-w-9 self-center text-sm" />}
             <span className="text-4xl font-semibold tracking-tight tabular-nums">{countdown(head.expected_at, now, t, lang)}</span>
             <span className="text-sm text-muted-foreground tabular-nums">

@@ -1,6 +1,6 @@
 import type { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
 import type { GeoJSONSource, Map as MLMap, MapGeoJSONFeature, MapMouseEvent } from "maplibre-gl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { MapStop } from "@/api";
@@ -12,7 +12,7 @@ import { prefersReducedMotion, useTheme } from "@/lib/theme";
 import { isMoving, nextTween, type Tween } from "@/lib/tween";
 import { MODES, type Mode } from "@/lib/types";
 
-import { collapseAttribution, maplibregl, STYLE_URL, TALLINN } from "./setup";
+import { collapseAttribution, maplibregl, startView, styleUrl } from "./setup";
 import { pillImage, vehicleFeatures, wedgeImage, type ImageSpec } from "./vehicleFeatures";
 const PILL_MIN_ZOOM = 12.5;
 /** Redraw rate while vehicles glide; 20 fps is smooth at city zoom and cheap on phones. */
@@ -51,7 +51,10 @@ function routeStopsAlong(pattern: string): Promise<number[]> {
   const cached = routeStops.get(pattern);
   if (cached) return cached;
   const p = fetch(`/api/v1/patterns/${pattern}`) // ids are URL-safe; the router does not decode %3A
-    .then(async (r): Promise<number[]> => (r.ok ? (((await r.json()) as { stop_along_m?: number[] }).stop_along_m ?? []) : []))
+    .then(async (r): Promise<number[]> => {
+      if (!r.ok) throw new Error(`pattern: ${r.status}`);
+      return ((await r.json()) as { stop_along_m?: number[] }).stop_along_m ?? [];
+    })
     .catch((): number[] => {
       routeStops.delete(pattern); // retry next time
       return [];
@@ -311,6 +314,7 @@ function addVehicleLayers(map: MLMap) {
 export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern, highlightMode, places, fit }: VehicleMapProps) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
   const mapRef = useRef<MLMap | null>(null);
   const filterRef = useRef({ modes, lineTokens });
   const dirtyRef = useRef(true);
@@ -334,9 +338,8 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     if (!container.current) return;
     const map = new maplibregl.Map({
       container: container.current,
-      style: STYLE_URL[themeRef.current],
-      center: TALLINN,
-      zoom: 13,
+      style: styleUrl(themeRef.current),
+      ...startView(),
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
@@ -363,12 +366,24 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     const animate = !prefersReducedMotion();
     let ready = false;
     // Route shapes let markers follow the street between fixes instead of cutting corners.
-    void loadShapes().then(() => {
-      dirtyRef.current = true;
-      map.getSource<GeoJSONSource>("rail")?.setData(railFeatures());
-    });
+    let shapeRetry: ReturnType<typeof setTimeout> | undefined;
+    const fetchShapes = () =>
+      void loadShapes().then((ok) => {
+        if (!ok) {
+          shapeRetry = setTimeout(fetchShapes, 30_000);
+          return;
+        }
+        dirtyRef.current = true;
+        map.getSource<GeoJSONSource>("rail")?.setData(railFeatures());
+      });
+    fetchShapes();
 
+    // Without a basemap (tile host down, blocked) nothing else draws; say so instead of a blank box.
+    map.on("error", () => {
+      if (!map.isStyleLoaded()) setFailed(true);
+    });
     map.on("style.load", () => {
+      setFailed(false);
       addVehicleLayers(map);
       addStopLayers(map, "vehicle-dots");
       addRailLayers(map);
@@ -409,8 +424,8 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
           break;
         }
       }
+      last = now; // also when idle, so a still map checks only every FRAME_MS
       if (!moving && !dirtyRef.current) return;
-      last = now;
       dirtyRef.current = false;
       const { modes, lineTokens } = filterRef.current;
       const source = map.getSource<GeoJSONSource>("vehicles");
@@ -436,9 +451,12 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
 
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(shapeRetry);
       unsubscribe();
       map.remove();
       mapRef.current = null;
+      const g = globalThis as { __tramMap?: MLMap };
+      if (g.__tramMap === map) delete g.__tramMap;
     };
   }, []);
 
@@ -446,7 +464,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
   useEffect(() => {
     if (themeRef.current === theme) return;
     themeRef.current = theme;
-    mapRef.current?.setStyle(STYLE_URL[theme]);
+    mapRef.current?.setStyle(styleUrl(theme));
   }, [theme]);
 
   useEffect(() => {
@@ -569,6 +587,11 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
   return (
     <div className="absolute inset-0">
       <div ref={container} className="h-full w-full" role="region" aria-label={t("nav.map")} />
+      {failed && (
+        <p role="status" className="absolute inset-x-4 top-4 rounded-lg border bg-card p-3 text-sm text-muted-foreground shadow">
+          {t("map.unavailable")}
+        </p>
+      )}
     </div>
   );
 }

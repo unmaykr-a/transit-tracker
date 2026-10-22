@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/lib/theme";
 
-import { collapseAttribution, maplibregl, STYLE_URL, TALLINN } from "./setup";
+import { collapseAttribution, maplibregl, startView, styleUrl } from "./setup";
 
 interface Props {
   onPick: (lat: number, lon: number) => void;
@@ -18,30 +18,38 @@ export default function PointPicker({ onPick, onCancel, disabled }: Props) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
+  // Where the person had panned to: kept when a theme change rebuilds the map.
+  const viewRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
   const theme = useTheme();
 
   useEffect(() => {
     if (!container.current) return;
     const map = new maplibregl.Map({
       container: container.current,
-      style: STYLE_URL[theme],
-      center: TALLINN,
-      zoom: 13,
+      style: styleUrl(theme),
+      ...(viewRef.current ?? startView()),
       attributionControl: { compact: true },
       dragRotate: false,
       pitchWithRotate: false,
     });
+    let alive = true;
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     // Start at the user's position when the browser already allows it; never prompt for it here.
-    void navigator.permissions?.query({ name: "geolocation" }).then((p) => {
-      if (p.state === "granted") {
-        navigator.geolocation.getCurrentPosition((pos) => map.jumpTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 }));
-      }
-    });
+    if (!viewRef.current) {
+      void navigator.permissions?.query({ name: "geolocation" }).then((p) => {
+        if (p.state !== "granted") return;
+        navigator.geolocation.getCurrentPosition((pos) => {
+          if (alive) map.jumpTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });
+        });
+      });
+    }
     collapseAttribution(map);
     mapRef.current = map;
     return () => {
+      alive = false;
+      const c = map.getCenter();
+      viewRef.current = { center: [c.lng, c.lat], zoom: map.getZoom() };
       map.remove();
       mapRef.current = null;
     };

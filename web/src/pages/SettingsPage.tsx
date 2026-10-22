@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 
 import { Link } from "@tanstack/react-router";
 
@@ -8,7 +8,7 @@ import { AccountSection } from "@/components/AccountSection";
 import { ApiTokensSection } from "@/components/ApiTokensSection";
 import { WalkingSection } from "@/components/WalkingSection";
 import { Button } from "@/components/ui/button";
-import { LANGUAGES } from "@/i18n";
+import { LANGUAGES, setLanguage } from "@/i18n";
 import { useSession } from "@/lib/session";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/theme";
 import { useLiveState } from "@/lib/useLive";
@@ -97,7 +97,7 @@ export default function SettingsPage() {
           label={t("settings.language")}
           value={i18n.resolvedLanguage ?? "en"}
           onChange={(lng) => {
-            void i18n.changeLanguage(lng);
+            setLanguage(lng);
             remember({ locale: lng });
           }}
           options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
@@ -125,9 +125,13 @@ export default function SettingsPage() {
         <h2 className="font-medium text-foreground">{t("settings.about")}</h2>
         {health.data && <p>{t("settings.version", { version: health.data.version })}</p>}
         <p>
-          Map © <a className="underline" href="https://openfreemap.org">OpenFreeMap</a>,{" "}
-          <a className="underline" href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors. Data: Tallinna
-          Transpordiamet, Elron.
+          <Trans
+            i18nKey="settings.credits"
+            components={{
+              ofm: <a className="underline" href="https://openfreemap.org" />,
+              osm: <a className="underline" href="https://www.openstreetmap.org/copyright" />,
+            }}
+          />
         </p>
       </section>
     </div>

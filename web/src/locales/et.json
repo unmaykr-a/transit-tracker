@@ -40,7 +40,8 @@
     "locate": "Näita minu asukohta",
     "loading": "Kaart laeb…",
     "sheetMore": "Näita üksikasju",
-    "sheetLess": "Näita vähem"
+    "sheetLess": "Näita vähem",
+    "unavailable": "Kaarti ei õnnestunud laadida. Kontrolli ühendust; reaalajas andmed uuenevad edasi."
   },
   "vehicle": {
     "towards": "suunaga {{destination}}",
@@ -85,7 +86,8 @@
     "unavailable": "Seda liini või peatust sõiduplaanis enam pole.",
     "noDepartures": "Lähitundidel väljumisi pole.",
     "then": "siis",
-    "walkFromPlace": "kohast {{place}}"
+    "walkFromPlace": "kohast {{place}}",
+    "removeLine": "Eemaldad selle liini?"
   },
   "search": {
     "title": "Otsing",
@@ -108,7 +110,8 @@
     "version": "Versioon {{version}}",
     "feeds": "Andmeallikad",
     "feedOk": "Korras",
-    "feedStale": "Hilineb"
+    "feedStale": "Hilineb",
+    "credits": "Kaart © <ofm>OpenFreeMap</ofm>, <osm>OpenStreetMapi</osm> kaastöötajad. Andmed: Tallinna Transpordiamet, Elron, Maa- ja Ruumiamet (aadressid)."
   },
   "time": {
     "now": "kohe",
@@ -141,7 +144,8 @@
     "live_other": "{{count}} sõidukit liinil",
     "notFound": "Liini ei leitud.",
     "showOnMap": "Näita kaardil",
-    "county": "Harjumaa maakonnaliin · ainult sõiduplaan"
+    "county": "Harjumaa maakonnaliin · ainult sõiduplaan",
+    "noPatterns": "Sellel liinil praegu sõiduplaani pole."
   },
   "common": {
     "loading": "Laen…",
@@ -307,7 +311,9 @@
     "backup": "Laadi varukoopia alla",
     "backupHint": "SQLite andmebaasi järjepidev koopia (kasutajad, salvestatud liinid, seaded).",
     "tokens": "API-võtmed",
-    "geocoderUrl": "Aadressiotsing (In-ADS)"
+    "geocoderUrl": "Aadressiotsing (In-ADS)",
+    "invalidNumber": "Sisesta arv (keskpunkt on „pikkuskraad, laiuskraad“).",
+    "resetRevokes": "Tema seansid ja API-võtmed tühistatakse."
   },
   "verdict": {
     "leaveIn": "Mine {{min}} min pärast",
@@ -348,7 +354,8 @@
     "addressPlaceholder": "nt Pärnu mnt 20 või Viru",
     "addressResults": "Aadressid ja peatused",
     "stop": "peatus",
-    "nameFirst": "Pane kohale enne nimi."
+    "nameFirst": "Pane kohale enne nimi.",
+    "removePlace": "Kustutad selle koha?"
   },
   "tokens": {
     "title": "API-võtmed",
@@ -363,7 +370,8 @@
     "revoke": "Tühista",
     "revokeNamed": "Tühista {{name}}",
     "confirmRevoke": "Tühistada kasutaja {{user}} võti {{name}}?",
-    "none": "API-võtmeid pole."
+    "none": "API-võtmeid pole.",
+    "revokeQuestion": "Tühistad? Seda kasutavad rakendused lõpetavad töö."
   },
   "trip": {
     "title": "Sõit kahe peatuse vahel",

@@ -17,6 +17,19 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
   });
 }
 
+// After a deploy, a tab opened earlier asks for page chunks that no longer
+// exist: reload once to pick up the new build instead of showing an error.
+window.addEventListener("vite:preloadError", (e) => {
+  try {
+    if (sessionStorage.getItem("bus-reloaded") === location.pathname) return;
+    sessionStorage.setItem("bus-reloaded", location.pathname);
+  } catch {
+    return; // storage blocked: without the guard a reload could loop
+  }
+  e.preventDefault();
+  location.reload();
+});
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: true } },
 });

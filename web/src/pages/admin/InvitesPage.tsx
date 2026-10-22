@@ -6,9 +6,11 @@ import { admin, type Role } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { clock, relative } from "@/lib/format";
+import { useNow } from "@/lib/useLive";
 
 export default function InvitesPage() {
   const { t, i18n } = useTranslation();
+  const now = useNow(30_000);
   const qc = useQueryClient();
   const invites = useQuery({ queryKey: ["admin", "invites"], queryFn: ({ signal }) => admin.invites(signal) });
   const [role, setRole] = useState<Role>("user");
@@ -83,7 +85,7 @@ export default function InvitesPage() {
                   {t(`auth.roles.${inv.role}`)} · {state}
                 </p>
                 <p className="text-muted-foreground">
-                  {inv.created_by} · {relative(inv.created_at, i18n.resolvedLanguage)} · {t("admin.expires")}{" "}
+                  {inv.created_by} · {relative(inv.created_at, i18n.resolvedLanguage, now)} · {t("admin.expires")}{" "}
                   {new Date(inv.expires_at).toLocaleDateString(i18n.resolvedLanguage)} {clock(inv.expires_at, i18n.resolvedLanguage)}
                 </p>
               </div>

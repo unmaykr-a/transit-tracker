@@ -10,7 +10,7 @@ export function DepartureList({ departures, showPlatform = true }: { departures:
   const { t, i18n } = useTranslation();
   const now = useNow(10_000);
   return (
-    <ol className="divide-y" aria-live="polite">
+    <ol className="divide-y">
       {departures.map((d) => {
         const lateMin = Math.round(d.delay_s / 60);
         return (

@@ -83,7 +83,7 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 export function makeRouter() {
-  return createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true });
+  return createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true, scrollToTopSelectors: ["main"] });
 }
 
 export const router = makeRouter();

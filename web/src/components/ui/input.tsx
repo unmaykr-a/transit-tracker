@@ -28,16 +28,27 @@ export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLS
 
 /** A labelled form control with an optional hint and error message. */
 export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
+  const noteId = React.useId();
+  const note = error || hint;
+  // The control announces its hint or error, and is marked invalid while the error shows.
+  const control =
+    note && React.isValidElement<React.InputHTMLAttributes<HTMLElement>>(children)
+      ? React.cloneElement(children, { "aria-describedby": noteId, "aria-invalid": error ? true : children.props["aria-invalid"] })
+      : children;
   return (
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium">{label}</span>
-      {children}
+      {control}
       {error ? (
-        <span role="alert" className="text-red-600 dark:text-red-400">
+        <span id={noteId} role="alert" className="text-red-600 dark:text-red-400">
           {error}
         </span>
       ) : (
-        hint && <span className="text-muted-foreground">{hint}</span>
+        hint && (
+          <span id={noteId} className="text-muted-foreground">
+            {hint}
+          </span>
+        )
       )}
     </label>
   );

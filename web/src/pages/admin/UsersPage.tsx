@@ -8,7 +8,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-import { ConfirmButton } from "./ConfirmButton";
+import { ConfirmButton } from "@/components/ConfirmButton";
 
 function errorText(e: unknown) {
   return e instanceof Error ? e.message : undefined;
@@ -55,7 +55,14 @@ function UserRow({ u, me }: { u: AdminUser; me: boolean }) {
         <label className="sr-only" htmlFor={`role-${u.id}`}>
           {t("admin.role")}
         </label>
-        <Select id={`role-${u.id}`} value={u.role} onChange={(e) => update.mutate({ role: e.target.value as Role })} className="h-8">
+        {/* Your own role is changed by another admin, so nobody locks themselves out of this page by accident. */}
+        <Select
+          id={`role-${u.id}`}
+          value={u.role}
+          disabled={me}
+          onChange={(e) => update.mutate({ role: e.target.value as Role })}
+          className="h-8"
+        >
           <option value="user">{t("auth.roles.user")}</option>
           <option value="admin">{t("auth.roles.admin")}</option>
         </Select>
@@ -89,7 +96,7 @@ function UserRow({ u, me }: { u: AdminUser; me: boolean }) {
           }}
         >
           <div className="min-w-48 flex-1">
-            <Field label={t("auth.newPassword")} hint={t("auth.passwordHint")}>
+            <Field label={t("auth.newPassword")} hint={`${t("auth.passwordHint")} ${t("admin.resetRevokes")}`}>
               <Input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required />
             </Field>
           </div>

@@ -35,16 +35,35 @@ function show(v: unknown): string {
   return Array.isArray(v) ? v.join(", ") : String(v ?? "");
 }
 
+const numeric = new Set<Key>([...general, ...sources].filter((f) => f.kind === "number" || f.kind === "center").map((f) => f.key));
+
+/** Number and centre fields are edited as text and parsed only when saved, so "59.4," can be typed. */
+function parse(draft: Draft, invalid: string): Draft {
+  const out: Draft = {};
+  const num = (k: Key, x: string) => {
+    const n = x.trim() === "" ? NaN : Number(x);
+    if (!Number.isFinite(n)) throw new ApiError(400, invalid, k);
+    return n;
+  };
+  for (const [k, v] of Object.entries(draft) as [Key, unknown][]) {
+    if (!numeric.has(k) || typeof v !== "string") out[k] = v;
+    else if (k === "map_center") out[k] = v.split(",").map((x) => num(k, x));
+    else out[k] = num(k, v);
+  }
+  return out;
+}
+
 export default function SettingsAdminPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["admin", "settings"], queryFn: ({ signal }) => admin.settings(signal) });
   const [draft, setDraft] = useState<Draft>({});
   const save = useMutation({
-    mutationFn: (patch: Draft) => admin.updateSettings(patch),
-    onSuccess: (res) => {
+    mutationFn: async (patch: Draft) => admin.updateSettings(parse(patch, t("admin.invalidNumber"))),
+    onSuccess: (res, patch) => {
       qc.setQueryData(["admin", "settings"], res);
-      setDraft({});
+      // Keep unsaved edits of other fields (a reset saves just its own key).
+      setDraft((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !(k in patch))));
       void qc.invalidateQueries({ queryKey: SESSION_KEY });
     },
   });
@@ -58,18 +77,10 @@ export default function SettingsAdminPage() {
   const input = (key: Key, label: string, kind?: string) => {
     const v = value(key);
     const control =
-      kind === "center" ? (
-        <Input
-          value={show(v)}
-          onChange={(e) => set(key, e.target.value.split(",").map((x) => Number(x.trim())))}
-          inputMode="decimal"
-        />
+      kind === "center" || kind === "number" ? (
+        <Input value={show(v)} onChange={(e) => set(key, e.target.value)} inputMode="decimal" aria-invalid={!!err(key) || undefined} />
       ) : (
-        <Input
-          type={kind === "number" ? "number" : kind === "url" ? "url" : "text"}
-          value={show(v)}
-          onChange={(e) => set(key, kind === "number" ? Number(e.target.value) : e.target.value)}
-        />
+        <Input type={kind === "url" ? "url" : "text"} value={show(v)} onChange={(e) => set(key, e.target.value)} aria-invalid={!!err(key) || undefined} />
       );
     return (
       <div key={key} className="flex flex-col gap-1">

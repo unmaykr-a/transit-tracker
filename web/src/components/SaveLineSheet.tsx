@@ -89,7 +89,14 @@ export function SaveLineSheet({ route, pattern, onClose }: { route: Route; patte
       {boardIdx >= 0 && (
         <>
           <Field label={t("save.alight")}>
-            <Select value={alight} onChange={(e) => setAlight(e.target.value)}>
+            <Select
+              value={alight}
+              onChange={(e) => {
+                // Pin the GPS-picked boarding stop, so a later fix cannot move it past the alighting stop.
+                if (board < 0) setBoard(boardIdx);
+                setAlight(e.target.value);
+              }}
+            >
               <option value="">{t("save.none")}</option>
               {pattern.stops.slice(boardIdx + 1).map((s, i) => (
                 <option key={`${s.id}-${i}`} value={s.id}>

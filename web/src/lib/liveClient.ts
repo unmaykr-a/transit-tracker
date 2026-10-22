@@ -17,6 +17,8 @@ export interface LiveClientOptions {
 
 /** WebSocket attempts that never open before falling back to SSE (proxies without WS support). */
 const WS_FAILURES_BEFORE_SSE = 3;
+/** How long the stream stays open with nobody listening, or in a background tab. */
+const IDLE_MS = 30_000;
 
 /**
  * One shared connection to the server's live vehicle stream. Reconnects with
@@ -33,6 +35,8 @@ export class LiveClient {
   private wsFailures = 0;
   private timer?: unknown;
   private started = false;
+  private hidden = false;
+  private idleTimer?: unknown;
   private _status: ConnectionStatus = "connecting";
   private readonly opts: Required<Omit<LiveClientOptions, "WebSocketImpl" | "EventSourceImpl">> &
     Pick<LiveClientOptions, "WebSocketImpl" | "EventSourceImpl">;
@@ -60,8 +64,47 @@ export class LiveClient {
   /** Subscribes to applied messages; starts the connection on first use. */
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);
+    this.wake();
+    return () => {
+      this.listeners.delete(fn);
+      if (this.listeners.size === 0) this.idle();
+    };
+  }
+
+  /** Follows the page: closes the stream a while after the tab is hidden, reconnects at once when it is back. */
+  watchPage(doc: Document = document, win: Window = window) {
+    doc.addEventListener("visibilitychange", () => {
+      this.hidden = doc.visibilityState === "hidden";
+      if (this.hidden) this.idle();
+      else this.resume();
+    });
+    win.addEventListener("online", () => this.resume());
+  }
+
+  /** Connect now instead of waiting out the backoff, and give WebSockets another chance. */
+  private resume() {
+    this.wsFailures = 0;
+    this.retry = 0;
+    if (this._status === "reconnecting" && this.started) {
+      if (this.timer !== undefined) this.opts.clearTimeout(this.timer);
+      this.connect();
+    }
+    this.wake();
+  }
+
+  private wake() {
+    if (this.listeners.size === 0 || this.hidden) return;
+    if (this.idleTimer !== undefined) this.opts.clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
     this.start();
-    return () => this.listeners.delete(fn);
+  }
+
+  private idle() {
+    if (!this.started || this.idleTimer !== undefined) return;
+    this.idleTimer = this.opts.setTimeout(() => {
+      this.idleTimer = undefined;
+      if (this.listeners.size === 0 || this.hidden) this.stop();
+    }, IDLE_MS);
   }
 
   onStatus(fn: () => void): () => void {
@@ -81,6 +124,7 @@ export class LiveClient {
     this.ws?.close();
     this.es?.close();
     this.ws = this.es = undefined;
+    this.setStatus("connecting");
   }
 
   private setStatus(s: ConnectionStatus) {
@@ -164,3 +208,4 @@ function defaultUrls() {
 }
 
 export const live = new LiveClient(defaultUrls());
+if (typeof document !== "undefined") live.watchPage();

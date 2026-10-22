@@ -65,19 +65,25 @@ export class Shape {
 export const shapes = new Map<string, Shape>();
 /** Route id ("train:…") by pattern id. */
 export const patternRoutes = new Map<string, string>();
-let loading: Promise<void> | undefined;
+let loading: Promise<boolean> | undefined;
 
-export function loadShapes(): Promise<void> {
+/** Loads every shape once; resolves false on failure (a later call tries again). */
+export function loadShapes(): Promise<boolean> {
   loading ??= fetch("/api/v1/patterns")
-    .then((r) => (r.ok ? (r.json() as Promise<{ patterns: { id: string; route_id: string; polyline: string }[] }>) : { patterns: [] }))
+    .then((r) => {
+      if (!r.ok) throw new Error(`patterns: ${r.status}`);
+      return r.json() as Promise<{ patterns: { id: string; route_id: string; polyline: string }[] }>;
+    })
     .then((d) => {
       for (const p of d.patterns) {
         shapes.set(p.id, new Shape(decodePolyline(p.polyline)));
         patternRoutes.set(p.id, p.route_id);
       }
+      return true;
     })
     .catch(() => {
       loading = undefined; // retry on next call
+      return false;
     });
   return loading;
 }

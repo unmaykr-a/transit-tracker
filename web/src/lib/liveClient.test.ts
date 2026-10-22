@@ -93,4 +93,31 @@ describe("LiveClient", () => {
     expect(FakeWS.instances[0]!.closed).toBe(true);
     expect(c.transport).toBeUndefined();
   });
+
+  it("closes when nobody listens or the tab is hidden, and reconnects on return", () => {
+    const { c, timers } = setup();
+    const doc = new EventTarget() as EventTarget & { visibilityState: string };
+    doc.visibilityState = "visible";
+    const win = new EventTarget();
+    c.watchPage(doc as unknown as Document, win as unknown as Window);
+
+    const off = c.subscribe(() => {});
+    FakeWS.instances[0]!.onopen!();
+    off();
+    expect(timers).toHaveLength(1);
+    const again = c.subscribe(() => {}); // back within the grace period: same connection
+    timers.shift()!();
+    expect(FakeWS.instances[0]!.closed).toBe(false);
+
+    doc.visibilityState = "hidden";
+    doc.dispatchEvent(new Event("visibilitychange"));
+    timers.shift()!();
+    expect(FakeWS.instances[0]!.closed).toBe(true);
+    expect(c.transport).toBeUndefined();
+
+    doc.visibilityState = "visible";
+    doc.dispatchEvent(new Event("visibilitychange"));
+    expect(FakeWS.instances).toHaveLength(2);
+    again();
+  });
 });

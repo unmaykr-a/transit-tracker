@@ -21,7 +21,7 @@ export function StopSheet({ id, onClose }: { id: string; onClose: () => void }) 
   });
   const platform = stop.data?.platforms.find((p) => p.id === id);
   const deps = useQuery({
-    queryKey: ["departures", stop.data?.id, id],
+    queryKey: ["departures", stop.data?.id, id, 5],
     queryFn: ({ signal }) => fetchDepartures(stop.data!.id, { platform: id, limit: 5 }, signal),
     enabled: !!stop.data,
     refetchInterval: 20_000,
@@ -31,6 +31,7 @@ export function StopSheet({ id, onClose }: { id: string; onClose: () => void }) 
   const title = stop.data ? `${stop.data.name}${platform?.platform ? " " + platform.platform : ""}` : t("common.loading");
   return (
     <MapSheet
+      onClose={onClose}
       label={title}
       summary={
         first ? (

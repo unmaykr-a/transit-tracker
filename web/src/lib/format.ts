@@ -24,7 +24,8 @@ export function clock(t: string, locale?: string): string {
 }
 
 /** "3 minutes ago", "in 2 days" in the given language. */
-export function relative(t: string, lang?: string, now = Date.now()): string {
+/** "5 min ago"; `now` comes from useNow() so the label stays pure and ticks. */
+export function relative(t: string, lang: string | undefined, now: number): string {
   const s = Math.round((Date.parse(t) - now) / 1000);
   const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
   if (Math.abs(s) < 60) return rtf.format(s, "second");
