@@ -1,4 +1,6 @@
 # /opt/tram/docker-compose.yml
+# The data directory must be writable by the container user:
+#   sudo mkdir -p /opt/tram/data && sudo chown 1000:1000 /opt/tram/data
 services:
   tram:
     image: ghcr.io/unmaykr-a/tram:latest

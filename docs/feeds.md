@@ -148,3 +148,19 @@ match on route + scheduled start time instead.
 7. No source has platform letters (A, B…). They must be derived (e.g. ordered by stop code suffix/bearing, or
    labelled by the destinations each platform serves).
 8. Elron live trains identify routes by name (`liin`) and trip number (`reis`), not GTFS ids.
+
+## Notes from M2 (static data)
+
+- **City routes come from OTP, not `routes.txt`.** `agency(id:"estonia:tallinn_10312960") { routes { patterns … } }`
+  returns all 80 city routes with 197 patterns (stop codes, headsigns, encoded geometry) in one ~1.3 s request.
+  Route ids encode the real mode (`tallinna-lin_trol_72`), which OTP's `mode` field does not (trolleybuses are `BUS`).
+  `routes.txt` is therefore not parsed; its encoded timetables are not needed.
+- OTP stop names carry English annotations ("Balti jaam (train station)", "Bussijaam (bus station)"); so does the
+  operator's own `stops.txt` for a few stops. The importer strips them.
+- SIRI reports tram lines as `T1`…`T6`, like `gps.txt`.
+- SIRI and OTP both list vehicles terminating at a stop; the API drops rows whose headsign is the stop itself.
+- GTFS `alias` is loose: it sometimes holds the district ("Suur-Paala" has alias "Ülemiste"). It is only used to
+  join a rail station to a nearby city stop area (Tallinn ↔ Balti jaam, Ülemiste ↔ Ülemiste jaam) and as a
+  low-ranked search term.
+- Rail departures come from OTP stoptimes and join to Elron GTFS by route id; `headsign` is sometimes null, in which
+  case the terminus of the route's long name is used.

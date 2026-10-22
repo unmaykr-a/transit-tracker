@@ -4,7 +4,8 @@ Self-hosted, multi-user app showing live Tallinn buses, trams, trolleybuses and 
 telling you whether you can make your next departure, with a Home Assistant integration.
 Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 
-> Status: **M1 — live map** (every bus, tram, trolleybus and Elron train, animated). See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
+> Status: **M2 — search, stops and lines**: live map of every bus, tram, trolleybus and Elron train;
+> search by line or stop; stop pages with live departures per platform; line pages with live positions. See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
 > [docs/feeds.md](docs/feeds.md) for the upstream data formats.
 
 ## Run
@@ -30,6 +31,11 @@ back to Server-Sent Events if WebSockets are blocked).
 | `TRAM_CONTACT` | base URL or repo URL | Contact URL sent to upstream feeds |
 | `TRAM_GPS_URL`, `TRAM_GPS_INTERVAL` | Tallinn `gps.txt`, `5s` | City vehicle feed (minimum 2 s) |
 | `TRAM_ELRON_URL`, `TRAM_ELRON_INTERVAL` | Elron `map_data.json`, `10s` | Train feed (minimum 5 s) |
+| `TRAM_SIRI_URL`, `TRAM_OTP_URL` | transport.tallinn.ee, api.peatus.ee | Live departures and timetables |
+| `TRAM_STOPS_URL`, `TRAM_ELRON_GTFS_URL` | transport.tallinn.ee, eu-gtfs.remix.com | Static data (imported nightly at 03:30) |
+
+The SQLite database lives in `TRAM_DATA_DIR` (`/data` in the container). With a bind mount, make the host
+directory writable by the container user.
 
 ## Develop
 

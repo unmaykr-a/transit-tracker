@@ -30,6 +30,10 @@ type FeedConfig struct {
 	GPSInterval   time.Duration // TRAM_GPS_INTERVAL, default 5s (feed updates every ~10 s)
 	ElronURL      string        // TRAM_ELRON_URL
 	ElronInterval time.Duration // TRAM_ELRON_INTERVAL, default 10s
+	SiriURL       string        // TRAM_SIRI_URL, live departures per stop
+	OTPURL        string        // TRAM_OTP_URL, peatus.ee OpenTripPlanner GraphQL
+	StopsURL      string        // TRAM_STOPS_URL, Tallinn stops.txt
+	ElronGTFSURL  string        // TRAM_ELRON_GTFS_URL
 }
 
 const repoURL = "https://github.com/unmaykr-a/transit-tracker"
@@ -45,8 +49,12 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	c.Contact = or(getenv("TRAM_CONTACT"), or(c.BaseURL, repoURL))
 	c.Feeds = FeedConfig{
-		GPSURL:   or(getenv("TRAM_GPS_URL"), "https://transport.tallinn.ee/gps.txt"),
-		ElronURL: or(getenv("TRAM_ELRON_URL"), "https://elron.ee/map_data.json"),
+		GPSURL:       or(getenv("TRAM_GPS_URL"), "https://transport.tallinn.ee/gps.txt"),
+		ElronURL:     or(getenv("TRAM_ELRON_URL"), "https://elron.ee/map_data.json"),
+		SiriURL:      or(getenv("TRAM_SIRI_URL"), "https://transport.tallinn.ee/siri-stop-departures.php"),
+		OTPURL:       or(getenv("TRAM_OTP_URL"), "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql"),
+		StopsURL:     or(getenv("TRAM_STOPS_URL"), "https://transport.tallinn.ee/data/stops.txt"),
+		ElronGTFSURL: or(getenv("TRAM_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
 	}
 	var err error
 	if c.FakeFeeds, err = parseBool(getenv("TRAM_FAKE_FEEDS")); err != nil {

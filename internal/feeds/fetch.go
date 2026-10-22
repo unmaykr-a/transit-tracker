@@ -1,6 +1,7 @@
 package feeds
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -97,4 +98,36 @@ func (f *Fetcher) Get(ctx context.Context, url string, conditional bool) (Respon
 		f.mu.Unlock()
 	}
 	return out, nil
+}
+
+// PostJSON POSTs a JSON body and returns the response body (for GraphQL).
+func (f *Fetcher) PostJSON(ctx context.Context, url string, body []byte) (Response, error) {
+	start := time.Now()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return Response{}, err
+	}
+	req.Header.Set("User-Agent", f.UserAgent)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	res, err := f.Client.Do(req)
+	if err != nil {
+		return Response{}, err
+	}
+	defer res.Body.Close()
+	limit := f.MaxBytes
+	if limit <= 0 {
+		limit = 32 << 20
+	}
+	b, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
+	if err != nil {
+		return Response{}, fmt.Errorf("POST %s: %w", url, err)
+	}
+	if res.StatusCode != http.StatusOK {
+		return Response{}, fmt.Errorf("POST %s: %s", url, res.Status)
+	}
+	if int64(len(b)) > limit {
+		return Response{}, fmt.Errorf("POST %s: response exceeds %d bytes", url, limit)
+	}
+	return Response{Body: b, Latency: time.Since(start)}, nil
 }

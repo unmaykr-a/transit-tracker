@@ -48,17 +48,28 @@ test.describe("live map", () => {
         const m = (globalThis as unknown as { __tramMap: { getSource: (id: string) => { _data?: unknown; serialize: () => { data: { features: { id: string; geometry: { coordinates: number[] } }[] } } } } }).__tramMap;
         return Object.fromEntries(m.getSource("vehicles").serialize().data.features.map((f) => [f.id, f.geometry.coordinates.join(",")]));
       });
-    // The fake feed publishes a new snapshot every 10 s and markers glide toward
-    // each one over about the same time, so most one-second windows show motion.
-    await page.waitForTimeout(11_000);
-    let prev = await position();
-    let movingWindows = 0;
-    for (let i = 0; i < 10; i++) {
-      await page.waitForTimeout(1_000);
+    const movedSince = async (prev: Record<string, string>) => {
       const cur = await position();
-      if (Object.keys(cur).filter((id) => prev[id] && prev[id] !== cur[id]).length > 30) movingWindows++;
-      prev = cur;
+      return { cur, n: Object.keys(cur).filter((id) => prev[id] && prev[id] !== cur[id]).length };
+    };
+    // Nothing moves until the first diff after the snapshot (fake feed: every 10 s,
+    // server poll: every 5 s). Wait for motion to start…
+    let prev = await position();
+    await expect
+      .poll(async () => {
+        const r = await movedSince(prev);
+        prev = r.cur;
+        return r.n;
+      }, { timeout: 40_000, intervals: [1_000] })
+      .toBeGreaterThan(30);
+    // …then markers must keep gliding every second rather than jumping once per fix.
+    const moved: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      await page.waitForTimeout(1_000);
+      const r = await movedSince(prev);
+      moved.push(r.n);
+      prev = r.cur;
     }
-    expect(movingWindows).toBeGreaterThanOrEqual(6);
+    expect(moved.filter((n) => n > 30).length, `vehicles moved per second: ${moved.join(", ")}`).toBeGreaterThanOrEqual(7);
   });
 });

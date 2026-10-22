@@ -1,6 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import { fetchAllStops } from "@/api";
+import { StopSheet } from "@/components/StopSheet";
+import type { Selection } from "@/map/VehicleMap";
 
 import { StaleBanner } from "@/components/StaleBanner";
 import { VehicleSheet } from "@/components/VehicleSheet";
@@ -13,18 +19,32 @@ import { cn } from "@/lib/utils";
 
 const VehicleMap = lazy(() => import("@/map/VehicleMap"));
 
+const NO_STOPS: never[] = [];
+
 interface Filters {
   modes: Mode[];
   lines: string;
 }
 
 const FILTER_KEY = "tram.map.filters";
+const route = getRouteApi("/map");
 
 export default function MapPage() {
   const { t } = useTranslation();
-  const [filters, setFilters] = useState<Filters>(() => load(FILTER_KEY, { modes: [...MODES], lines: "" }));
-  const [selected, setSelected] = useState<string>();
+  const search = route.useSearch();
+  const navigate = useNavigate({ from: "/map" });
+  // ?lines= (from a line page) overrides the saved line filter for this visit.
+  const [filters, setFilters] = useState<Filters>(() => {
+    const saved = load(FILTER_KEY, { modes: [...MODES], lines: "" });
+    return search.lines ? { modes: [...MODES], lines: search.lines } : saved;
+  });
+  const [selected, setSelected] = useState<Selection | undefined>(() => (search.stop ? { kind: "stop", id: search.stop } : undefined));
   const state = useLiveState(2000);
+  const stops = useQuery({ queryKey: ["all-stops"], queryFn: ({ signal }) => fetchAllStops(signal), staleTime: 6 * 60 * 60_000 });
+  const focus = useMemo<[number, number] | undefined>(() => {
+    const s = search.stop && stops.data?.stops.find((x) => x.id === search.stop);
+    return s ? [s.lon, s.lat] : undefined;
+  }, [search.stop, stops.data]);
 
   const update = (f: Filters) => {
     setFilters(f);
@@ -39,12 +59,18 @@ export default function MapPage() {
   }, [state, modes, tokens]);
   const toggle = (m: Mode) =>
     update({ ...filters, modes: modes.has(m) ? filters.modes.filter((x) => x !== m) : [...filters.modes, m] });
-  const onSelect = useCallback((id: string | undefined) => setSelected(id), []);
+  const onSelect = useCallback(
+    (sel: Selection | undefined) => {
+      setSelected(sel);
+      if (search.stop) void navigate({ search: { lines: search.lines }, replace: true });
+    },
+    [navigate, search.stop, search.lines],
+  );
 
   return (
     <div className="absolute inset-0">
       <Suspense fallback={<p className="p-4 text-muted-foreground">{t("map.loading")}</p>}>
-        <VehicleMap modes={modes} lineTokens={tokens} selectedId={selected} onSelect={onSelect} />
+        <VehicleMap modes={modes} lineTokens={tokens} stops={stops.data?.stops ?? NO_STOPS} selected={selected} onSelect={onSelect} focus={focus} />
       </Suspense>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3 pr-14">
@@ -95,7 +121,11 @@ export default function MapPage() {
 
       {selected && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 md:bottom-4 md:left-4 md:right-auto md:w-96">
-          <VehicleSheet id={selected} onClose={() => setSelected(undefined)} />
+          {selected.kind === "vehicle" ? (
+            <VehicleSheet id={selected.id} onClose={() => setSelected(undefined)} />
+          ) : (
+            <StopSheet id={selected.id} onClose={() => setSelected(undefined)} />
+          )}
         </div>
       )}
     </div>

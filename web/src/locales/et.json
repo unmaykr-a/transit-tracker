@@ -1,14 +1,36 @@
 {
-  "app": { "name": "Tram", "tagline": "Tallinna bussid, trammid, trollid ja Elroni rongid reaalajas." },
-  "nav": { "home": "Avaleht", "map": "Kaart", "search": "Otsing", "settings": "Seaded", "main": "Peamenüü" },
-  "mode": { "tram": "Tramm", "bus": "Buss", "trolley": "Trollibuss", "train": "Rong" },
-  "modeShort": { "tram": "Tramm", "bus": "Buss", "trolley": "Troll", "train": "Rong" },
+  "app": {
+    "name": "Tram",
+    "tagline": "Tallinna bussid, trammid, trollid ja Elroni rongid reaalajas."
+  },
+  "nav": {
+    "home": "Avaleht",
+    "map": "Kaart",
+    "search": "Otsing",
+    "settings": "Seaded",
+    "main": "Peamenüü"
+  },
+  "mode": {
+    "tram": "Tramm",
+    "bus": "Buss",
+    "trolley": "Trollibuss",
+    "train": "Rong"
+  },
+  "modeShort": {
+    "tram": "Tramm",
+    "bus": "Buss",
+    "trolley": "Troll",
+    "train": "Rong"
+  },
   "live": {
     "delayed": "Reaalajaandmed hilinevad: {{feeds}}",
     "reconnecting": "Ühendan uuesti…",
     "vehicles_one": "{{count}} sõiduk",
     "vehicles_other": "{{count}} sõidukit",
-    "feed": { "gps": "linnatransport", "elron": "rongid" }
+    "feed": {
+      "gps": "linnatransport",
+      "elron": "rongid"
+    }
   },
   "map": {
     "filters": "Filtrid",
@@ -40,7 +62,13 @@
   },
   "search": {
     "title": "Otsing",
-    "soon": "Liini numbri ja peatuse nime järgi otsing tuleb järgmisena."
+    "soon": "Liini numbri ja peatuse nime järgi otsing tuleb järgmisena.",
+    "placeholder": "Liini number või peatuse nimi",
+    "lines": "Liinid",
+    "stops": "Peatused",
+    "noResults": "Päringule „{{q}}” ei leitud midagi.",
+    "hint": "Proovi liini numbrit, nt 4 või 24A, või peatust, nt Balti jaam.",
+    "label": "Otsi liine ja peatusi"
   },
   "settings": {
     "title": "Seaded",
@@ -54,5 +82,42 @@
     "feeds": "Andmeallikad",
     "feedOk": "Korras",
     "feedStale": "Hilineb"
+  },
+  "time": {
+    "now": "kohe",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
+  },
+  "stop": {
+    "all": "Kõik",
+    "platform": "Platvorm {{letter}}",
+    "platforms": "Platvormid",
+    "towards": "suunal {{list}}",
+    "departures": "Väljumised",
+    "noDepartures": "Lähitundidel väljumisi pole.",
+    "scheduled": "plaaniline",
+    "delayed": "+{{min}} min",
+    "error": "Väljumisi ei õnnestunud laadida.",
+    "showOnMap": "Näita kaardil",
+    "lines": "Liinid",
+    "notFound": "Peatust ei leitud.",
+    "openStop": "Ava peatuse leht",
+    "lowFloor": "madalapõhjaline"
+  },
+  "line": {
+    "direction": "Suund",
+    "stops_one": "{{count}} peatus",
+    "stops_other": "{{count}} peatust",
+    "here": "Praegu siin",
+    "approaching": "Lähenemas",
+    "live_one": "{{count}} sõiduk liinil",
+    "live_other": "{{count}} sõidukit liinil",
+    "notFound": "Liini ei leitud.",
+    "showOnMap": "Näita kaardil"
+  },
+  "common": {
+    "loading": "Laen…",
+    "retry": "Proovi uuesti",
+    "back": "Tagasi"
   }
 }

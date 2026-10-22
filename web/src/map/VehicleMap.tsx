@@ -1,36 +1,84 @@
 import type { ExpressionSpecification } from "@maplibre/maplibre-gl-style-spec";
-import * as maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as MLMap, MapGeoJSONFeature, MapMouseEvent } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-// MapLibre finds its worker next to its own module, which bundling breaks; hand it Vite's build.
-import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { MapStop } from "@/api";
 import { live } from "@/lib/liveClient";
 import { MODE_COLORS } from "@/lib/modeColors";
-import { prefersReducedMotion, useTheme, type Theme } from "@/lib/theme";
+import { prefersReducedMotion, useTheme } from "@/lib/theme";
 import { isMoving, nextTween, type Tween } from "@/lib/tween";
 import { MODES, type Mode } from "@/lib/types";
 
+import { collapseAttribution, maplibregl, STYLE_URL, TALLINN } from "./setup";
 import { pillImage, vehicleFeatures, wedgeImage, type ImageSpec } from "./vehicleFeatures";
-
-maplibregl.setWorkerUrl(workerUrl);
-
-const STYLE_URL: Record<Theme, string> = {
-  light: "https://tiles.openfreemap.org/styles/positron",
-  dark: "https://tiles.openfreemap.org/styles/dark",
-};
-const TALLINN: [number, number] = [24.7536, 59.437];
 const PILL_MIN_ZOOM = 12.5;
 /** Redraw rate while vehicles glide; 20 fps is smooth at city zoom and cheap on phones. */
 const FRAME_MS = 50;
 
+export type Selection = { kind: "vehicle"; id: string } | { kind: "stop"; id: string };
+
 export interface VehicleMapProps {
   modes: ReadonlySet<Mode>;
   lineTokens: string[];
-  selectedId?: string;
-  onSelect: (id: string | undefined) => void;
+  stops: MapStop[];
+  selected?: Selection;
+  onSelect: (sel: Selection | undefined) => void;
+  /** When set, the map flies here once (e.g. /map?stop=…). */
+  focus?: [number, number];
+}
+
+const STOPS_MIN_ZOOM = 14.5;
+
+function addStopLayers(map: MLMap, before: string) {
+  if (!map.getSource("stops")) {
+    map.addSource("stops", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "id" });
+  }
+  map.addLayer(
+    {
+      id: "stops",
+      type: "circle",
+      source: "stops",
+      minzoom: STOPS_MIN_ZOOM,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], STOPS_MIN_ZOOM, 3, 17, 6],
+        "circle-color": "#ffffff",
+        "circle-stroke-color": "#6b7280",
+        "circle-stroke-width": ["case", ["==", ["get", "id"], ""], 3, 1.5],
+      },
+    },
+    before,
+  );
+  map.addLayer(
+    {
+      id: "stop-labels",
+      type: "symbol",
+      source: "stops",
+      minzoom: 16,
+      layout: {
+        "text-field": ["case", ["==", ["get", "platform"], ""], ["get", "name"], ["concat", ["get", "name"], " ", ["get", "platform"]]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "text-offset": [0, 1.1],
+        "text-anchor": "top",
+        "text-optional": true,
+      },
+      paint: { "text-color": "#6b7280", "text-halo-color": "#ffffff", "text-halo-width": 1.2 },
+    },
+    before,
+  );
+}
+
+function stopFeatures(stops: MapStop[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: stops.map((s) => ({
+      type: "Feature" as const,
+      id: s.id,
+      geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] },
+      properties: { id: s.id, name: s.name, platform: s.platform },
+    })),
+  };
 }
 
 function addImage(map: MLMap, name: string, img: ImageSpec) {
@@ -114,7 +162,7 @@ function addVehicleLayers(map: MLMap) {
   });
 }
 
-export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: VehicleMapProps) {
+export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus }: VehicleMapProps) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -123,6 +171,7 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
   const onSelectRef = useRef(onSelect);
   const theme = useTheme();
   const themeRef = useRef(theme);
+  const stopsRef = useRef(stops);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -149,6 +198,7 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
       fadeDuration: 0,
     });
     mapRef.current = map;
+    collapseAttribution(map);
     // Hook for end-to-end tests (locating a vehicle on screen) and debugging.
     (globalThis as { __tramMap?: MLMap }).__tramMap = map;
     map.touchZoomRotate.disableRotation();
@@ -168,6 +218,8 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
 
     map.on("style.load", () => {
       addVehicleLayers(map);
+      addStopLayers(map, "vehicle-dots");
+      map.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stopsRef.current));
       ready = true;
       dirtyRef.current = true;
     });
@@ -181,6 +233,12 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
       for (const v of applied.changed) tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate));
       dirtyRef.current = true;
     });
+    // The snapshot may have arrived before this (lazy-loaded) map subscribed;
+    // without a starting point the first diff would teleport every vehicle.
+    const start = performance.now();
+    for (const v of live.getState().vehicles.values()) {
+      if (!tweens.has(v.id)) tweens.set(v.id, nextTween(undefined, v, start, animate));
+    }
 
     let raf = 0;
     let last = 0;
@@ -203,21 +261,21 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
     };
     raf = requestAnimationFrame(frame);
 
-    const layers = ["vehicle-pills", "vehicle-dots"];
-    const click = (e: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => {
-      const id = e.features?.[0]?.properties?.id as string | undefined;
-      if (id) onSelectRef.current(id);
-    };
-    for (const l of layers) {
-      map.on("click", l, click);
+    // One click handler decides what was hit: vehicles win over stops.
+    const vehicleLayers = ["vehicle-pill-selected", "vehicle-pills", "vehicle-dots"];
+    const hitLayers = [...vehicleLayers, "stops"];
+    map.on("click", (e: MapMouseEvent) => {
+      const box: [[number, number], [number, number]] = [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]];
+      const hits: MapGeoJSONFeature[] = map.queryRenderedFeatures(box, { layers: hitLayers.filter((l) => map.getLayer(l)) });
+      const v = hits.find((f) => vehicleLayers.includes(f.layer.id));
+      const st = hits.find((f) => f.layer.id === "stops");
+      const id = (v ?? st)?.properties?.id as string | undefined;
+      onSelectRef.current(id ? { kind: v ? "vehicle" : "stop", id } : undefined);
+    });
+    for (const l of hitLayers) {
       map.on("mouseenter", l, () => (map.getCanvas().style.cursor = "pointer"));
       map.on("mouseleave", l, () => (map.getCanvas().style.cursor = ""));
     }
-    map.on("click", (e: MapMouseEvent) => {
-      if (map.queryRenderedFeatures(e.point, { layers: layers.filter((l) => map.getLayer(l)) }).length === 0) {
-        onSelectRef.current(undefined);
-      }
-    });
 
     return () => {
       cancelAnimationFrame(raf);
@@ -235,11 +293,31 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
   }, [theme]);
 
   useEffect(() => {
+    stopsRef.current = stops;
+    mapRef.current?.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stops));
+  }, [stops]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    // Keep the focused point above the bottom sheet that opens with it.
+    if (focus && map) {
+      const h = map.getContainer().clientHeight;
+      map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * 0.45 }, essential: true });
+    }
+  }, [focus]);
+
+  const selectedVehicle = selected?.kind === "vehicle" ? selected.id : "";
+  const selectedStop = selected?.kind === "stop" ? selected.id : "";
+  useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
       for (const l of ["vehicle-selected", "vehicle-pill-selected"]) {
-        if (map.getLayer(l)) map.setFilter(l, ["==", ["get", "id"], selectedId ?? ""]);
+        if (map.getLayer(l)) map.setFilter(l, ["==", ["get", "id"], selectedVehicle]);
+      }
+      if (map.getLayer("stops")) {
+        map.setPaintProperty("stops", "circle-stroke-width", ["case", ["==", ["get", "id"], selectedStop], 3, 1.5]);
+        map.setPaintProperty("stops", "circle-stroke-color", ["case", ["==", ["get", "id"], selectedStop], "#111827", "#6b7280"]);
       }
     };
     apply();
@@ -247,7 +325,7 @@ export default function VehicleMap({ modes, lineTokens, selectedId, onSelect }: 
     return () => {
       map.off("style.load", apply);
     };
-  }, [selectedId]);
+  }, [selectedVehicle, selectedStop]);
 
   // MapLibre's stylesheet forces position: relative on the map element, so size it from a wrapper.
   return (

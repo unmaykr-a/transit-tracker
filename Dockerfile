@@ -20,10 +20,14 @@ COPY internal ./internal
 COPY --from=web /src/web/dist ./internal/api/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X github.com/unmaykr-a/transit-tracker/internal/buildinfo.Version=${VERSION} -X github.com/unmaykr-a/transit-tracker/internal/buildinfo.Commit=${COMMIT}" \
-      -o /out/tram ./cmd/tram
+      -o /out/tram ./cmd/tram && mkdir -p /out/data
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/tram /tram
+# Writable data dir for the nonroot user (uid 65532). Mount a volume here to keep
+# the database; with a bind mount, the host directory must be writable by the
+# container user (see deploy/docker-compose.yml).
+COPY --from=build --chown=65532:65532 /out/data /data
 ENV TRAM_ADDR=:8080 TRAM_DATA_DIR=/data
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["/tram", "healthcheck"]

@@ -16,6 +16,17 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   latency, count, and marks a feed stale after 60 s without fresh data. GPS/Elron pollers live here.
 - `internal/state` — in-memory live vehicle store (last 5 fixes per vehicle → speed/bearing), versioned,
   with coalescing change notifications. `internal/geo` — haversine/bearing.
+- `internal/store` — SQLite (modernc, pure Go) with goose migrations (`store/migrations`) and sqlc queries
+  (`store/queries` → generated `store/db`, do not edit). Regenerate with `sqlc generate` (sqlc v1.31+).
+- `internal/staticdata` — nightly import (03:30 Tallinn, on start if missing/older than 20 h or built by another
+  `BuildVersion`): OTP city routes + Tallinn stops.txt (names, SIRI ids) + Elron GTFS (rail). Builds stops,
+  stop areas (platform letters A, B…), routes (`<mode>:<short>`), patterns; saved in one transaction and served
+  from an immutable in-memory `Index` (diacritic-insensitive search via `Fold`). Bump `BuildVersion` whenever
+  `Build` output changes for the same input.
+- `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail and city
+  platforms without live rows; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
+- Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
+  `/stops/{areaOrPlatformId}`, `/stops/{id}/departures?platform=&limit=`, `/lines/{mode}/{line}`.
 - Live API: `GET /api/v1/vehicles?mode=&line=`, `GET /api/v1/vehicles/{id}`, `GET /api/v1/status`,
   `WS /ws` (messages `snapshot`, `diff` with `upsert`/`move`/`remove`, `stale`; client sends
   `{"filter":{"modes":[],"lines":[]}}`), SSE fallback `GET /api/v1/vehicles/stream`. Diffs are computed per
@@ -41,6 +52,7 @@ cd web && npm run e2e            # Playwright vs ../bin/tram with fake feeds (ru
                                  # set PW_CHROMIUM_PATH to use a preinstalled Chromium)
 docker compose up --build        # local image on http://localhost:8095
 make docker       # buildx linux/amd64 + linux/arm64
+sqlc generate     # after editing internal/store/queries or migrations
 ```
 
 Go toolchain is pinned by `go.mod` (`go 1.27`); older local Go auto-downloads it (GOTOOLCHAIN=auto).
@@ -52,6 +64,9 @@ Go toolchain is pinned by `go.mod` (`go 1.27`); older local Go auto-downloads it
   the snapshot, and get table-driven tests plus a test against a real fixture.
 - Join keys between sources (see docs/feeds.md): Tallinn `ID` = OTP `code` = Elron GTFS `stop_code`;
   Tallinn `SiriID` = OTP gtfs id number. Trams are `T1`..`T6` everywhere. Vehicle ids are `<mode>-<number>`.
+- Frontend routes with params: `/stops/$id` (`?p=` platform), `/lines/$mode/$line`, `/map?stop=&lines=`,
+  `/search?q=`. Search params are parsed as JSON by the router: numeric-looking values arrive as numbers.
+- Times are always shown 24-hour in Europe/Tallinn (`lib/format.ts`).
 - Frontend: no `Date.now()`/random in render (React compiler lint); use `useNow()`. Live data in React goes
   through throttled `useLiveState()`; per-frame work stays out of React. `globalThis.__tramMap` exposes the
   MapLibre instance for e2e tests.
