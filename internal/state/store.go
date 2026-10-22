@@ -24,6 +24,7 @@ type Vehicle struct {
 	DelayS      *int       `json:"delay_s,omitempty"`
 	PatternID   string     `json:"pattern_id,omitempty"`
 	NextStopID  string     `json:"next_stop_id,omitempty"`
+	DistAlongM  float64    `json:"dist_along_m,omitempty"` // metres along PatternID's shape
 	UpdatedAt   time.Time  `json:"updated_at"`
 
 	// Sources that measure speed (Elron) set this; GPS-only sources leave it

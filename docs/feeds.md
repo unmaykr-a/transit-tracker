@@ -164,3 +164,29 @@ match on route + scheduled start time instead.
   low-ranked search term.
 - Rail departures come from OTP stoptimes and join to Elron GTFS by route id; `headsign` is sometimes null, in which
   case the terminus of the route's long name is used.
+
+## Notes from M5 (ETAs)
+
+- `gps.txt` has no per-vehicle timestamps; a fix is dated by the file's `Last-Modified` (the file changes about
+  every 10 s). SIRI's header clock matched ours to the second on 2026-10-22, so there is no clock offset to correct.
+- `tram eta-check -record` captured 25 minutes of the Thursday-morning peak (30 busiest city platforms, one SIRI
+  sample per minute; ~3 700 SIRI live times paired with our predictions). `-replay` re-runs the model on it and
+  also grades both our predictions and SIRI's against **arrivals observed in the GPS feed** (the moment the
+  predicted vehicle reaches the stop), which is closer to ground truth than SIRI.
+- Result with the shipped model (shared per-stop-pair paces, per-stop dwell, layover excluded), scored after 12 min
+  of learning:
+
+  | | within ±1 min | median \|err\| | bias |
+  | --- | --- | --- | --- |
+  | ours vs SIRI, all leads (2–20 min) | 59 % | 48 s | +48 s |
+  | ours vs SIRI, lead ≤ 5 min | 92 % | 22 s | +16 s |
+  | ours vs observed arrivals | 79 % | 35 s | +13 s |
+  | SIRI vs observed arrivals | 89 % | 28 s | −6 s |
+
+  **The PLAN.md M5 target (80 % within ±1 min of SIRI over all leads) is not met.** Short-range predictions are
+  on par with SIRI; beyond 5 minutes SIRI is better, presumably because it knows the timetable. Tuning the pace
+  decay, dwell radius and minimum observed distance moved the score by under 3 points; the step changes came from
+  model structure (excluding terminus layover: route speed had collapsed to 0; separating dwell from travel;
+  sharing paces across lines on the same street).
+- Departure boards and My lines use SIRI times, not these ETAs. Tracker ETAs drive the vehicle sheet's
+  "next stops" list and the map animation only.

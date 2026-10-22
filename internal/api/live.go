@@ -65,17 +65,19 @@ type liveMessage struct {
 	Feeds      []ingest.Status `json:"feeds,omitempty"`    // snapshot, stale
 }
 
-// move is a position-only update, sent as [id, lat, lon, bearing, speed_mps, updated_at_unix_ms]
-// because it is by far the most common change: ~40 bytes instead of ~250 per vehicle.
+// move is a position-only update, sent as
+// [id, lat, lon, bearing, speed_mps, updated_at_unix_ms, dist_along_m]
+// because it is by far the most common change: ~45 bytes instead of ~250 per vehicle.
 type move struct{ v state.Vehicle }
 
 func (m move) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]any{m.v.ID, m.v.Lat, m.v.Lon, m.v.Bearing, m.v.SpeedMps, m.v.UpdatedAt.UnixMilli()})
+	return json.Marshal([]any{m.v.ID, m.v.Lat, m.v.Lon, m.v.Bearing, m.v.SpeedMps, m.v.UpdatedAt.UnixMilli(), m.v.DistAlongM})
 }
 
-// positionOnly reports whether old and cur differ only in where and when.
+// positionOnly reports whether old and cur differ only in where and when
+// (including progress along the same pattern).
 func positionOnly(old, cur state.Vehicle) bool {
-	old.Lat, old.Lon, old.Bearing, old.SpeedMps, old.UpdatedAt = cur.Lat, cur.Lon, cur.Bearing, cur.SpeedMps, cur.UpdatedAt
+	old.Lat, old.Lon, old.Bearing, old.SpeedMps, old.UpdatedAt, old.DistAlongM = cur.Lat, cur.Lon, cur.Bearing, cur.SpeedMps, cur.UpdatedAt, cur.DistAlongM
 	return old.Equal(cur)
 }
 

@@ -39,6 +39,16 @@ describe("placeVehicles", () => {
     expect(p?.atStop).toBe(true);
   });
 
+  it("prefers the server's next-stop match", () => {
+    // Geometrically nearest to out stop 0, but the server says it is heading to out stop 2.
+    const v = { ...veh("a", 59.4, "Lennujaam"), pattern_id: "out-variant", next_stop_id: "out2" };
+    const [p] = placeVehicles([out, back], [v]);
+    expect(p).toMatchObject({ patternId: "out", stopIndex: 2, atStop: false });
+    // Within 60 m of the stop before its next stop: at that stop.
+    const atStop = { ...veh("b", 59.4028, "Lennujaam"), next_stop_id: "out2" };
+    expect(placeVehicles([out, back], [atStop])[0]).toMatchObject({ stopIndex: 1, atStop: true });
+  });
+
   it("ignores non-main patterns", () => {
     const shortTurn = pattern("st", "Lennujaam", [59.5], false);
     expect(placeVehicles([shortTurn], [veh("a", 59.5, "Lennujaam")])).toEqual([]);

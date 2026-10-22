@@ -53,7 +53,9 @@
     "lowFloor": "Low floor",
     "trip": "Trip {{trip}}",
     "close": "Close",
-    "gone": "This vehicle is no longer reporting."
+    "gone": "This vehicle is no longer reporting.",
+    "nextStops": "Next stops",
+    "openLine": "Open line"
   },
   "home": {
     "title": "My lines",

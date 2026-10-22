@@ -23,15 +23,40 @@ function fold(s: string): string {
 }
 
 /**
- * Places live vehicles on a line's main patterns. A vehicle goes to the
- * pattern whose headsign matches its destination, else the one with a stop
- * nearest to it. Within the pattern it is either at its nearest stop (within
- * 60 m) or between that stop and whichever neighbour is closer.
+ * Uses the server's pattern match: the vehicle's next stop, found in a main
+ * pattern (its own pattern first), and whether it is still at the stop before.
+ */
+function fromMatch(mains: Pattern[], v: Vehicle): Placement | undefined {
+  if (!v.next_stop_id) return undefined;
+  const ordered = [...mains.filter((p) => p.id === v.pattern_id), ...mains.filter((p) => p.id !== v.pattern_id && fold(p.headsign) === fold(v.destination))];
+  for (const p of ordered) {
+    const i = p.stops.findIndex((s) => s.id === v.next_stop_id);
+    if (i < 0) continue;
+    const prev = p.stops[i - 1];
+    if (prev && approxDistanceM(v.lat, v.lon, prev.lat, prev.lon) <= AT_STOP_M) {
+      return { vehicle: v, patternId: p.id, stopIndex: i - 1, atStop: true };
+    }
+    const here = p.stops[i]!;
+    return { vehicle: v, patternId: p.id, stopIndex: i, atStop: approxDistanceM(v.lat, v.lon, here.lat, here.lon) <= AT_STOP_M };
+  }
+  return undefined;
+}
+
+/**
+ * Places live vehicles on a line's main patterns. The server's match (next
+ * stop) wins; otherwise a vehicle goes to the pattern whose headsign matches
+ * its destination, else the one with a stop nearest to it, and is either at
+ * its nearest stop (within 60 m) or between that stop and the closer neighbour.
  */
 export function placeVehicles(patterns: Pattern[], vehicles: Vehicle[]): Placement[] {
   const mains = patterns.filter((p) => p.main && p.stops.length > 0);
   const out: Placement[] = [];
   for (const v of vehicles) {
+    const matched = fromMatch(mains, v);
+    if (matched) {
+      out.push(matched);
+      continue;
+    }
     const dest = fold(v.destination);
     let candidates = mains.filter((p) => fold(p.headsign) === dest);
     if (candidates.length === 0) candidates = mains;

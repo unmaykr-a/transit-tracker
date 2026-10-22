@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { MapStop } from "@/api";
 import { live } from "@/lib/liveClient";
+import { loadShapes, shapes } from "@/lib/shapes";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { prefersReducedMotion, useTheme } from "@/lib/theme";
 import { isMoving, nextTween, type Tween } from "@/lib/tween";
@@ -26,7 +27,12 @@ export interface VehicleMapProps {
   onSelect: (sel: Selection | undefined) => void;
   /** When set, the map flies here once (e.g. /map?stop=…). */
   focus?: [number, number];
+  /** Pattern whose route is drawn under the vehicles (the selected vehicle's). */
+  highlightPattern?: string;
 }
+
+const shapeOf = (p: string) => shapes.get(p);
+const NO_FEATURES = { type: "FeatureCollection" as const, features: [] };
 
 const STOPS_MIN_ZOOM = 14.5;
 
@@ -162,7 +168,7 @@ function addVehicleLayers(map: MLMap) {
   });
 }
 
-export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus }: VehicleMapProps) {
+export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern }: VehicleMapProps) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -215,10 +221,23 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     const tweens = new Map<string, Tween>();
     const animate = !prefersReducedMotion();
     let ready = false;
+    // Route shapes let markers follow the street between fixes instead of cutting corners.
+    void loadShapes().then(() => (dirtyRef.current = true));
 
     map.on("style.load", () => {
       addVehicleLayers(map);
       addStopLayers(map, "vehicle-dots");
+      if (!map.getSource("selected-route")) map.addSource("selected-route", { type: "geojson", data: NO_FEATURES });
+      map.addLayer(
+        {
+          id: "selected-route",
+          type: "line",
+          source: "selected-route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#111827", "line-opacity": 0.45, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3, 16, 7] },
+        },
+        "stops",
+      );
       map.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stopsRef.current));
       ready = true;
       dirtyRef.current = true;
@@ -230,14 +249,14 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
         for (const id of tweens.keys()) if (!applied.state.vehicles.has(id)) tweens.delete(id);
       }
       for (const id of applied.removed) tweens.delete(id);
-      for (const v of applied.changed) tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate));
+      for (const v of applied.changed) tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate, shapeOf));
       dirtyRef.current = true;
     });
     // The snapshot may have arrived before this (lazy-loaded) map subscribed;
     // without a starting point the first diff would teleport every vehicle.
     const start = performance.now();
     for (const v of live.getState().vehicles.values()) {
-      if (!tweens.has(v.id)) tweens.set(v.id, nextTween(undefined, v, start, animate));
+      if (!tweens.has(v.id)) tweens.set(v.id, nextTween(undefined, v, start, animate, shapeOf));
     }
 
     let raf = 0;
@@ -257,7 +276,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
       dirtyRef.current = false;
       const { modes, lineTokens } = filterRef.current;
       const source = map.getSource<GeoJSONSource>("vehicles");
-      source?.setData(vehicleFeatures(live.getState().vehicles.values(), tweens, now, modes, lineTokens));
+      source?.setData(vehicleFeatures(live.getState().vehicles.values(), tweens, now, modes, lineTokens, shapeOf));
     };
     raf = requestAnimationFrame(frame);
 
@@ -305,6 +324,24 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
       map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * 0.45 }, essential: true });
     }
   }, [focus]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = async () => {
+      if (highlightPattern) await loadShapes();
+      const shape = highlightPattern ? shapes.get(highlightPattern) : undefined;
+      map.getSource<GeoJSONSource>("selected-route")?.setData(
+        shape ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: shape.coords } } : NO_FEATURES,
+      );
+    };
+    void apply();
+    const onStyle = () => void apply();
+    map.on("style.load", onStyle);
+    return () => {
+      map.off("style.load", onStyle);
+    };
+  }, [highlightPattern]);
 
   const selectedVehicle = selected?.kind === "vehicle" ? selected.id : "";
   const selectedStop = selected?.kind === "stop" ? selected.id : "";

@@ -73,3 +73,19 @@ test.describe("live map", () => {
     expect(moved.filter((n) => n > 30).length, `vehicles moved per second: ${moved.join(", ")}`).toBeGreaterThanOrEqual(7);
   });
 });
+
+test("a matched vehicle's sheet lists its next stops", async ({ page, request }) => {
+  await page.goto("/map");
+  const pills = await renderedPills(page, 10);
+  // Pick an on-screen vehicle the server has matched to a route pattern.
+  const vehicles: { id: string; pattern_id?: string }[] = (await (await request.get("/api/v1/vehicles")).json()).vehicles;
+  const matched = new Set(vehicles.filter((v) => v.pattern_id).map((v) => v.id));
+  const vp = page.viewportSize()!;
+  const target = pills.find((p) => matched.has(p.id) && p.y > 200 && p.y < vp.height - 250 && p.x > 120 && p.x < vp.width - 60);
+  test.skip(!target, "no matched vehicle on screen");
+  await page.mouse.click(target!.x, target!.y);
+  const sheet = page.locator("section[aria-label]").filter({ hasText: "towards" });
+  await expect(sheet.getByText("Next stops")).toBeVisible();
+  await expect(sheet.getByRole("listitem").first()).toContainText(/(now|\d+ min)$/);
+  await expect(sheet.getByRole("link", { name: "Open line" })).toBeVisible();
+});

@@ -1,7 +1,7 @@
 import type { FeatureCollection, Point } from "geojson";
 
 import { matchesFilter, pillText } from "@/lib/lines";
-import { positionAt, type Tween } from "@/lib/tween";
+import { positionAt, type ShapeLookup, type Tween } from "@/lib/tween";
 import { MODES, type Mode, type Vehicle } from "@/lib/types";
 
 export interface VehicleFeatureProps {
@@ -24,12 +24,13 @@ export function vehicleFeatures(
   now: number,
   modes: ReadonlySet<Mode>,
   lineTokens: string[],
+  shapeOf?: ShapeLookup,
 ): VehicleFeatureCollection {
   const features: VehicleFeatureCollection["features"] = [];
   for (const v of vehicles) {
     if (!matchesFilter(v, modes, lineTokens)) continue;
     const tw = tweens.get(v.id);
-    const [lat, lon] = tw ? positionAt(tw, now) : [v.lat, v.lon];
+    const [lat, lon] = tw ? positionAt(tw, now, shapeOf) : [v.lat, v.lon];
     features.push({
       type: "Feature",
       id: v.id,

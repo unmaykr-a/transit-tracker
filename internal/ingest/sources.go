@@ -17,6 +17,8 @@ type GPSPoller struct {
 	Fetcher *feeds.Fetcher
 	Store   *state.Store
 	Now     func() time.Time
+	// Annotate, if set, enriches vehicles (pattern, next stop) before they are stored.
+	Annotate func([]state.Vehicle)
 
 	lastHash [32]byte
 }
@@ -57,6 +59,9 @@ func (p *GPSPoller) Poll(ctx context.Context) (Result, error) {
 			LowFloor:    g.LowFloor,
 			UpdatedAt:   at,
 		})
+	}
+	if p.Annotate != nil {
+		p.Annotate(vs)
 	}
 	p.Store.Replace("gps", vs)
 	p.lastHash = h

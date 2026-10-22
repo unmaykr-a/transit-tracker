@@ -3,6 +3,7 @@
 //	tram              run the server
 //	tram healthcheck  probe /healthz on the local server (for Docker HEALTHCHECK)
 //	tram version      print version and exit
+//	tram eta-check    compare predicted arrivals with SIRI on live data
 package main
 
 import (
@@ -23,6 +24,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/config"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
+	"github.com/unmaykr-a/transit-tracker/internal/eta"
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 	"github.com/unmaykr-a/transit-tracker/internal/ingest"
 	"github.com/unmaykr-a/transit-tracker/internal/settings"
@@ -49,8 +51,10 @@ func main() {
 		err = healthcheck(cfg)
 	case "version":
 		fmt.Println(buildinfo.Version, buildinfo.Commit)
+	case "eta-check":
+		err = etaCheck(cfg, os.Args[2:])
 	default:
-		err = fmt.Errorf("unknown command %q (want: healthcheck, version)", cmd)
+		err = fmt.Errorf("unknown command %q (want: healthcheck, version, eta-check)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -96,7 +100,9 @@ func serve(cfg config.Config) error {
 	fetcher := feeds.NewFetcher(httpClient, "")
 	fetcher.UserAgent = func() string { return "Tram/" + buildinfo.Version + " (+" + cur().UserAgentContact + ")" }
 	otp := &feeds.OTP{URL: func() string { return cur().OTPURL }, Fetcher: fetcher}
+	tracker := eta.NewTracker()
 	importer = &staticdata.Importer{
+		OnSwap:  func(ix *staticdata.Index) { tracker.SetGeometry(eta.BuildGeometry(ix)) },
 		Fetcher: fetcher, OTP: otp, AgencyID: feeds.TallinnAgencyID, Store: db, Log: log, Location: tallinn,
 		StopsURL:     func() string { return cur().StopsURL },
 		ElronGTFSURL: func() string { return cur().ElronGTFSURL },
@@ -106,7 +112,7 @@ func serve(cfg config.Config) error {
 
 	vehicles := state.NewStore()
 	health := ingest.NewHealth()
-	gps := &ingest.GPSPoller{URL: func() string { return cur().GPSURL }, Fetcher: fetcher, Store: vehicles}
+	gps := &ingest.GPSPoller{URL: func() string { return cur().GPSURL }, Fetcher: fetcher, Store: vehicles, Annotate: tracker.Annotate}
 	elron := &ingest.ElronPoller{URL: func() string { return cur().ElronURL }, Fetcher: fetcher, Store: vehicles, Location: tallinn}
 	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll})
 	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll})
@@ -129,7 +135,7 @@ func serve(cfg config.Config) error {
 		Handler: api.NewServer(log, api.Deps{
 			Store: vehicles, Health: health, Static: importer.Index, StaticStatus: importer.Status, Departures: deps,
 			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies,
-			RefreshStatic: importer.Import, Dashboard: board,
+			RefreshStatic: importer.Import, Dashboard: board, Tracker: tracker,
 		}).Handler(api.SPA(api.Dist())),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

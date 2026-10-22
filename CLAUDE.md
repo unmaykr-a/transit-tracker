@@ -7,7 +7,9 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 
 ## Layout
 
-- `cmd/tram` — entrypoint: `tram` (serve), `tram healthcheck`, `tram version`.
+- `cmd/tram` — entrypoint: `tram` (serve), `tram healthcheck`, `tram version`, `tram eta-check` (ETA accuracy vs
+  SIRI; `-record file` saves the GPS/SIRI input, `-replay file` re-evaluates it offline — use replay to compare
+  model changes on identical data).
 - `internal/api` — chi router, `/healthz`, `/api/v1/*`, SPA serving of the embedded web build (`dist/`).
 - `internal/config` — `TRAM_*` env config. `internal/buildinfo` — version vars set via ldflags.
 - `internal/feeds` — pure parsers for upstream feeds, the polite conditional-GET `Fetcher`, and
@@ -51,7 +53,14 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `WS /ws` (messages `snapshot`, `diff` with `upsert`/`move`/`remove`, `stale`; client sends
   `{"filter":{"modes":[],"lines":[]}}`), SSE fallback `GET /api/v1/vehicles/stream`. Diffs are computed per
   client against what it last received, so slow clients self-heal. `move` tuples are
-  `[id, lat, lon, bearing, speed_mps, updated_at_ms]`.
+  `[id, lat, lon, bearing, speed_mps, updated_at_ms, dist_along_m]`.
+- `internal/eta` — vehicle → pattern matching and ETAs. `Tracker.Annotate` runs inside the GPS poller before the
+  store: projects each fix onto the line's pattern shapes (equirectangular, `Shape.Project`), scores offset + heading
+  disagreement (soft, weaker when stationary) − headsign/stickiness bonuses, sets `pattern_id`, `next_stop_id`,
+  `dist_along_m`. Progress feeds per-segment paces (stop i → i+1, dwell included, decaying) per pattern; ETAs sum
+  the paces ahead (route speed until a segment has data). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
+  `/patterns/{id}` and `/patterns?route=` (encoded polylines, ETag). The map tweens markers along the shape
+  (`lib/shapes.ts`, `lib/tween.ts`) using `dist_along_m` (7th `move` tuple field).
 - `web/` — Vite + React 19 + TS + Tailwind v4 + shadcn/ui, TanStack Router (code-based routes in
   `src/router.tsx`) + Query, i18next (`src/locales/{en,et}.json` — every UI string goes in both), MapLibre.
   `src/lib/liveClient.ts` is the single shared WS/SSE connection; `src/map/VehicleMap.tsx` animates markers
