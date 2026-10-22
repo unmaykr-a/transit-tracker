@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/* Design tokens: neutral greys plus one accent per mode (PLAN.md, Design rules). */
+:root {
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.205 0 0);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --border: oklch(0.91 0 0);
+  --ring: oklch(0.6 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --card: oklch(1 0 0);
+
+  --mode-tram: oklch(0.56 0.2 27);
+  --mode-bus: oklch(0.6 0.11 185);
+  --mode-trolley: oklch(0.55 0.16 255);
+  --mode-train: oklch(0.7 0.17 55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.96 0 0);
+    --muted: oklch(0.22 0 0);
+    --muted-foreground: oklch(0.68 0 0);
+    --border: oklch(0.28 0 0);
+    --ring: oklch(0.55 0 0);
+    --primary: oklch(0.96 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --card: oklch(0.19 0 0);
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.96 0 0);
+  --muted: oklch(0.22 0 0);
+  --muted-foreground: oklch(0.68 0 0);
+  --border: oklch(0.28 0 0);
+  --ring: oklch(0.55 0 0);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --card: oklch(0.19 0 0);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-tram: var(--mode-tram);
+  --color-bus: var(--mode-bus);
+  --color-trolley: var(--mode-trolley);
+  --color-train: var(--mode-train);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}

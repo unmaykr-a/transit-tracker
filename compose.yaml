@@ -1,0 +1,19 @@
+# Local development: builds the image from this checkout.
+#   docker compose up --build   →  http://localhost:8095
+# Production deployment uses deploy/docker-compose.yml (image from GHCR).
+services:
+  tram:
+    build:
+      context: .
+      args:
+        VERSION: dev
+    image: tram:dev
+    container_name: tram
+    ports:
+      - "8095:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Europe/Tallinn
+      TRAM_LOG_LEVEL: debug

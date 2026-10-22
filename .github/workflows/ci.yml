@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: CGO_ENABLED=0 go build ./cmd/tram
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [go, web]
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.platform }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: tram:ci
+          build-args: VERSION=ci-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+      - name: Smoke test ${{ matrix.platform }}
+        run: |
+          docker image inspect -f '{{.Architecture}} {{.Size}}' tram:ci
+          docker run -d --name tram --platform ${{ matrix.platform }} -p 8095:8080 tram:ci
+          for i in $(seq 1 60); do curl -fsS http://localhost:8095/healthz && break; sleep 1; done
+          curl -fsS http://localhost:8095/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8095/map | grep -q '<div id="root">'
+          docker exec tram /tram healthcheck
+          for i in $(seq 1 60); do [ "$(docker inspect -f '{{.State.Health.Status}}' tram)" = healthy ] && break; sleep 2; done
+          docker inspect -f '{{.State.Health.Status}}' tram | grep -qx healthy
+      - if: failure()
+        run: docker logs tram || true
