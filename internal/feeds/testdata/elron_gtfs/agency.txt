@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_phone,agency_fare_url,agency_lang,agency_email
+10520953,ELRON,https://elron.ee/,Europe/Tallinn,6160245,https://elron.ee/piletiinfo/piletid,et,klienditugi@elron.ee

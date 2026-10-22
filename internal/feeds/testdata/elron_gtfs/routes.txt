@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color,route_desc,route_url,continuous_pickup,continuous_drop_off,route_sort_order,competent_authority
+72ac5cefcee5ed431883a4d7b2aee038,10520953,R12,Tallinn - Keila,2,ff711d,FFFFFF,Liin on riigipühadel käigus pühapäevase sõiduplaani järgi,,,,,Elron
+07f60e50e839764f4c64aa6018c638bb,10520953,R14,Tallinn - Paldiski,2,ff711d,FFFFFF,Liin on riigipühadel käigus pühapäevase sõiduplaani järgi,,,,,Elron

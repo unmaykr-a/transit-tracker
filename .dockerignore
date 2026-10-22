@@ -1,0 +1,9 @@
+.git
+**/node_modules
+web/dist
+internal/api/dist/*
+!internal/api/dist/.gitkeep
+data
+deploy
+docs
+*.md

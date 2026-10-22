@@ -1,0 +1,4 @@
+Transport,RouteNum,ExpectedTimeInSeconds,ScheduleTimeInSeconds,33788,version20201024
+stop,1300
+bus,55,34573,34573,P. Pinna,785,Z
+bus,55,36193,36193,P. Pinna,2405,Z
