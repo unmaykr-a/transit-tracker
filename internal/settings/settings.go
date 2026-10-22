@@ -38,6 +38,11 @@ type Settings struct {
 	StopsURL         string `json:"stops_url"`
 	ElronGTFSURL     string `json:"elron_gtfs_url"`
 	UserAgentContact string `json:"user_agent_contact"`
+
+	// WalkProviders is the order walking routes are tried in; a straight-line
+	// estimate is always the last resort.
+	WalkProviders []string `json:"walk_providers"`
+	TransitousURL string   `json:"transitous_url"`
 }
 
 // Public is what any visitor may read (login page, map defaults).
@@ -97,7 +102,16 @@ func (s Settings) Validate() error {
 	if s.ElronIntervalS < 5 || s.ElronIntervalS > 300 {
 		return &FieldError{"elron_interval_s", "must be between 5 and 300 seconds"}
 	}
+	if len(s.WalkProviders) > 3 {
+		return &FieldError{"walk_providers", "too many providers"}
+	}
+	for _, p := range s.WalkProviders {
+		if !slices.Contains([]string{"otp", "transitous", "haversine"}, p) {
+			return &FieldError{"walk_providers", "unknown provider " + p}
+		}
+	}
 	for field, v := range map[string]string{
+		"transitous_url":  s.TransitousURL,
 		"map_style_light": s.MapStyleLight, "map_style_dark": s.MapStyleDark, "gps_url": s.GPSURL, "elron_url": s.ElronURL,
 		"siri_url": s.SiriURL, "otp_url": s.OTPURL, "stops_url": s.StopsURL, "elron_gtfs_url": s.ElronGTFSURL, "user_agent_contact": s.UserAgentContact,
 	} {

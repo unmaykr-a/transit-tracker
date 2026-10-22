@@ -1,14 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { Map as MapIcon } from "lucide-react";
+import { BookmarkPlus, Map as MapIcon } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchLine } from "@/api";
 import { LinePill } from "@/components/LinePill";
+import { SaveLineSheet } from "@/components/SaveLineSheet";
 import { Button } from "@/components/ui/button";
 import { placeVehicles } from "@/lib/lineVehicles";
 import { MODE_COLORS } from "@/lib/modeColors";
+import { useSession } from "@/lib/session";
 import { useLiveState } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,8 @@ export default function LinePage() {
   const live = useLiveState(2000);
   const mains = useMemo(() => q.data?.patterns.filter((p) => p.main) ?? [], [q.data]);
   const [dir, setDir] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const user = useSession().data?.user;
   const pattern = mains.find((p) => p.direction === dir) ?? mains[0];
 
   const vehicles = useMemo(() => {
@@ -54,6 +58,21 @@ export default function LinePage() {
           </Link>
         </Button>
       </header>
+
+      {saving ? (
+        <SaveLineSheet route={r} pattern={pattern} onClose={() => setSaving(false)} />
+      ) : user ? (
+        <Button onClick={() => setSaving(true)} className="self-start">
+          <BookmarkPlus className="size-4" aria-hidden />
+          {t("save.button")}
+        </Button>
+      ) : (
+        <Button variant="outline" asChild className="self-start">
+          <Link to="/login" search={{ next: `/lines/${r.mode}/${r.short_name}` }}>
+            {t("save.loginFirst")}
+          </Link>
+        </Button>
+      )}
 
       {mains.length > 1 && (
         <div role="radiogroup" aria-label={t("line.direction")} className="grid grid-cols-2 gap-2">

@@ -6,11 +6,14 @@ export function minutesUntil(t: string | number, now: number): number {
   return Math.max(0, Math.floor(ms / 60_000));
 }
 
-/** "now", "4 min", or the clock time when more than an hour away. */
+/**
+ * "now", "4 min", or the clock time when more than an hour away. Minutes are
+ * floored, like transit boards and the verdict's slack, so the two agree.
+ */
 export function countdown(t: string, now: number, tr: TFunction, locale?: string): string {
   const ms = Date.parse(t) - now;
-  if (ms < 45_000) return tr("time.now");
-  const min = Math.round(ms / 60_000);
+  if (ms < 60_000) return tr("time.now");
+  const min = Math.floor(ms / 60_000);
   if (min < 60) return tr("time.minutes", { count: min });
   return clock(t, locale);
 }

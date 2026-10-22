@@ -4,9 +4,9 @@ Self-hosted, multi-user app showing live Tallinn buses, trams, trolleybuses and 
 telling you whether you can make your next departure, with a Home Assistant integration.
 Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 
-> Status: **M3 — accounts and admin**: live map of every bus, tram, trolleybus and Elron train; search by line or
-> stop; stop and line pages with live departures; local accounts with invites; admin area for users, settings,
-> feed health, audit log and backups. See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
+> Status: **M4 — My lines**: save your everyday lines and see live countdowns with a "can I make it?" verdict based
+> on real walking time from where you are; live map of every bus, tram, trolleybus and Elron train; search; stop and
+> line pages; accounts with invites; admin area. Installable as a PWA. See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
 > [docs/feeds.md](docs/feeds.md) for the upstream data formats.
 
 ## Run

@@ -58,7 +58,7 @@ func TestRoutes(t *testing.T) {
 		{"/map", "<title>Tram</title>", "no-cache", 200},           // SPA route
 		{"/lines/tram/T4", "<title>Tram</title>", "no-cache", 200}, // nested SPA route
 		{"/assets/app-abc.js", "console.log(1)", "public, max-age=31536000, immutable", 200},
-		{"/manifest.webmanifest", "{}", "no-cache", 200},
+		{"/manifest.webmanifest", "{}", "no-cache", 200}, // content type checked below
 		{"/assets/missing.js", "404", "", 404},
 		{"/api/v1/version", `"version"`, "no-store", 200},
 		{"/api/v1/nope", `"not found"`, "no-store", 404}, // API never falls back to the SPA
@@ -76,6 +76,14 @@ func TestRoutes(t *testing.T) {
 				t.Errorf("Cache-Control = %q, want %q", got, tt.wantCache)
 			}
 		})
+	}
+}
+
+func TestManifestContentType(t *testing.T) {
+	srv := newTestServer(t, builtWeb)
+	res, _ := get(t, srv.URL+"/manifest.webmanifest")
+	if ct := res.Header.Get("Content-Type"); ct != "application/manifest+json" {
+		t.Errorf("manifest content type = %q", ct)
 	}
 }
 

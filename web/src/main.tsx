@@ -10,6 +10,13 @@ import { router } from "./router";
 
 initTheme();
 
+// Installable PWA; skipped in dev so Vite's module reloading is not cached.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: true } },
 });

@@ -21,6 +21,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
 	"github.com/unmaykr-a/transit-tracker/internal/config"
+	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 	"github.com/unmaykr-a/transit-tracker/internal/ingest"
@@ -28,6 +29,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/state"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 	"github.com/unmaykr-a/transit-tracker/internal/store"
+	"github.com/unmaykr-a/transit-tracker/internal/walk"
 )
 
 func main() {
@@ -109,13 +111,25 @@ func serve(cfg config.Config) error {
 	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll})
 	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll})
 	go cleanupSessions(ctx, log, db)
+	go prewarmSaved(ctx, log, db, importer.Index, deps)
+	walker := walk.NewService([]walk.Provider{
+		walk.OTP{Client: otp},
+		walk.Transitous{URL: func() string { return cur().TransitousURL }, Fetcher: fetcher},
+		walk.Haversine{},
+	}, func() []string {
+		if cfg.FakeFeeds {
+			return []string{walk.ProviderHaversine} // offline
+		}
+		return cur().WalkProviders
+	})
+	board := &dashboard.Builder{Index: importer.Index, Departures: deps, Walk: walker}
 
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: api.NewServer(log, api.Deps{
 			Store: vehicles, Health: health, Static: importer.Index, StaticStatus: importer.Status, Departures: deps,
 			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies,
-			RefreshStatic: importer.Import,
+			RefreshStatic: importer.Import, Dashboard: board,
 		}).Handler(api.SPA(api.Dist())),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -148,6 +162,33 @@ func defaultSettings(cfg config.Config) settings.Settings {
 		ElronURL: cfg.Feeds.ElronURL, ElronIntervalS: int(cfg.Feeds.ElronInterval / time.Second),
 		SiriURL: cfg.Feeds.SiriURL, OTPURL: cfg.Feeds.OTPURL, StopsURL: cfg.Feeds.StopsURL, ElronGTFSURL: cfg.Feeds.ElronGTFSURL,
 		UserAgentContact: cfg.Contact,
+		WalkProviders:    []string{walk.ProviderOTP, walk.ProviderTransitous, walk.ProviderHaversine},
+		TransitousURL:    "https://api.transitous.org/api/v5/plan",
+	}
+}
+
+// prewarmSaved keeps live departures for every saved boarding stop in the
+// cache, so dashboards and Home Assistant answer instantly (PLAN.md: every 20 s).
+func prewarmSaved(ctx context.Context, log *slog.Logger, db *store.Store, ix func() *staticdata.Index, deps *departures.Service) {
+	t := time.NewTicker(20 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		ids, err := db.Q.ListBoardStops(ctx)
+		if err != nil {
+			log.Warn("pre-warm: listing saved stops", "err", err)
+			continue
+		}
+		index := ix()
+		for _, id := range ids {
+			if st, ok := index.Stop(id); ok && st.SiriID != "" {
+				_, _ = deps.Siri(ctx, st.SiriID)
+			}
+		}
 	}
 }
 

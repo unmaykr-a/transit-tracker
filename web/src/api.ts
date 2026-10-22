@@ -268,6 +268,8 @@ export interface AdminSettings extends PublicSettings {
   stops_url: string;
   elron_gtfs_url: string;
   user_agent_contact: string;
+  walk_providers: string[];
+  transitous_url: string;
 }
 
 export interface FeedHealth {
@@ -336,4 +338,87 @@ export const admin = {
   audit: (action: string, before: number, signal?: AbortSignal) =>
     getJSON<{ entries: AuditEntry[] }>(`/api/v1/admin/audit?limit=50&action=${encodeURIComponent(action)}${before ? `&before=${before}` : ""}`, signal),
   about: (signal?: AbortSignal) => getJSON<About>("/api/v1/admin/about", signal),
+};
+
+// My lines
+
+export interface StopRef {
+  id: string;
+  area_id: string;
+  name: string;
+  platform: string;
+  lat: number;
+  lon: number;
+}
+
+export interface SavedLine {
+  id: number;
+  route_id: string;
+  mode: Mode;
+  short_name: string;
+  direction: number;
+  headsign: string;
+  label: string;
+  board_stop: StopRef | null;
+  alight_stop?: StopRef | null;
+  notify_threshold_min: number;
+  unavailable?: boolean;
+}
+
+export type VerdictLevel = "neutral" | "green" | "amber" | "red" | "none";
+
+export interface DashboardDeparture extends Departure {
+  verdict: { level: VerdictLevel; slack_min: number };
+}
+
+export interface DashboardEntry {
+  line: SavedLine;
+  departures: DashboardDeparture[];
+  walk?: { minutes: number; distance_m: number; provider: string; approx: boolean };
+  next_catchable: number;
+  error?: string;
+}
+
+export interface Prefs {
+  walk_speed_kmh: number;
+  buffer_min: number;
+}
+
+export interface Place {
+  id: number;
+  label: string;
+  lat: number;
+  lon: number;
+}
+
+export type Origin = { lat: number; lon: number } | { place: number } | null;
+
+export const fetchDashboard = (origin: Origin, signal?: AbortSignal) => {
+  const p = new URLSearchParams();
+  if (origin && "place" in origin) p.set("place", String(origin.place));
+  else if (origin) {
+    p.set("lat", origin.lat.toFixed(5));
+    p.set("lon", origin.lon.toFixed(5));
+  }
+  return getJSON<{ entries: DashboardEntry[]; prefs: Prefs; has_origin: boolean; server_time: string }>(`/api/v1/me/dashboard?${p}`, signal);
+};
+
+export const myLines = {
+  list: (signal?: AbortSignal) => getJSON<{ lines: SavedLine[] }>("/api/v1/me/lines", signal),
+  create: (l: { route_id: string; direction: number; board_stop_id: string; alight_stop_id?: string; label?: string }) =>
+    send<{ line: SavedLine }>("POST", "/api/v1/me/lines", l),
+  update: (id: number, p: { label?: string; alight_stop_id?: string }) => send<{ line: SavedLine }>("PATCH", `/api/v1/me/lines/${id}`, p),
+  remove: (id: number) => send("DELETE", `/api/v1/me/lines/${id}`),
+  reorder: (ids: number[]) => send<{ lines: SavedLine[] }>("POST", "/api/v1/me/lines/reorder", { ids }),
+};
+
+export const places = {
+  list: (signal?: AbortSignal) => getJSON<{ places: Place[] }>("/api/v1/me/places", signal),
+  create: (p: Omit<Place, "id">) => send<{ place: Place }>("POST", "/api/v1/me/places", p),
+  remove: (id: number) => send("DELETE", `/api/v1/me/places/${id}`),
+};
+
+export const prefs = {
+  get: (signal?: AbortSignal) => getJSON<Prefs>("/api/v1/me/prefs", signal),
+  update: (p: Partial<Prefs>) => send<Prefs>("PATCH", "/api/v1/me/prefs", p),
 };

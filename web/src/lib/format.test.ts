@@ -8,6 +8,8 @@ describe("format", () => {
   const now = Date.parse("2026-10-22T07:00:00Z");
   it("counts down", () => {
     expect(countdown("2026-10-22T07:00:30Z", now, t)).toBe("now");
+    expect(countdown("2026-10-22T07:00:59Z", now, t)).toBe("now");
+    expect(countdown("2026-10-22T07:04:50Z", now, t)).toBe("4 min"); // floored, matching the verdict
     expect(countdown("2026-10-22T07:04:10Z", now, t)).toBe("4 min");
     expect(countdown("2026-10-22T07:59:00Z", now, t)).toBe("59 min");
     expect(countdown("2026-10-22T08:30:00Z", now, t, "et")).toBe("11:30"); // Tallinn is UTC+3 in October

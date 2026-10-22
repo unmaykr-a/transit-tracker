@@ -51,6 +51,29 @@ type Route struct {
 	Sort      int64
 }
 
+type SavedLine struct {
+	ID                 int64
+	UserID             int64
+	RouteID            string
+	Direction          int64
+	Headsign           string
+	BoardStopID        string
+	AlightStopID       string
+	Label              string
+	Sort               int64
+	NotifyThresholdMin int64
+	CreatedAt          int64
+}
+
+type SavedPlace struct {
+	ID     int64
+	UserID int64
+	Label  string
+	Lat    float64
+	Lon    float64
+	Sort   int64
+}
+
 type Session struct {
 	ID         string
 	UserID     int64
@@ -105,4 +128,10 @@ type User struct {
 	Theme        string
 	Disabled     int64
 	CreatedAt    int64
+}
+
+type UserPref struct {
+	UserID       int64
+	WalkSpeedKmh float64
+	BufferMin    int64
 }

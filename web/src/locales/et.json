@@ -58,7 +58,28 @@
   "home": {
     "title": "Minu liinid",
     "empty": "Salvestatud liinid koos reaalajas loenduritega tulevad järgmises uuenduses. Seni näitab kaart kõiki sõidukeid.",
-    "openMap": "Ava reaalajas kaart"
+    "openMap": "Ava reaalajas kaart",
+    "intro": "Salvesta oma igapäevased liinid, et näha reaalajas loendureid ja kas jõuad peale.",
+    "loginToSave": "Liinide salvestamiseks logi sisse.",
+    "noLines": "Salvestatud liine veel pole. Ava liin otsingust ja vajuta „Salvesta liin”.",
+    "findLine": "Otsi liini",
+    "from": "peatusest {{stop}}",
+    "walk": "{{min}} min jalgsi",
+    "walkApprox": "≈{{min}} min jalgsi",
+    "origin": "Kõnnin kohast",
+    "myLocation": "Minu asukoht",
+    "useLocation": "Kasuta minu asukohta",
+    "locating": "Otsin asukohta…",
+    "locationDenied": "Asukoht keelatud",
+    "noOrigin": "Vali, kust kõnnid, et näha, kas jõuad peale.",
+    "edit": "Muuda",
+    "done": "Valmis",
+    "moveUp": "Liiguta üles",
+    "moveDown": "Liiguta alla",
+    "remove": "Eemalda",
+    "unavailable": "Seda liini või peatust sõiduplaanis enam pole.",
+    "noDepartures": "Lähitundidel väljumisi pole.",
+    "then": "siis"
   },
   "search": {
     "title": "Otsing",
@@ -253,5 +274,39 @@
     "dataDir": "Andmekataloog",
     "backup": "Laadi varukoopia alla",
     "backupHint": "SQLite andmebaasi järjepidev koopia (kasutajad, salvestatud liinid, seaded)."
+  },
+  "verdict": {
+    "leaveIn": "Mine {{min}} min pärast",
+    "leaveNow": "Mine kohe",
+    "tooTight": "Liiga napp, järgmine {{min}} min pärast",
+    "tooTightNone": "Liiga napp"
+  },
+  "save": {
+    "button": "Salvesta liin",
+    "title": "Salvesta {{line}} → {{headsign}}",
+    "board": "Kus sa peale lähed?",
+    "alight": "Kus maha lähed? (valikuline)",
+    "none": "Määramata",
+    "label": "Nimi (valikuline)",
+    "labelPlaceholder": "nt Tööle",
+    "nearest": "lähim",
+    "submit": "Salvesta",
+    "saved": "Salvestatud minu liinidesse",
+    "loginFirst": "Liinide salvestamiseks logi sisse"
+  },
+  "walking": {
+    "title": "Kõndimine",
+    "speed": "Kõndimiskiirus",
+    "speedValue": "{{value}} km/h",
+    "buffer": "Varuaeg",
+    "bufferValue": "{{value}} min",
+    "places": "Salvestatud kohad",
+    "placesHint": "Kasutatakse lähtekohana, kui asukoht on väljas.",
+    "addPlace": "Lisa koht",
+    "placeLabel": "Nimi",
+    "placeLabelPlaceholder": "Kodu, töö…",
+    "hereNow": "Kasuta praegust asukohta",
+    "orStop": "või peatuse juures",
+    "noPlaces": "Salvestatud kohti pole."
   }
 }
