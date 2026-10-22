@@ -20,7 +20,7 @@ func TestLoadDefaults(t *testing.T) {
 		c.Feeds.GPSURL != "https://transport.tallinn.ee/gps.txt" || c.Feeds.ElronURL != "https://elron.ee/map_data.json" {
 		t.Fatalf("unexpected feed defaults: %+v", c)
 	}
-	if got := c.UserAgent("v1"); got != "Tram/v1 (+https://github.com/unmaykr-a/transit-tracker)" {
+	if got := c.UserAgent("v1"); got != "Bus/v1 (+https://github.com/unmaykr-a/transit-tracker)" {
 		t.Fatalf("UserAgent = %q", got)
 	}
 	if got := c.HealthURL(); got != "http://127.0.0.1:8080/healthz" {
@@ -30,22 +30,22 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadOverrides(t *testing.T) {
 	c, err := load(env(map[string]string{
-		"TRAM_ADDR":            "0.0.0.0:9000",
-		"TRAM_DATA_DIR":        "/data",
-		"TRAM_BASE_URL":        "https://tram.taali.ee/",
-		"TRAM_LOG_LEVEL":       "debug",
-		"TRAM_FAKE_FEEDS":      "1",
-		"TRAM_GPS_INTERVAL":    "10s",
-		"TRAM_TRUSTED_PROXIES": "172.16.0.0/12, 192.168.1.10",
-		"TRAM_ADMIN_USER":      "admin",
+		"BUS_ADDR":            "0.0.0.0:9000",
+		"BUS_DATA_DIR":        "/data",
+		"BUS_BASE_URL":        "https://bus.taali.ee/",
+		"BUS_LOG_LEVEL":       "debug",
+		"BUS_FAKE_FEEDS":      "1",
+		"BUS_GPS_INTERVAL":    "10s",
+		"BUS_TRUSTED_PROXIES": "172.16.0.0/12, 192.168.1.10",
+		"BUS_ADMIN_USER":      "admin",
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Addr != "0.0.0.0:9000" || c.DataDir != "/data" || c.BaseURL != "https://tram.taali.ee" || c.LogLevel != slog.LevelDebug {
+	if c.Addr != "0.0.0.0:9000" || c.DataDir != "/data" || c.BaseURL != "https://bus.taali.ee" || c.LogLevel != slog.LevelDebug {
 		t.Fatalf("unexpected config: %+v", c)
 	}
-	if !c.FakeFeeds || c.Feeds.GPSInterval != 10*time.Second || c.UserAgent("v1") != "Tram/v1 (+https://tram.taali.ee)" {
+	if !c.FakeFeeds || c.Feeds.GPSInterval != 10*time.Second || c.UserAgent("v1") != "Bus/v1 (+https://bus.taali.ee)" {
 		t.Fatalf("unexpected feed config: %+v", c)
 	}
 	if len(c.TrustedProxies) != 2 || c.TrustedProxies[1].String() != "192.168.1.10/32" || c.AdminUser != "admin" {
@@ -58,12 +58,12 @@ func TestLoadOverrides(t *testing.T) {
 
 func TestLoadInvalid(t *testing.T) {
 	for _, m := range []map[string]string{
-		{"TRAM_ADDR": "8080"},
-		{"TRAM_LOG_LEVEL": "loud"},
-		{"TRAM_FAKE_FEEDS": "maybe"},
-		{"TRAM_GPS_INTERVAL": "1s"}, // faster than upstream updates
-		{"TRAM_ELRON_INTERVAL": "soon"},
-		{"TRAM_TRUSTED_PROXIES": "not-a-cidr"},
+		{"BUS_ADDR": "8080"},
+		{"BUS_LOG_LEVEL": "loud"},
+		{"BUS_FAKE_FEEDS": "maybe"},
+		{"BUS_GPS_INTERVAL": "1s"}, // faster than upstream updates
+		{"BUS_ELRON_INTERVAL": "soon"},
+		{"BUS_TRUSTED_PROXIES": "not-a-cidr"},
 	} {
 		if _, err := load(env(m)); err == nil {
 			t.Errorf("load(%v) succeeded, want error", m)

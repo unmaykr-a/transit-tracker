@@ -30,7 +30,7 @@ type FakeLine struct {
 }
 
 // FakeTransport answers upstream requests from the recorded fixtures
-// (TRAM_FAKE_FEEDS=1), so the UI can be developed offline and at night.
+// (BUS_FAKE_FEEDS=1), so the UI can be developed offline and at night.
 // Vehicles move back and forth along their recorded heading so animation is
 // visible; snapshots change every 10 s like the real feed. Departures are
 // synthesised from Lines (wired to the static index) at fixed headways.

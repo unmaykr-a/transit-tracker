@@ -1,8 +1,8 @@
-"""Constants for the Tram integration."""
+"""Constants for the Bus integration."""
 
 from datetime import timedelta
 
-DOMAIN = "tram"
+DOMAIN = "bus"
 
 CONF_LINES = "lines"
 CONF_ORIGIN = "origin_entity"

@@ -1,4 +1,4 @@
-"""Fixtures: a fake Tram server answering /api/v1/me and /api/v1/ha/lines."""
+"""Fixtures: a fake Bus server answering /api/v1/me and /api/v1/ha/lines."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import pytest
 
 from homeassistant.util import dt as dt_util
 
-URL = "https://tram.example.com"
-TOKEN = "tram_secret"
+URL = "https://bus.example.com"
+TOKEN = "bus_secret"
 
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
-    """Load custom_components/tram in every test."""
+    """Load custom_components/bus in every test."""
     yield
 
 
@@ -61,7 +61,7 @@ def lines_payload() -> dict[str, Any]:
 
 
 @pytest.fixture
-def tram_server(aioclient_mock, lines_payload):
+def bus_server(aioclient_mock, lines_payload):
     """Registers the server's answers; tests may override them."""
     aioclient_mock.get(f"{URL}/api/v1/me", json={"user": {"id": 1, "username": "andri", "role": "user"}})
     aioclient_mock.get(f"{URL}/api/v1/ha/lines", json=lines_payload)

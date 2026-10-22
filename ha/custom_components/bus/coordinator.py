@@ -13,29 +13,29 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import TramAuthError, TramClient, TramError
+from .api import BusAuthError, BusClient, BusError
 from .const import CONF_ORIGIN, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class TramData:
+class BusData:
     """One poll: saved lines keyed by id (as a string), and whether walking times were computed."""
 
     lines: dict[str, dict[str, Any]]
     has_origin: bool
 
 
-type TramConfigEntry = ConfigEntry[TramCoordinator]
+type BusConfigEntry = ConfigEntry[BusCoordinator]
 
 
-class TramCoordinator(DataUpdateCoordinator[TramData]):
+class BusCoordinator(DataUpdateCoordinator[BusData]):
     """Fetches /api/v1/ha/lines with the origin entity's current position."""
 
-    config_entry: TramConfigEntry
+    config_entry: BusConfigEntry
 
-    def __init__(self, hass: HomeAssistant, entry: TramConfigEntry, client: TramClient) -> None:
+    def __init__(self, hass: HomeAssistant, entry: BusConfigEntry, client: BusClient) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -58,11 +58,11 @@ class TramCoordinator(DataUpdateCoordinator[TramData]):
             return None
         return float(lat), float(lon)
 
-    async def _async_update_data(self) -> TramData:
+    async def _async_update_data(self) -> BusData:
         try:
             res = await self.client.lines(self.origin())
-        except TramAuthError as err:
+        except BusAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
-        except TramError as err:
+        except BusError as err:
             raise UpdateFailed(str(err)) from err
-        return TramData(lines={str(line["id"]): line for line in res.get("lines", [])}, has_origin=bool(res.get("has_origin")))
+        return BusData(lines={str(line["id"]): line for line in res.get("lines", [])}, has_origin=bool(res.get("has_origin")))

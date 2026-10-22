@@ -1,9 +1,9 @@
-// Command tram serves the Tallinn transit tracker.
+// Command bus serves the Tallinn transit tracker.
 //
-//	tram              run the server
-//	tram healthcheck  probe /healthz on the local server (for Docker HEALTHCHECK)
-//	tram version      print version and exit
-//	tram eta-check    compare predicted arrivals with SIRI on live data
+//	bus              run the server
+//	bus healthcheck  probe /healthz on the local server (for Docker HEALTHCHECK)
+//	bus version      print version and exit
+//	bus eta-check    compare predicted arrivals with SIRI on live data
 package main
 
 import (
@@ -81,7 +81,7 @@ func serve(cfg config.Config) error {
 	if seeded, err := accounts.SeedAdmin(ctx, cfg.AdminUser, cfg.AdminPassword); err != nil {
 		return err
 	} else if seeded {
-		log.Info("created admin from TRAM_ADMIN_USER", "username", cfg.AdminUser)
+		log.Info("created admin from BUS_ADMIN_USER", "username", cfg.AdminUser)
 	}
 	set, err := settings.New(ctx, db, defaultSettings(cfg))
 	if err != nil {
@@ -92,13 +92,13 @@ func serve(cfg config.Config) error {
 	httpClient := &http.Client{Timeout: 60 * time.Second}
 	var importer *staticdata.Importer
 	if cfg.FakeFeeds {
-		log.Warn("TRAM_FAKE_FEEDS is on: replaying recorded fixtures, not live data")
+		log.Warn("BUS_FAKE_FEEDS is on: replaying recorded fixtures, not live data")
 		httpClient.Transport = feeds.FakeTransport{Lines: func(stopID string) []feeds.FakeLine {
 			return fakeLines(importer.Index(), stopID)
 		}}
 	}
 	fetcher := feeds.NewFetcher(httpClient, "")
-	fetcher.UserAgent = func() string { return "Tram/" + buildinfo.Version + " (+" + cur().UserAgentContact + ")" }
+	fetcher.UserAgent = func() string { return "Bus/" + buildinfo.Version + " (+" + cur().UserAgentContact + ")" }
 	otp := &feeds.OTP{URL: func() string { return cur().OTPURL }, Fetcher: fetcher}
 	tracker := eta.NewTracker()
 	importer = &staticdata.Importer{
@@ -161,7 +161,7 @@ func serve(cfg config.Config) error {
 // defaultSettings are the environment-derived values admin settings override.
 func defaultSettings(cfg config.Config) settings.Settings {
 	return settings.Settings{
-		InstanceName: "Tram", SignupMode: "invite", PublicMap: true, DefaultTheme: "system",
+		InstanceName: "Bus", SignupMode: "invite", PublicMap: true, DefaultTheme: "system",
 		MapStyleLight: "https://tiles.openfreemap.org/styles/positron",
 		MapStyleDark:  "https://tiles.openfreemap.org/styles/dark",
 		MapCenter:     [2]float64{24.7536, 59.437}, MapZoom: 13,

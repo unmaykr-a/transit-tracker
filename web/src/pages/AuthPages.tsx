@@ -93,7 +93,7 @@ function CredentialsForm({
 export function LoginPage() {
   const { t } = useTranslation();
   const session = useSession();
-  const name = session.data?.settings.instance_name ?? "Tram";
+  const name = session.data?.settings.instance_name ?? "Bus";
   const canSignup = session.data?.settings.signup_mode === "open";
   return (
     <AuthCard title={t("auth.loginTitle", { name })}>
@@ -113,7 +113,7 @@ export function LoginPage() {
 export function SetupPage() {
   const { t } = useTranslation();
   const session = useSession();
-  const name = session.data?.settings.instance_name ?? "Tram";
+  const name = session.data?.settings.instance_name ?? "Bus";
   return (
     <AuthCard title={t("auth.setupTitle", { name })} intro={t("auth.setupIntro")}>
       <CredentialsForm submit={setup} button={t("auth.setupButton")} withEmail />
@@ -127,7 +127,7 @@ export function SignupPage() {
   const { t } = useTranslation();
   const session = useSession();
   const { invite } = signupRoute.useSearch();
-  const name = session.data?.settings.instance_name ?? "Tram";
+  const name = session.data?.settings.instance_name ?? "Bus";
   const check = useQuery({ queryKey: ["invite", invite], queryFn: () => checkInvite(invite!), enabled: !!invite, retry: false });
   const open = session.data?.settings.signup_mode === "open";
 

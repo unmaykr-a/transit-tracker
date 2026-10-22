@@ -1,3 +1,6 @@
+> **Note:** the app was renamed from the working name "Tram" to **Bus** at 1.0.0 (environment variables `BUS_*`,
+> Home Assistant domain `bus`). This plan keeps the original wording.
+
 # Tallinn Transit Tracker — Build Plan
 
 Oct 22, 2026 · @Andri meister

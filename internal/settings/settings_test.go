@@ -12,7 +12,7 @@ import (
 
 func defaults() Settings {
 	return Settings{
-		InstanceName: "Tram", SignupMode: "invite", PublicMap: true, DefaultTheme: "system",
+		InstanceName: "Bus", SignupMode: "invite", PublicMap: true, DefaultTheme: "system",
 		MapStyleLight: "https://tiles.openfreemap.org/styles/positron", MapStyleDark: "https://tiles.openfreemap.org/styles/dark",
 		MapCenter: [2]float64{24.7536, 59.437}, MapZoom: 13,
 		GPSURL: "https://transport.tallinn.ee/gps.txt", GPSIntervalS: 5, ElronURL: "https://elron.ee/map_data.json", ElronIntervalS: 10,
@@ -78,10 +78,10 @@ func TestUpdateValidateAndReset(t *testing.T) {
 		t.Fatalf("reload: %+v %v", s2.Get(), err)
 	}
 	got, err = s2.Update(ctx, map[string]json.RawMessage{"instance_name": json.RawMessage("null")})
-	if err != nil || got.InstanceName != "Tram" || got.PublicMap {
+	if err != nil || got.InstanceName != "Bus" || got.PublicMap {
 		t.Fatalf("reset: %+v %v", got, err)
 	}
-	if p := got.Public(); p.InstanceName != "Tram" || p.MapZoom != 13 {
+	if p := got.Public(); p.InstanceName != "Bus" || p.MapZoom != 13 {
 		t.Errorf("public = %+v", p)
 	}
 }

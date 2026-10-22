@@ -15,7 +15,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/settings"
 )
 
-const sessionCookie = "tram_session"
+const sessionCookie = "bus_session"
 
 type ctxKey int
 
@@ -47,7 +47,7 @@ func (s *Server) trusted(addr netip.Addr) bool {
 }
 
 // clientMeta resolves the client IP and scheme. X-Forwarded-* headers are only
-// believed from TRAM_TRUSTED_PROXIES (e.g. Nginx Proxy Manager's network).
+// believed from BUS_TRUSTED_PROXIES (e.g. Nginx Proxy Manager's network).
 func (s *Server) clientMeta(r *http.Request) *requestMeta {
 	m := &requestMeta{HTTPS: r.TLS != nil}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -138,7 +138,7 @@ func (s *Server) csrfGuard(next http.Handler) http.Handler {
 
 func (s *Server) settingsNow() settings.Settings {
 	if s.settings == nil {
-		return settings.Settings{PublicMap: true, SignupMode: "off", InstanceName: "Tram"}
+		return settings.Settings{PublicMap: true, SignupMode: "off", InstanceName: "Bus"}
 	}
 	return s.settings.Get()
 }

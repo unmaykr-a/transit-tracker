@@ -31,21 +31,21 @@ func (s *Server) initMetrics() {
 	m := &serverMetrics{reg: metrics.NewRegistry()}
 	s.metrics = m
 	r := m.reg
-	r.GaugeFunc("tram_build_info", "Version and commit of the running build.", func() []metrics.Sample {
+	r.GaugeFunc("bus_build_info", "Version and commit of the running build.", func() []metrics.Sample {
 		return []metrics.Sample{{Labels: []string{"version", buildinfo.Version, "commit", buildinfo.Commit, "goversion", runtime.Version()}, Value: 1}}
 	})
-	r.GaugeFunc("tram_start_time_seconds", "Unix time the server started.", func() []metrics.Sample {
+	r.GaugeFunc("bus_start_time_seconds", "Unix time the server started.", func() []metrics.Sample {
 		return []metrics.Sample{{Value: float64(s.started.Unix())}}
 	})
-	m.requests = r.Counter("tram_http_requests_total", "HTTP requests by route pattern, method and status code.", "route", "method", "code")
-	m.duration = r.Histogram("tram_http_request_duration_seconds", "HTTP request duration by route pattern (streams excluded).", metrics.DefBuckets, "route")
-	r.GaugeFunc("tram_live_clients", "Connected live map clients.", func() []metrics.Sample {
+	m.requests = r.Counter("bus_http_requests_total", "HTTP requests by route pattern, method and status code.", "route", "method", "code")
+	m.duration = r.Histogram("bus_http_request_duration_seconds", "HTTP request duration by route pattern (streams excluded).", metrics.DefBuckets, "route")
+	r.GaugeFunc("bus_live_clients", "Connected live map clients.", func() []metrics.Sample {
 		return []metrics.Sample{
 			{Labels: []string{"transport", "websocket"}, Value: float64(m.wsClients.Load())},
 			{Labels: []string{"transport", "sse"}, Value: float64(m.sseClients.Load())},
 		}
 	})
-	r.GaugeFunc("tram_vehicles", "Live vehicles by mode, and how many are matched to a route pattern.", func() []metrics.Sample {
+	r.GaugeFunc("bus_vehicles", "Live vehicles by mode, and how many are matched to a route pattern.", func() []metrics.Sample {
 		_, vs := s.store.Snapshot()
 		total, matched := map[string]int{}, map[string]int{}
 		for _, v := range vs {
@@ -71,24 +71,24 @@ func (s *Server) initMetrics() {
 			return out
 		}
 	}
-	r.CounterFunc("tram_feed_polls_total", "Upstream polls per feed.", feeds(func(_ string, polls, _, _ int64, _ int, _ bool, _ time.Time) float64 { return float64(polls) }))
-	r.CounterFunc("tram_feed_errors_total", "Failed upstream polls per feed.", feeds(func(_ string, _, errs, _ int64, _ int, _ bool, _ time.Time) float64 { return float64(errs) }))
-	r.GaugeFunc("tram_feed_latency_seconds", "Latency of the last successful poll.", feeds(func(_ string, _, _, ms int64, _ int, _ bool, _ time.Time) float64 { return float64(ms) / 1000 }))
-	r.GaugeFunc("tram_feed_items", "Items in the feed's latest snapshot.", feeds(func(_ string, _, _, _ int64, n int, _ bool, _ time.Time) float64 { return float64(n) }))
-	r.GaugeFunc("tram_feed_stale", "1 while the feed has had no fresh data for 60 s.", feeds(func(_ string, _, _, _ int64, _ int, stale bool, _ time.Time) float64 {
+	r.CounterFunc("bus_feed_polls_total", "Upstream polls per feed.", feeds(func(_ string, polls, _, _ int64, _ int, _ bool, _ time.Time) float64 { return float64(polls) }))
+	r.CounterFunc("bus_feed_errors_total", "Failed upstream polls per feed.", feeds(func(_ string, _, errs, _ int64, _ int, _ bool, _ time.Time) float64 { return float64(errs) }))
+	r.GaugeFunc("bus_feed_latency_seconds", "Latency of the last successful poll.", feeds(func(_ string, _, _, ms int64, _ int, _ bool, _ time.Time) float64 { return float64(ms) / 1000 }))
+	r.GaugeFunc("bus_feed_items", "Items in the feed's latest snapshot.", feeds(func(_ string, _, _, _ int64, n int, _ bool, _ time.Time) float64 { return float64(n) }))
+	r.GaugeFunc("bus_feed_stale", "1 while the feed has had no fresh data for 60 s.", feeds(func(_ string, _, _, _ int64, _ int, stale bool, _ time.Time) float64 {
 		if stale {
 			return 1
 		}
 		return 0
 	}))
-	r.GaugeFunc("tram_feed_last_success_timestamp_seconds", "Unix time of the last successful poll (0 = never).", feeds(func(_ string, _, _, _ int64, _ int, _ bool, at time.Time) float64 {
+	r.GaugeFunc("bus_feed_last_success_timestamp_seconds", "Unix time of the last successful poll (0 = never).", feeds(func(_ string, _, _, _ int64, _ int, _ bool, at time.Time) float64 {
 		if at.IsZero() {
 			return 0
 		}
 		return float64(at.Unix())
 	}))
 	if s.db != nil {
-		r.GaugeFunc("tram_users", "Registered users.", func() []metrics.Sample {
+		r.GaugeFunc("bus_users", "Registered users.", func() []metrics.Sample {
 			n, err := s.db.Q.CountUsers(context.Background())
 			if err != nil {
 				return nil
@@ -130,7 +130,7 @@ func (s *Server) observeRequest(r *http.Request, status int, d time.Duration) {
 	}
 }
 
-// handleMetrics serves the Prometheus exposition, guarded by TRAM_METRICS.
+// handleMetrics serves the Prometheus exposition, guarded by BUS_METRICS.
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if !s.metricsAllowed(r) {
 		writeError(w, http.StatusForbidden, "metrics are not available from here", "")

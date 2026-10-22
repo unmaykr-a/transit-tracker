@@ -15,7 +15,7 @@ test("API token: create in settings, read /ha/lines with it, revoke as admin", a
   await section.getByLabel("Name").fill(name);
   await section.getByRole("button", { name: "Create token" }).click();
   const field = section.getByLabel("New API token");
-  await expect(field).toHaveValue(/^tram_/);
+  await expect(field).toHaveValue(/^bus_/);
   const token = await field.inputValue();
   await expect(section.getByRole("list", { name: "API tokens" }).getByText(name)).toBeVisible();
 

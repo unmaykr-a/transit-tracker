@@ -1,4 +1,4 @@
-# Tram — notes for Claude Code
+# Bus — notes for Claude Code
 
 Self-hosted Tallinn transit tracker. **`docs/PLAN.md` is the spec and source of truth**; `docs/feeds.md`
 records the upstream formats as actually observed (it wins over PLAN.md where they disagree).
@@ -7,13 +7,13 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 
 ## Layout
 
-- `cmd/tram` — entrypoint: `tram` (serve), `tram healthcheck`, `tram version`, `tram eta-check` (ETA accuracy vs
+- `cmd/bus` — entrypoint: `bus` (serve), `bus healthcheck`, `bus version`, `bus eta-check` (ETA accuracy vs
   SIRI; `-record file` saves the GPS/SIRI input, `-replay file` re-evaluates it offline — use replay to compare
   model changes on identical data).
 - `internal/api` — chi router, `/healthz`, `/api/v1/*`, SPA serving of the embedded web build (`dist/`).
-- `internal/config` — `TRAM_*` env config. `internal/buildinfo` — version vars set via ldflags.
+- `internal/config` — `BUS_*` env config. `internal/buildinfo` — version vars set via ldflags.
 - `internal/feeds` — pure parsers for upstream feeds, the polite conditional-GET `Fetcher`, and
-  `FakeTransport` (TRAM_FAKE_FEEDS=1 replays fixtures with moving vehicles). Fixtures in `testdata/`.
+  `FakeTransport` (BUS_FAKE_FEEDS=1 replays fixtures with moving vehicles). Fixtures in `testdata/`.
 - `internal/ingest` — one polling loop per feed with backoff + jitter; `Health` tracks last success/error,
   latency, count, and marks a feed stale after 60 s without fresh data. GPS/Elron pollers live here.
 - `internal/state` — in-memory live vehicle store (last 5 fixes per vehicle → speed/bearing), versioned,
@@ -27,12 +27,12 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `Build` output changes for the same input.
 - `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail and city
   platforms without live rows; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
-- `internal/auth` — argon2id passwords, cookie sessions (`tram_session`, HttpOnly, SameSite=Lax, Secure behind
+- `internal/auth` — argon2id passwords, cookie sessions (`bus_session`, HttpOnly, SameSite=Lax, Secure behind
   HTTPS; 30-day sliding expiry; only the token's sha256 is stored), invites, login rate limit (5 per 15 min per IP
   and per username), last-admin guard. `internal/settings` — admin-editable settings (one JSON row per key over env
   defaults; `null` resets). Pollers, fetcher User-Agent and upstream URLs read settings through getter funcs
   (`func() string` / `feeds.Const`) so edits apply without a restart.
-- API middleware order: `withSession` (client IP/scheme from `TRAM_TRUSTED_PROXIES` only) → `csrfGuard` (unsafe
+- API middleware order: `withSession` (client IP/scheme from `BUS_TRUSTED_PROXIES` only) → `csrfGuard` (unsafe
   methods: same-origin `Origin`, and `X-CSRF-Token` = session CSRF when logged in) → `publicGate` (map/search/stops
   need login when `public_map` is off) / `requireUser` / `requireAdmin`. Audit every admin action via `s.audit`.
 - Account API: `GET /session` (bootstrap: public settings, setup_required, user, csrf), `/auth/{setup,login,logout,
@@ -67,20 +67,20 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `src/lib/liveClient.ts` is the single shared WS/SSE connection; `src/map/VehicleMap.tsx` animates markers
   outside React (tweens in `src/lib/tween.ts`). Builds to `web/dist`, copied into `internal/api/dist`
   (gitignored except `.gitkeep`) and embedded via `go:embed`.
-- API tokens (`api_tokens`, `internal/auth/tokens.go`): `Authorization: Bearer tram_…`, only the sha256 stored.
+- API tokens (`api_tokens`, `internal/auth/tokens.go`): `Authorization: Bearer bus_…`, only the sha256 stored.
   Token requests are **read-only** (unsafe methods → 403), never admin, and cannot see/manage tokens or sessions
   (`requireSession`). `/me/tokens` (session only), `/admin/tokens`. `GET /api/v1/ha/lines?origin=lat,lon&departures=1..5`
   is the Home Assistant feed: every saved line flattened, `next` = first departure still catchable from the origin.
-- `ha/` — Home Assistant: `custom_components/tram` (config flow URL+token validated via `/me`, reauth on 401/403,
+- `ha/` — Home Assistant: `custom_components/bus` (config flow URL+token validated via `/me`, reauth on 401/403,
   options: lines/interval/origin entity, one coordinator request per interval, one device per line with
-  `sensor.tram_<label>_next|_leave_in` and `binary_sensor.tram_<label>_catchable`, diagnostics redact the token) with
-  pytest (`pytest-homeassistant-custom-component`, run from `ha/`); `card/` — `tram-card` (Lit + TS + Rollup, editor
+  `sensor.bus_<label>_next|_leave_in` and `binary_sensor.bus_<label>_catchable`, diagnostics redact the token) with
+  pytest (`pytest-homeassistant-custom-component`, run from `ha/`); `card/` — `bus-card` (Lit + TS + Rollup, editor
   built on `<ha-form>`; `src/model.ts` mirrors the verdict table — keep it identical to `dashboard.Judge`).
-  Releases attach `tram.zip` and `tram-card.js` (`hacs.json` uses `zip_release`).
+  Releases attach `bus.zip` and `bus-card.js` (`hacs.json` uses `zip_release`).
 - Metrics: `internal/metrics` (tiny Prometheus text-format registry, no client library); `internal/api/metrics.go`
   registers families — counters/histograms on the request path, everything else collected at scrape time. Request
-  metrics are labelled by chi route pattern, never raw paths. `/metrics` access: `TRAM_METRICS` (private | public |
-  off) or `TRAM_METRICS_TOKEN`.
+  metrics are labelled by chi route pattern, never raw paths. `/metrics` access: `BUS_METRICS` (private | public |
+  off) or `BUS_METRICS_TOKEN`.
 - Accessibility: `web/e2e/a11y.spec.ts` runs axe (WCAG 2.1 AA) on every page in light and dark plus a keyboard-only
   flow; new pages go into its lists. Text on mode colours must keep ≥ 4.5:1 contrast with white.
 - `deploy/` — production compose + `.env.example` + `grafana-dashboard.json`. Root `compose.yaml` is the local dev build.
@@ -89,19 +89,19 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 
 ```sh
 make web          # npm ci + vite build, copy into internal/api/dist
-make build        # static binary → bin/tram (CGO_ENABLED=0)
+make build        # static binary → bin/bus (CGO_ENABLED=0)
 make test         # go test -race ./... and vitest
 make lint         # gofmt, go vet, eslint, tsc
-make run          # go run ./cmd/tram  (UI: cd web && npm run dev → proxies /api, /ws to :8080)
-TRAM_FAKE_FEEDS=1 make run       # offline / night-time development with replayed fixtures
-cd web && npm run e2e            # Playwright vs ../bin/tram with fake feeds, a fresh temp DB and a seeded
+make run          # go run ./cmd/bus  (UI: cd web && npm run dev → proxies /api, /ws to :8080)
+BUS_FAKE_FEEDS=1 make run       # offline / night-time development with replayed fixtures
+cd web && npm run e2e            # Playwright vs ../bin/bus with fake feeds, a fresh temp DB and a seeded
                                  # admin (see playwright.config.ts). Run `make web build` first; set
                                  # PW_CHROMIUM_PATH to use a preinstalled Chromium
 docker compose up --build        # local image on http://localhost:8095
 make docker       # buildx linux/amd64 + linux/arm64
 sqlc generate     # after editing internal/store/queries or migrations
 cd ha && python -m pytest        # HA integration (venv with requirements_test.txt; ruff check/format too)
-cd ha/card && npm test && npm run build   # Lovelace card → ha/card/dist/tram-card.js
+cd ha/card && npm test && npm run build   # Lovelace card → ha/card/dist/bus-card.js
 ```
 
 Go toolchain is pinned by `go.mod` (`go 1.27`); older local Go auto-downloads it (GOTOOLCHAIN=auto).

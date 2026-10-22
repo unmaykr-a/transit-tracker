@@ -1,4 +1,4 @@
-"""Minimal client for the Tram server's read-only API."""
+"""Minimal client for the Bus server's read-only API."""
 
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from .const import DEPARTURES
 TIMEOUT = aiohttp.ClientTimeout(total=15)
 
 
-class TramError(Exception):
+class BusError(Exception):
     """The server could not be reached or answered unexpectedly."""
 
 
-class TramAuthError(TramError):
+class BusAuthError(BusError):
     """The API token was rejected (revoked, or the user is disabled)."""
 
 
-class TramClient:
+class BusClient:
     """Talks to /api/v1 with a personal API token."""
 
     def __init__(self, session: aiohttp.ClientSession, base_url: str, token: str, verify_ssl: bool = True) -> None:
@@ -39,12 +39,12 @@ class TramClient:
                 ssl=self._ssl,
             ) as res:
                 if res.status in (401, 403):
-                    raise TramAuthError(f"token rejected ({res.status})")
+                    raise BusAuthError(f"token rejected ({res.status})")
                 if res.status != 200:
-                    raise TramError(f"{path} answered {res.status}")
+                    raise BusError(f"{path} answered {res.status}")
                 return await res.json()
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
-            raise TramError(str(err) or type(err).__name__) from err
+            raise BusError(str(err) or type(err).__name__) from err
 
     async def me(self) -> dict[str, Any]:
         """The token's user; used to validate the config."""
@@ -59,7 +59,7 @@ class TramClient:
 
 
 def normalize_url(url: str) -> str:
-    """https://tram.example.com/ → https://tram.example.com; adds https:// when missing."""
+    """https://bus.example.com/ → https://bus.example.com; adds https:// when missing."""
     url = url.strip().rstrip("/")
     if "://" not in url:
         url = "https://" + url

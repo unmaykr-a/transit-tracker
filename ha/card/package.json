@@ -1,8 +1,8 @@
 {
-  "name": "tram-card",
+  "name": "bus-card",
   "private": true,
   "version": "0.6.0",
-  "description": "Lovelace card for the Tram Home Assistant integration",
+  "description": "Lovelace card for the Bus Home Assistant integration",
   "type": "module",
   "scripts": {
     "build": "rollup -c",

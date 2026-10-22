@@ -377,7 +377,7 @@ func fileSize(p string) int64 {
 }
 
 func (s *Server) handleAdminAbout(w http.ResponseWriter, r *http.Request) {
-	dbPath := filepath.Join(s.dataDir, "tram.db")
+	dbPath := filepath.Join(s.dataDir, "bus.db")
 	users, _ := s.db.Q.CountUsers(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version": buildinfo.Version, "commit": buildinfo.Commit, "go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH,
@@ -402,7 +402,7 @@ func (s *Server) handleAdminBackup(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 	s.audit(r.Context(), r, "backup.download", "", "")
 	w.Header().Set("Content-Type", "application/vnd.sqlite3")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="tram-%s.db"`, time.Now().Format("20060102-150405")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="bus-%s.db"`, time.Now().Format("20060102-150405")))
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = io.Copy(w, f)
 }

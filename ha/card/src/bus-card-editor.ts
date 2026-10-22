@@ -1,20 +1,20 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 
 import { translator } from "./i18n";
-import type { HomeAssistant, TramCardConfig } from "./types";
+import type { HomeAssistant, BusCardConfig } from "./types";
 
 /**
  * Visual editor. Uses Home Assistant's own <ha-form>, so the line picker is an
- * entity selector limited to the Tram integration's "next" sensors: users pick
+ * entity selector limited to the Bus integration's "next" sensors: users pick
  * saved lines from a list instead of typing entity ids.
  */
-export class TramCardEditor extends LitElement {
+export class BusCardEditor extends LitElement {
   static properties = { hass: { attribute: false }, _config: { state: true } };
 
   hass?: HomeAssistant;
-  private _config?: TramCardConfig;
+  private _config?: BusCardConfig;
 
-  setConfig(config: TramCardConfig): void {
+  setConfig(config: BusCardConfig): void {
     this._config = config;
   }
 
@@ -25,7 +25,7 @@ export class TramCardEditor extends LitElement {
         name: "entities",
         label: t("pickEntities"),
         required: true,
-        selector: { entity: { multiple: true, filter: { integration: "tram", domain: "sensor", device_class: "timestamp" } } },
+        selector: { entity: { multiple: true, filter: { integration: "bus", domain: "sensor", device_class: "timestamp" } } },
       },
       { name: "title", label: t("title"), selector: { text: {} } },
       { name: "departures", label: t("departures"), selector: { number: { min: 1, max: 5, mode: "slider" } } },
@@ -66,7 +66,7 @@ export class TramCardEditor extends LitElement {
     ></ha-form>`;
   }
 
-  private changed(ev: CustomEvent<{ value: TramCardConfig }>): void {
+  private changed(ev: CustomEvent<{ value: BusCardConfig }>): void {
     ev.stopPropagation();
     const config = { ...ev.detail.value };
     if (!config.title) delete config.title;
@@ -75,4 +75,4 @@ export class TramCardEditor extends LitElement {
   }
 }
 
-if (!customElements.get("tram-card-editor")) customElements.define("tram-card-editor", TramCardEditor);
+if (!customElements.get("bus-card-editor")) customElements.define("bus-card-editor", BusCardEditor);

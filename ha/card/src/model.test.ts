@@ -49,7 +49,7 @@ describe("view", () => {
     platform: "A",
     walk_min: 5,
     next_departures: [dep(3, -2), dep(9, 4), dep(17, 12), dep(25, 20)],
-    url: "https://tram.example.com/lines/tram/T4",
+    url: "https://bus.example.com/lines/tram/T4",
   };
 
   it("skips departures that can no longer be caught", () => {

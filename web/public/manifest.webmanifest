@@ -1,6 +1,6 @@
 {
-  "name": "Tram — Tallinn transit",
-  "short_name": "Tram",
+  "name": "Bus — Tallinn transit",
+  "short_name": "Bus",
   "description": "Live Tallinn buses, trams, trolleybuses and Elron trains, and whether you can make your next departure.",
   "start_url": "/",
   "scope": "/",

@@ -34,7 +34,7 @@ func TestAPITokensAndHALines(t *testing.T) {
 	}
 	token := out["token"].(string)
 	info := out["info"].(map[string]any)
-	if !strings.HasPrefix(token, "tram_") || !strings.HasPrefix(token, info["prefix"].(string)) || info["last_used_at"] != nil {
+	if !strings.HasPrefix(token, "bus_") || !strings.HasPrefix(token, info["prefix"].(string)) || info["last_used_at"] != nil {
 		t.Errorf("token %q info %v", token, info)
 	}
 
@@ -79,7 +79,7 @@ func TestAPITokensAndHALines(t *testing.T) {
 			t.Errorf("%s %s with token = %d, want 403", tc.method, tc.path, code)
 		}
 	}
-	if code, _ := ha.do("GET", "/api/v1/me", nil, "Authorization", "Bearer tram_nope"); code != 401 {
+	if code, _ := ha.do("GET", "/api/v1/me", nil, "Authorization", "Bearer bus_nope"); code != 401 {
 		t.Errorf("bad token = %d", code)
 	}
 

@@ -38,8 +38,8 @@ func TestPasswordHashing(t *testing.T) {
 }
 
 func TestTokens(t *testing.T) {
-	a, b := NewToken("tram_"), NewToken("tram_")
-	if a == b || !strings.HasPrefix(a, "tram_") || len(a) < 40 {
+	a, b := NewToken("bus_"), NewToken("bus_")
+	if a == b || !strings.HasPrefix(a, "bus_") || len(a) < 40 {
 		t.Fatalf("tokens %q %q", a, b)
 	}
 	if HashToken(a) == HashToken(b) || len(HashToken(a)) != 64 {

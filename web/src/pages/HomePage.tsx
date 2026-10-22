@@ -15,7 +15,7 @@ import { useNow } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
 
 type OriginChoice = "gps" | number;
-const ORIGIN_KEY = "tram.origin";
+const ORIGIN_KEY = "bus.origin";
 
 /** GPS positions are rounded to ~100 m in the query key so jitter does not refetch. */
 const coarse = (v: number) => Math.round(v * 1000) / 1000;

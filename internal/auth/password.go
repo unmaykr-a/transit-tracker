@@ -69,7 +69,7 @@ func VerifyPassword(encoded, password string) (bool, error) {
 // logins take the same time either way.
 var dummyHash, _ = HashPassword("not a real password")
 
-// NewToken returns a random URL-safe token with an optional prefix ("tram_" for API tokens).
+// NewToken returns a random URL-safe token with an optional prefix ("bus_" for API tokens).
 func NewToken(prefix string) string {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

@@ -2,19 +2,19 @@ import { css, html, LitElement, nothing, type PropertyValues, type TemplateResul
 
 import { translator, type Key } from "./i18n";
 import { MODE_COLORS, view, type Level, type NextAttributes } from "./model";
-import type { HassEntity, HomeAssistant, TramCardConfig } from "./types";
-import "./tram-card-editor";
+import type { HassEntity, HomeAssistant, BusCardConfig } from "./types";
+import "./bus-card-editor";
 
 const VERSION = "0.6.0";
 
 const DEFAULTS = { departures: 3, show_walk: true, show_verdict: true, layout: "full" as const };
 
-/** Entities created by the Tram integration for a line's next departure. */
-export function isTramNext(e: HassEntity | undefined): boolean {
+/** Entities created by the Bus integration for a line's next departure. */
+export function isBusNext(e: HassEntity | undefined): boolean {
   return Boolean(e && e.entity_id.startsWith("sensor.") && e.entity_id.endsWith("_next") && Array.isArray(e.attributes.next_departures));
 }
 
-export class TramCard extends LitElement {
+export class BusCard extends LitElement {
   static properties = {
     hass: { attribute: false },
     _config: { state: true },
@@ -22,22 +22,22 @@ export class TramCard extends LitElement {
   };
 
   hass?: HomeAssistant;
-  private _config?: TramCardConfig;
+  private _config?: BusCardConfig;
   private _now = new Date();
   private _timer?: ReturnType<typeof setInterval>;
 
   static getConfigElement(): HTMLElement {
-    return document.createElement("tram-card-editor");
+    return document.createElement("bus-card-editor");
   }
 
-  static getStubConfig(hass: HomeAssistant): Partial<TramCardConfig> {
-    const first = Object.values(hass.states).find(isTramNext);
+  static getStubConfig(hass: HomeAssistant): Partial<BusCardConfig> {
+    const first = Object.values(hass.states).find(isBusNext);
     return { entities: first ? [first.entity_id] : [], departures: DEFAULTS.departures, show_walk: true, show_verdict: true };
   }
 
-  setConfig(config: TramCardConfig): void {
+  setConfig(config: BusCardConfig): void {
     if (!config || !Array.isArray(config.entities) || config.entities.length === 0) {
-      throw new Error("tram-card: set `entities` to one or more sensor.tram_*_next entities");
+      throw new Error("bus-card: set `entities` to one or more sensor.bus_*_next entities");
     }
     const departures = Math.min(5, Math.max(1, Math.round(config.departures ?? DEFAULTS.departures)));
     this._config = { ...DEFAULTS, ...config, departures };
@@ -251,7 +251,7 @@ export class TramCard extends LitElement {
   `;
 }
 
-if (!customElements.get("tram-card")) customElements.define("tram-card", TramCard);
+if (!customElements.get("bus-card")) customElements.define("bus-card", BusCard);
 
 declare global {
   interface Window {
@@ -260,14 +260,14 @@ declare global {
 }
 
 window.customCards = window.customCards || [];
-if (!window.customCards.some((c) => c.type === "tram-card")) {
+if (!window.customCards.some((c) => c.type === "bus-card")) {
   window.customCards.push({
-    type: "tram-card",
-    name: "Tram",
+    type: "bus-card",
+    name: "Bus",
     description: "Next departures of your saved Tallinn lines, with walking time and the can-I-make-it verdict.",
     preview: true,
     documentationURL: "https://github.com/unmaykr-a/transit-tracker/tree/main/ha",
   });
 }
 
-console.info(`%c TRAM-CARD %c ${VERSION} `, "color:#fff;background:#d02f2a;font-weight:600", "color:#d02f2a");
+console.info(`%c BUS-CARD %c ${VERSION} `, "color:#fff;background:#d02f2a;font-weight:600", "color:#d02f2a");

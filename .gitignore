@@ -8,3 +8,6 @@ internal/api/dist/*
 *.tsbuildinfo
 playwright-report/
 test-results/
+*.db
+*.db-shm
+*.db-wal

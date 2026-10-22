@@ -2,20 +2,20 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Tram",
-        "description": "Create an API token in the Tram web app under Settings → API tokens.",
+        "title": "Connect to Bus",
+        "description": "Create an API token in the Bus web app under Settings → API tokens.",
         "data": {
           "url": "Server URL",
           "token": "API token",
           "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
-          "url": "For example https://tram.example.com",
-          "token": "Starts with tram_"
+          "url": "For example https://bus.example.com",
+          "token": "Starts with bus_"
         }
       },
       "reauth_confirm": {
-        "title": "Tram token rejected",
+        "title": "Bus token rejected",
         "description": "The API token for {url} no longer works. Create a new one under Settings → API tokens.",
         "data": {
           "token": "API token"
@@ -25,7 +25,7 @@
     "error": {
       "cannot_connect": "Cannot reach the server",
       "invalid_auth": "The token was rejected",
-      "not_tram": "This does not look like a Tram server"
+      "not_bus": "This does not look like a Bus server"
     },
     "abort": {
       "already_configured": "This account on this server is already set up",
@@ -36,7 +36,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Tram options",
+        "title": "Bus options",
         "data": {
           "lines": "Saved lines",
           "scan_interval": "Update interval",

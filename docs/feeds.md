@@ -2,7 +2,7 @@
 
 Verified live on 2026-10-22 between 09:20 and 09:25 Europe/Tallinn (Thursday morning peak).
 All feeds answered without keys. Real samples live in `internal/feeds/testdata/`.
-Requests used `User-Agent: Tram/0.1 (+https://github.com/unmaykr-a/transit-tracker)`.
+Requests used `User-Agent: Bus/0.1 (+https://github.com/unmaykr-a/transit-tracker)`.
 
 Status legend: **OK** = matches PLAN.md, **DIFF** = differs from PLAN.md (see "Differences from the plan").
 
@@ -169,7 +169,7 @@ match on route + scheduled start time instead.
 
 - `gps.txt` has no per-vehicle timestamps; a fix is dated by the file's `Last-Modified` (the file changes about
   every 10 s). SIRI's header clock matched ours to the second on 2026-10-22, so there is no clock offset to correct.
-- `tram eta-check -record` captured 25 minutes of the Thursday-morning peak (30 busiest city platforms, one SIRI
+- `bus eta-check -record` captured 25 minutes of the Thursday-morning peak (30 busiest city platforms, one SIRI
   sample per minute; ~3 700 SIRI live times paired with our predictions). `-replay` re-runs the model on it and
   also grades both our predictions and SIRI's against **arrivals observed in the GPS feed** (the moment the
   predicted vehicle reaches the stop), which is closer to ground truth than SIRI.

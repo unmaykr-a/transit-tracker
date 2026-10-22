@@ -21,7 +21,7 @@ func newTestServer(t *testing.T, web fstest.MapFS) *httptest.Server {
 }
 
 var builtWeb = fstest.MapFS{
-	"index.html":           {Data: []byte("<!doctype html><title>Tram</title>")},
+	"index.html":           {Data: []byte("<!doctype html><title>Bus</title>")},
 	"assets/app-abc.js":    {Data: []byte("console.log(1)")},
 	"manifest.webmanifest": {Data: []byte("{}")},
 }
@@ -55,10 +55,10 @@ func TestRoutes(t *testing.T) {
 		path, wantBody, wantCache string
 		wantStatus                int
 	}{
-		{"/", "<title>Tram</title>", "no-cache", 200},
-		{"/index.html", "<title>Tram</title>", "no-cache", 200},
-		{"/map", "<title>Tram</title>", "no-cache", 200},           // SPA route
-		{"/lines/tram/T4", "<title>Tram</title>", "no-cache", 200}, // nested SPA route
+		{"/", "<title>Bus</title>", "no-cache", 200},
+		{"/index.html", "<title>Bus</title>", "no-cache", 200},
+		{"/map", "<title>Bus</title>", "no-cache", 200},           // SPA route
+		{"/lines/tram/T4", "<title>Bus</title>", "no-cache", 200}, // nested SPA route
 		{"/assets/app-abc.js", "console.log(1)", "public, max-age=31536000, immutable", 200},
 		{"/manifest.webmanifest", "{}", "no-cache", 200}, // content type checked below
 		{"/assets/missing.js", "404", "", 404},
@@ -129,11 +129,11 @@ func TestMetricsEndpoint(t *testing.T) {
 		t.Fatalf("private client: %d", code)
 	}
 	for _, want := range []string{
-		`tram_build_info{version="`,
-		`tram_http_requests_total{route="/healthz",method="GET",code="200"} 1`,
-		`tram_http_request_duration_seconds_bucket{route="/healthz",le="+Inf"} 1`,
-		`tram_vehicles{mode="tram",state="all"} 0`,
-		`tram_live_clients{transport="websocket"} 0`,
+		`bus_build_info{version="`,
+		`bus_http_requests_total{route="/healthz",method="GET",code="200"} 1`,
+		`bus_http_request_duration_seconds_bucket{route="/healthz",le="+Inf"} 1`,
+		`bus_vehicles{mode="tram",state="all"} 0`,
+		`bus_live_clients{transport="websocket"} 0`,
 		"# TYPE go_goroutines gauge",
 	} {
 		if !strings.Contains(body, want) {

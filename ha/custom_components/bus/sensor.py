@@ -11,17 +11,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
-from .coordinator import TramConfigEntry
-from .entity import TramLineEntity, selected_lines
+from .coordinator import BusConfigEntry
+from .entity import BusLineEntity, selected_lines
 
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: TramConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: BusConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     coordinator = entry.runtime_data
     entities: list[SensorEntity] = []
     for lid in selected_lines(entry):
-        entities += [TramNextSensor(coordinator, lid, "next"), TramLeaveInSensor(coordinator, lid, "leave_in")]
+        entities += [BusNextSensor(coordinator, lid, "next"), BusLeaveInSensor(coordinator, lid, "leave_in")]
     async_add_entities(entities)
 
 
@@ -32,7 +32,7 @@ def _time(value: Any) -> datetime | None:
 MODE_ICONS = {"tram": "mdi:tram", "bus": "mdi:bus", "trolley": "mdi:bus-electric", "train": "mdi:train"}
 
 
-class TramNextSensor(TramLineEntity, SensorEntity):
+class BusNextSensor(BusLineEntity, SensorEntity):
     """When the next departure leaves (the next one still catchable, given an origin)."""
 
     _attr_device_class = SensorDeviceClass.TIMESTAMP
@@ -70,7 +70,7 @@ class TramNextSensor(TramLineEntity, SensorEntity):
         }
 
 
-class TramLeaveInSensor(TramLineEntity, SensorEntity):
+class BusLeaveInSensor(BusLineEntity, SensorEntity):
     """Minutes until you must leave for the next catchable departure (needs an origin)."""
 
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES

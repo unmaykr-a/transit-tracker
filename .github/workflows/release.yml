@@ -22,7 +22,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/tram
+          images: ghcr.io/${{ github.repository_owner }}/bus
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -57,11 +57,11 @@ jobs:
       - name: Package the integration
         run: |
           version="${GITHUB_REF_NAME#v}"
-          jq --arg v "$version" '.version = $v' ha/custom_components/tram/manifest.json > manifest.tmp
-          mv manifest.tmp ha/custom_components/tram/manifest.json
-          (cd ha/custom_components/tram && zip -r "$GITHUB_WORKSPACE/tram.zip" . -x '__pycache__/*')
+          jq --arg v "$version" '.version = $v' ha/custom_components/bus/manifest.json > manifest.tmp
+          mv manifest.tmp ha/custom_components/bus/manifest.json
+          (cd ha/custom_components/bus && zip -r "$GITHUB_WORKSPACE/bus.zip" . -x '__pycache__/*')
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            tram.zip
-            ha/card/dist/tram-card.js
+            bus.zip
+            ha/card/dist/bus-card.js
