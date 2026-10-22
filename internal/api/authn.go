@@ -63,7 +63,8 @@ func (s *Server) clientMeta(r *http.Request) *requestMeta {
 		m.HTTPS = true
 	}
 	// Walk X-Forwarded-For from the right, skipping our own proxies.
-	hops := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	// All header lines: a proxy may append its own line rather than extend the client's.
+	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(hops) - 1; i >= 0; i-- {
 		a, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
 		if err != nil {
@@ -81,7 +82,8 @@ func (s *Server) clientMeta(r *http.Request) *requestMeta {
 func (s *Server) withSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		m := s.clientMeta(r)
-		if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok && s.auth != nil {
+		// Only bus_ bearers are API tokens: others (BUS_METRICS_TOKEN for /metrics) are checked where they apply.
+		if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok && s.auth != nil && strings.HasPrefix(strings.TrimSpace(bearer), auth.TokenPrefix) {
 			// API tokens (Home Assistant, scripts): read-only, never admin.
 			p, err := s.auth.AuthenticateToken(r.Context(), strings.TrimSpace(bearer), m.IP)
 			if err != nil {
@@ -103,6 +105,10 @@ func (s *Server) withSession(next http.Handler) http.Handler {
 					s.log.Error("session lookup", "err", err)
 				}
 				m.Principal = p
+				if p != nil && p.Extended {
+					// Sliding expiry: the cookie would otherwise lapse 30 days after login, however active.
+					s.setSessionCookie(w, r.WithContext(context.WithValue(r.Context(), metaKey, m)), c.Value)
+				}
 			}
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), metaKey, m)))

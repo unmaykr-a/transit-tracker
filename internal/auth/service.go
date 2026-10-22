@@ -86,6 +86,9 @@ type Principal struct {
 	SessionID string // hashed session id; empty for API-token requests
 	CSRF      string
 	TokenID   int64 // API token behind the request; 0 for sessions
+	// Extended is set when this request slid the session's expiry forward, so
+	// the cookie's lifetime should be renewed to match.
+	Extended bool
 }
 
 // ViaToken reports whether the request authenticated with an API token.
@@ -177,21 +180,19 @@ func (s *Service) Signup(ctx context.Context, mode, inviteToken, username, email
 
 // Login checks credentials (rate limited per IP and per username) and starts a session.
 func (s *Service) Login(ctx context.Context, username, password, ip, userAgent string) (string, *Principal, error) {
-	keys := []string{"ip:" + ip, "user:" + strings.ToLower(strings.TrimSpace(username))}
-	if s.Limiter.Blocked(keys...) {
+	keys := limitKeys(ip, username)
+	if !s.Limiter.Reserve(keys...) { // counts this attempt as a failure until it succeeds
 		return "", nil, ErrRateLimited
 	}
 	u, err := s.Store.Q.GetUserByUsername(ctx, strings.TrimSpace(username))
 	if errors.Is(err, sql.ErrNoRows) {
 		_, _ = VerifyPassword(dummyHash, password)
-		s.Limiter.Fail(keys...)
 		return "", nil, ErrInvalidCredentials
 	} else if err != nil {
 		return "", nil, err
 	}
 	if u.PasswordHash == "" { // single sign-on account without a local password
 		_, _ = VerifyPassword(dummyHash, password)
-		s.Limiter.Fail(keys...)
 		return "", nil, ErrInvalidCredentials
 	}
 	ok, err := VerifyPassword(u.PasswordHash, password)
@@ -199,7 +200,6 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 		return "", nil, err
 	}
 	if !ok || u.Disabled != 0 {
-		s.Limiter.Fail(keys...)
 		return "", nil, ErrInvalidCredentials
 	}
 	s.Limiter.Reset(keys...)
@@ -244,12 +244,14 @@ func (s *Service) Authenticate(ctx context.Context, token, ip string) (*Principa
 	if row.Session.ExpiresAt <= now.Unix() || row.User.Disabled != 0 {
 		return nil, nil
 	}
+	extended := false
 	if now.Unix()-row.Session.LastSeenAt >= int64(touchEvery.Seconds()) {
 		if err := s.Store.Q.TouchSession(ctx, db.TouchSessionParams{LastSeenAt: now.Unix(), ExpiresAt: now.Add(s.SessionTTL).Unix(), Ip: ip, ID: row.Session.ID}); err != nil {
 			return nil, err
 		}
+		extended = true
 	}
-	return &Principal{User: row.User, SessionID: row.Session.ID, CSRF: row.Session.Csrf}, nil
+	return &Principal{User: row.User, SessionID: row.Session.ID, CSRF: row.Session.Csrf, Extended: extended}, nil
 }
 
 // Logout ends the session behind token.
