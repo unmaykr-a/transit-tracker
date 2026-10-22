@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Harju county buses (~220 lines from SEBE, GoBus, Hansabuss and others) from the national timetable: searchable,
+  on stop boards (merged with live city departures at shared platforms), line pages and My lines; timetable only.
+  `BUS_COUNTY=false` turns them off.
 - Single sign-on with any OpenID Connect provider (tested with Authentik): `BUS_OIDC_*`. Code flow with PKCE,
   accounts created on first sign-in (optional), admin role from a group claim, "Sign in with …" on the login page;
   SSO users can add a local password.

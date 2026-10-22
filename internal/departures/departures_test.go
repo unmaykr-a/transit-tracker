@@ -75,6 +75,11 @@ func newUpstream(t *testing.T) *upstream {
 				map[string]any{"scheduledDeparture": sec + 300, "realtimeDeparture": sec + 300, "realtime": false, "serviceDay": serviceDay, "headsign": "Kopli",
 					"trip": map[string]any{"route": map[string]any{"shortName": "72", "mode": "BUS"}}},
 			}}
+			if id == "estonia:1301" { // a city platform county bus 120 also calls at
+				st["stoptimesWithoutPatterns"] = append(st["stoptimesWithoutPatterns"].([]any),
+					map[string]any{"scheduledDeparture": sec + 480, "realtimeDeparture": sec + 480, "realtime": false, "serviceDay": serviceDay, "headsign": "Jüri",
+						"trip": map[string]any{"route": map[string]any{"shortName": "120", "longName": "Tallinn - Jüri", "mode": "BUS"}}})
+			}
 			stops = append(stops, st)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"stops": stops}})
@@ -151,5 +156,39 @@ func TestDropArrivals(t *testing.T) {
 	got := DropArrivals(deps, []string{"Balti jaam", "Tallinn"})
 	if len(got) != 1 || got[0].Headsign != "Kopli" {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestCountyBusesJoinCityBoards(t *testing.T) {
+	u := newUpstream(t)
+	s := testService(u)
+	city := &staticdata.Stop{ID: "1301", SiriID: "1301", Platform: "A", Modes: []feeds.Mode{feeds.ModeTram, feeds.ModeBus}}
+	ix := staticdata.NewIndex(staticdata.Dataset{
+		Stops: []staticdata.Stop{*city},
+		Routes: []staticdata.Route{
+			{ID: "tram:T4", Mode: feeds.ModeTram, ShortName: "T4", Source: "tallinn"},
+			{ID: "bus:17", Mode: feeds.ModeBus, ShortName: "17", Source: "tallinn"},
+			{ID: "bus:120", Mode: feeds.ModeBus, ShortName: "120", Source: "county"},
+		},
+		Patterns: []staticdata.Pattern{{ID: "p120", RouteID: "bus:120", StopIDs: []string{"1301", "9999"}}},
+	})
+	s.Index = func() *staticdata.Index { return ix }
+
+	deps, err := s.ForStops(context.Background(), []*staticdata.Stop{city}, 20, 2*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, d := range deps {
+		got = append(got, fmt.Sprintf("%s %s %s +%dm", d.Source, d.RouteID, d.Line, int(d.ExpectedAt.Sub(now).Minutes())))
+	}
+	// SIRI's live city rows, plus only the county route from the timetable
+	// (OTP's city rows for this platform would duplicate SIRI's).
+	want := []string{"siri bus:17 17 +2m", "siri tram:T4 T4 +7m", "otp bus:120 120 +8m"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("board:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if u.siriCalls.Load() != 1 || u.otpCalls.Load() != 1 {
+		t.Errorf("siri=%d otp=%d calls", u.siriCalls.Load(), u.otpCalls.Load())
 	}
 }

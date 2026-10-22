@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -121,6 +122,30 @@ const agencyRoutesQuery = `query($id: String!) { agency(id: $id) { routes {
   gtfsId shortName longName mode color textColor
   patterns { code directionId headsign stops { gtfsId code name lat lon } patternGeometry { points } }
 } } }`
+
+// HarjuCountyAgencyPrefix selects the Harju county bus operators in the national
+// feed (SEBE, GoBus, Hansabuss…: estonia:harjumaa_<registry code>).
+const HarjuCountyAgencyPrefix = "estonia:harjumaa"
+
+// Agencies returns the ids of agencies whose gtfsId starts with prefix, sorted.
+func (o *OTP) Agencies(ctx context.Context, prefix string) ([]string, error) {
+	var d struct {
+		Agencies []struct {
+			GtfsID string `json:"gtfsId"`
+		} `json:"agencies"`
+	}
+	if err := o.Query(ctx, `{ agencies { gtfsId } }`, nil, &d); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, a := range d.Agencies {
+		if strings.HasPrefix(a.GtfsID, prefix) {
+			out = append(out, a.GtfsID)
+		}
+	}
+	slices.Sort(out)
+	return out, nil
+}
 
 // AgencyRoutes returns every route of an agency with its patterns, stops and geometry.
 func (o *OTP) AgencyRoutes(ctx context.Context, agencyID string) ([]OTPRoute, error) {

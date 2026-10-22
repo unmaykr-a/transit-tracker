@@ -23,10 +23,13 @@ type Importer struct {
 	StopsURL     func() string // transport.tallinn.ee/data/stops.txt
 	ElronGTFSURL func() string
 	AgencyID     string
-	Store        *store.Store
-	Log          *slog.Logger
-	Location     *time.Location
-	Now          func() time.Time
+	// CountyAgencyPrefix, if set, also imports the timetable routes of every
+	// agency whose id starts with it (feeds.HarjuCountyAgencyPrefix).
+	CountyAgencyPrefix string
+	Store              *store.Store
+	Log                *slog.Logger
+	Location           *time.Location
+	Now                func() time.Time
 	// OnSwap is called after a new index is installed.
 	OnSwap func(*Index)
 
@@ -145,6 +148,14 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 		return Dataset{}, fmt.Errorf("stops: %w", err)
 	}
 	src := Sources{CityRoutes: routes, TallinnStops: stops}
+	if im.CountyAgencyPrefix != "" {
+		// County buses are optional too: keep the city importable without them.
+		if county, err := im.countyRoutes(ctx); err != nil {
+			im.Log.Warn("county routes unavailable, importing without them", "err", err)
+		} else {
+			src.CountyRoutes = county
+		}
+	}
 	if res, err := im.Fetcher.Get(ctx, im.ElronGTFSURL(), false); err != nil {
 		// Trains are optional: keep the city importable when Elron's feed is down.
 		im.Log.Warn("Elron GTFS unavailable, importing without rail", "err", err)
@@ -154,6 +165,22 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 		src.Elron = g
 	}
 	return Build(src, im.now()), nil
+}
+
+func (im *Importer) countyRoutes(ctx context.Context) ([]feeds.OTPRoute, error) {
+	agencies, err := im.OTP.Agencies(ctx, im.CountyAgencyPrefix)
+	if err != nil {
+		return nil, err
+	}
+	var all []feeds.OTPRoute
+	for _, a := range agencies { // one at a time: polite to peatus.ee
+		routes, err := im.OTP.AgencyRoutes(ctx, a)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", a, err)
+		}
+		all = append(all, routes...)
+	}
+	return all, nil
 }
 
 // needsImport reports whether the saved data is missing, old, or built by another version.

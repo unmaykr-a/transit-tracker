@@ -16,6 +16,7 @@ import (
 // Sources are the raw inputs of one import.
 type Sources struct {
 	CityRoutes   []feeds.OTPRoute    // Tallinn city routes with patterns (peatus.ee OTP)
+	CountyRoutes []feeds.OTPRoute    // Harju county bus routes (timetable only; no live positions)
 	TallinnStops []feeds.TallinnStop // names and SIRI ids (transport.tallinn.ee)
 	Elron        *feeds.GTFS         // rail routes, trips, shapes (Elron GTFS)
 }
@@ -41,6 +42,7 @@ func Build(src Sources, now time.Time) Dataset {
 		}
 	}
 	b.city(src.CityRoutes, byCode, aliases)
+	b.county(src.CountyRoutes, byCode, aliases)
 	if src.Elron != nil {
 		b.rail(src.Elron)
 	}
@@ -115,6 +117,47 @@ func (b *builder) city(routes []feeds.OTPRoute, byCode map[string]feeds.TallinnS
 					s.SiriID = s.ID
 				}
 				b.addStop(s, mode)
+				ids = append(ids, s.ID)
+			}
+			var shape [][2]float64
+			if p.Geometry != nil {
+				shape, _ = geo.DecodePolyline(p.Geometry.Points)
+			}
+			b.patterns = append(b.patterns, Pattern{
+				ID: p.Code, RouteID: route.ID, Direction: p.DirectionID, Headsign: p.Headsign,
+				StopIDs: ids, Shape: orStraight(shape, ids, b.stops), Trips: len(ids), Sort: i,
+			})
+		}
+	}
+}
+
+// county adds Harju county bus routes. They are buses in the national feed and
+// their short names never clash with city routes today; a clash would be
+// skipped rather than let a county route take over a city line's id. Stops
+// only county buses serve get no SIRI id: the city feed has no rows for them.
+func (b *builder) county(routes []feeds.OTPRoute, byCode map[string]feeds.TallinnStop, aliases map[string][]string) {
+	taken := map[string]bool{}
+	for _, r := range b.routes {
+		taken[r.ID] = true
+	}
+	for _, r := range routes {
+		id := RouteID(feeds.ModeBus, r.ShortName)
+		if r.ShortName == "" || taken[id] {
+			continue
+		}
+		taken[id] = true
+		route := Route{ID: id, Mode: feeds.ModeBus, ShortName: r.ShortName, LongName: r.LongName,
+			Color: color(r.Color), TextColor: color(r.TextColor), Source: "county"}
+		b.routes = append(b.routes, route)
+		for i, p := range r.Patterns {
+			ids := make([]string, 0, len(p.Stops))
+			for _, os := range p.Stops {
+				s := Stop{ID: otpStopID(os.GtfsID), Code: os.Code, Name: cleanName(os.Name), Lat: os.Lat, Lon: os.Lon,
+					Aliases: aliases[os.Code], Source: "county"}
+				if ts, ok := byCode[os.Code]; ok {
+					s.Name, s.Street = cleanName(ts.Name), ts.Street
+				}
+				b.addStop(s, feeds.ModeBus)
 				ids = append(ids, s.ID)
 			}
 			var shape [][2]float64

@@ -255,6 +255,9 @@ func (f FakeTransport) fakeOTP(req *http.Request) (*http.Response, error) {
 	}
 	_ = json.Unmarshal(raw, &q)
 	switch {
+	case strings.Contains(q.Query, "agencies"):
+		// No county operators in the fake feed: offline mode is city and rail only.
+		return respond(req, http.StatusOK, []byte(`{"data":{"agencies":[]}}`), time.Time{}), nil
 	case strings.Contains(q.Query, "agency("):
 		b, err := fakeFS.ReadFile("testdata/otp_agency_routes.json")
 		if err != nil {

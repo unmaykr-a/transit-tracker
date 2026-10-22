@@ -21,12 +21,14 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - `internal/store` — SQLite (modernc, pure Go) with goose migrations (`store/migrations`) and sqlc queries
   (`store/queries` → generated `store/db`, do not edit). Regenerate with `sqlc generate` (sqlc v1.31+).
 - `internal/staticdata` — nightly import (03:30 Tallinn, on start if missing/older than 20 h or built by another
-  `BuildVersion`): OTP city routes + Tallinn stops.txt (names, SIRI ids) + Elron GTFS (rail). Builds stops,
+  `BuildVersion`): OTP city routes + Tallinn stops.txt (names, SIRI ids) + Elron GTFS (rail) + Harju county bus
+  routes (`BUS_COUNTY`, every OTP agency `estonia:harjumaa*`; route source `county`, `bus:<short>` ids, county-only
+  stops have no SIRI id; timetable only, not given to the ETA tracker). Builds stops,
   stop areas (platform letters A, B…), routes (`<mode>:<short>`), patterns; saved in one transaction and served
   from an immutable in-memory `Index` (diacritic-insensitive search via `Fold`). Bump `BuildVersion` whenever
   `Build` output changes for the same input.
-- `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail and city
-  platforms without live rows; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
+- `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail, county-only and
+  city platforms without live rows; city platforms county buses also serve get SIRI rows plus the county rows from OTP; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
 - `internal/auth` — argon2id passwords, cookie sessions (`bus_session`, HttpOnly, SameSite=Lax, Secure behind
   HTTPS; 30-day sliding expiry; only the token's sha256 is stored), invites, login rate limit (5 per 15 min per IP
   and per username), last-admin guard. `internal/settings` — admin-editable settings (one JSON row per key over env

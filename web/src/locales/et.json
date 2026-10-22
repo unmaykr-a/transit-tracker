@@ -136,7 +136,8 @@
     "live_one": "{{count}} sõiduk liinil",
     "live_other": "{{count}} sõidukit liinil",
     "notFound": "Liini ei leitud.",
-    "showOnMap": "Näita kaardil"
+    "showOnMap": "Näita kaardil",
+    "county": "Harjumaa maakonnaliin · ainult sõiduplaan"
   },
   "common": {
     "loading": "Laen…",

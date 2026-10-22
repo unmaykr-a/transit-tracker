@@ -94,6 +94,9 @@ func (s *Service) ForStops(ctx context.Context, stops []*staticdata.Stop, limit 
 	type result struct {
 		deps []Departure
 		otp  *staticdata.Stop // set when this stop needs the timetable
+		// countyOnly: SIRI answered (city lines), but county buses also call
+		// here and only the timetable has them.
+		countyOnly bool
 	}
 	results := make([]result, len(stops))
 	var wg sync.WaitGroup
@@ -111,16 +114,21 @@ func (s *Service) ForStops(ctx context.Context, stops []*staticdata.Stop, limit 
 				return
 			}
 			results[i].deps = s.fromSiri(st, board, now)
+			if s.countyAt(st) {
+				results[i].otp, results[i].countyOnly = st, true
+			}
 		}()
 	}
 	wg.Wait()
 
 	var all []Departure
 	var otpStops []*staticdata.Stop
+	countyOnly := map[string]bool{}
 	for _, r := range results {
 		all = append(all, r.deps...)
 		if r.otp != nil {
 			otpStops = append(otpStops, r.otp)
+			countyOnly[r.otp.ID] = r.countyOnly
 		}
 	}
 	var otpErr error
@@ -134,7 +142,11 @@ func (s *Service) ForStops(ctx context.Context, stops []*staticdata.Stop, limit 
 			otpErr = err
 		}
 		for _, st := range otpStops {
-			all = append(all, s.fromOTP(st, times[st.OTPID()])...)
+			deps := s.fromOTP(st, times[st.OTPID()])
+			if countyOnly[st.ID] {
+				deps = slices.DeleteFunc(deps, func(d Departure) bool { return !s.isCounty(d.RouteID) })
+			}
+			all = append(all, deps...)
 		}
 	}
 	all = slices.DeleteFunc(all, func(d Departure) bool {
@@ -228,6 +240,35 @@ func (s *Service) fromOTP(st *staticdata.Stop, times []feeds.OTPStopTime) []Depa
 		})
 	}
 	return out
+}
+
+// countyAt reports whether county bus routes call at a platform.
+func (s *Service) countyAt(st *staticdata.Stop) bool {
+	if s.Index == nil {
+		return false
+	}
+	ix := s.Index()
+	if ix == nil {
+		return false
+	}
+	for _, l := range ix.Lines(st.ID) {
+		if r, ok := ix.Route(l.RouteID); ok && r.Source == "county" {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) isCounty(routeID string) bool {
+	if s.Index == nil || routeID == "" {
+		return false
+	}
+	ix := s.Index()
+	if ix == nil {
+		return false
+	}
+	r, ok := ix.Route(routeID)
+	return ok && r.Source == "county"
 }
 
 // staticTerminus takes the last place of "Tallinn - Paldiski" style names.

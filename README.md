@@ -8,6 +8,8 @@ Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
   walking time from where you are (or a saved place).
 - **Live map** — every bus, tram, trolleybus and Elron train, gliding along its route, with the next stops and ETAs.
 - **Search, stops and lines** — departure boards per platform (live SIRI times, timetable fallback), route maps.
+- **Harju county buses** — the ~220 county lines (SEBE, GoBus, Hansabuss…) from the national timetable: search,
+  stop boards, line pages and My lines. Timetable only: county buses publish no live positions.
 - **Accounts** — invites, admin area with feed health, audit log, settings, backups and API tokens.
 - **Home Assistant** — sensors per saved line and a Lovelace card ([ha/README.md](ha/README.md)).
 - **Installable** as a PWA; English and Estonian; light and dark; Prometheus metrics.
@@ -88,6 +90,7 @@ scrape_configs:
 | `BUS_OIDC_ISSUER`, `BUS_OIDC_CLIENT_ID`, `BUS_OIDC_CLIENT_SECRET` | — | Single sign-on (see above) |
 | `BUS_OIDC_ADMIN_GROUP` | — | Members of this group are admins (others are demoted) |
 | `BUS_OIDC_NAME`, `BUS_OIDC_AUTO_CREATE` | `single sign-on`, `true` | Button label; create accounts on first sign-in |
+| `BUS_COUNTY` | `true` | Import Harju county bus timetables too |
 | `BUS_FAKE_FEEDS` | `false` | Replay recorded feeds instead of polling upstream |
 | `BUS_CONTACT` | base URL or repo URL | Contact URL sent to upstream feeds |
 | `BUS_GPS_URL`, `BUS_GPS_INTERVAL` | Tallinn `gps.txt`, `5s` | City vehicle feed (minimum 2 s) |
