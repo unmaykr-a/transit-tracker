@@ -41,8 +41,10 @@ func OpenDSN(ctx context.Context, dsn string, log *slog.Logger) (*Store, error) 
 		sep = "&"
 	}
 	// WAL lets the HTTP handlers read while an import writes; busy_timeout makes
-	// concurrent writers wait instead of failing.
-	dsn += sep + "_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)"
+	// concurrent writers wait instead of failing. Transactions begin IMMEDIATE:
+	// a deferred one that reads and then writes cannot take the write lock once
+	// another writer has committed (SQLITE_BUSY_SNAPSHOT, not retried).
+	dsn += sep + "_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=synchronous(NORMAL)&_txlock=immediate"
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
