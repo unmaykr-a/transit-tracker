@@ -3,6 +3,7 @@ package eta
 import (
 	"math"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -211,13 +212,65 @@ func TestTerminusLayoverIsNotTravelTime(t *testing.T) {
 		tr.Annotate([]state.Vehicle{tramAt(g, out, last, at)})
 		at = at.Add(10 * time.Second)
 	}
-	ps := tr.paces[out.ID]
-	for _, i := range []int{0, len(ps) - 1} {
-		if pace := ps[i].secs / ps[i].metres; pace > 0.16 {
+	n := len(out.StopIDs) - 1
+	for _, i := range []int{0, n - 1} {
+		ps := tr.paces[[2]string{out.StopIDs[i], out.StopIDs[i+1]}]
+		if pace := ps.secs / ps.metres; pace > 0.16 {
 			t.Errorf("segment %d pace %.3f s/m, want ~0.125 (layover counted as travel)", i, pace)
 		}
 	}
 	if s := tr.routeSpeed[out.RouteID]; s < 7 {
 		t.Errorf("route speed %.1f m/s, want ~8 (layover counted)", s)
+	}
+}
+
+func TestDwellIsChargedAtStopsAhead(t *testing.T) {
+	ix := fixtureIndex(t)
+	g := BuildGeometry(ix)
+	tr := NewTracker()
+	tr.SetGeometry(g)
+	out := mainPattern(ix, "tram:T4", 0)
+	pg, _ := g.Pattern(out.ID)
+	at := time.Date(2026, 10, 22, 9, 0, 0, 0, time.UTC)
+	// Four trams drive at 8 m/s and stand 30 s at every intermediate stop.
+	for n := range 4 {
+		id := "tram-" + strconv.Itoa(n)
+		along, next := 10.0, 1
+		last := pg.StopAlong[len(pg.StopAlong)-1] - 20
+		for along < last {
+			v := tramAt(g, out, along, at)
+			v.ID = id
+			tr.Annotate([]state.Vehicle{v})
+			at = at.Add(10 * time.Second)
+			if next < len(pg.StopAlong)-1 && along+80 >= pg.StopAlong[next] {
+				along = pg.StopAlong[next]
+				for range 3 {
+					v := tramAt(g, out, along, at)
+					v.ID = id
+					tr.Annotate([]state.Vehicle{v})
+					at = at.Add(10 * time.Second)
+				}
+				next++
+				continue
+			}
+			along += 80
+		}
+	}
+	// A tram that has just left stop 2: no dwell before stop 3, 30 s at stop 3 before stop 4.
+	from := pg.StopAlong[2] + 40
+	v := tramAt(g, out, from, at)
+	v.ID = "tram-x"
+	vs := []state.Vehicle{v}
+	tr.Annotate(vs)
+	trip, ok := tr.Trip(vs[0], at, 3)
+	if !ok || trip.Ahead[0].Index != 3 {
+		t.Fatalf("trip = %+v", trip)
+	}
+	to3 := trip.Ahead[0].ETA.Sub(at).Seconds()
+	to4 := trip.Ahead[1].ETA.Sub(at).Seconds()
+	want3 := (pg.StopAlong[3] - from) / 8
+	want4 := want3 + 30 + (pg.StopAlong[4]-pg.StopAlong[3])/8
+	if math.Abs(to3-want3) > math.Max(5, 0.1*want3) || math.Abs(to4-want4) > math.Max(8, 0.1*want4) {
+		t.Errorf("ETA stop 3 %.0fs (want ~%.0f), stop 4 %.0fs (want ~%.0f)", to3, want3, to4, want4)
 	}
 }

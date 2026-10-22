@@ -145,6 +145,16 @@ type evaluator struct {
 	byMode, byAhead    map[string][]time.Duration
 	expected           map[string]int
 	all                []time.Duration
+	// pending pairs waiting for the vehicle to reach the stop (replay only):
+	// the arrival seen in the GPS feed grades both our prediction and SIRI's.
+	pending  []pendingArrival
+	observed map[string][]time.Duration // "ours"/"siri" by lead bucket → predicted − observed
+}
+
+type pendingArrival struct {
+	vehicle, pattern string
+	stop             int
+	made, ours, siri time.Time
 }
 
 // add compares one stop's SIRI board with our predictions at now.
@@ -184,6 +194,10 @@ func (e *evaluator) add(tracker *eta.Tracker, st *staticdata.Stop, board feeds.S
 				bucket = "5–10 min"
 			}
 			e.byAhead[bucket] = append(e.byAhead[bucket], mt.Diff)
+			if e.observed != nil {
+				p := preds[mt.Pred]
+				e.pending = append(e.pending, pendingArrival{p.VehicleID, p.PatternID, p.StopIndex, now, p.ETA, siri[mt.Siri]})
+			}
 			if p := preds[mt.Pred]; p.AtStart {
 				e.byAhead["at terminus"] = append(e.byAhead["at terminus"], mt.Diff)
 			} else {
@@ -191,6 +205,34 @@ func (e *evaluator) add(tracker *eta.Tracker, st *staticdata.Stop, board feeds.S
 			}
 		}
 	}
+}
+
+// resolve grades pending predictions whose vehicle has now passed the stop.
+func (e *evaluator) resolve(g *eta.Geometry, vs map[string]state.Vehicle) {
+	keep := e.pending[:0]
+	for _, p := range e.pending {
+		v, ok := vs[p.vehicle]
+		pg, okG := g.Pattern(p.pattern)
+		switch {
+		case !ok || !okG || v.PatternID != p.pattern || v.UpdatedAt.Sub(p.made) > 30*time.Minute:
+			// vehicle gone or switched pattern: no observation
+		case v.DistAlongM >= pg.StopAlong[p.stop]-15:
+			bucket := "≤5 min"
+			switch ahead := p.siri.Sub(p.made); {
+			case ahead > 10*time.Minute:
+				bucket = "10–20 min"
+			case ahead > 5*time.Minute:
+				bucket = "5–10 min"
+			}
+			e.observed["ours "+bucket] = append(e.observed["ours "+bucket], p.ours.Sub(v.UpdatedAt))
+			e.observed["siri "+bucket] = append(e.observed["siri "+bucket], p.siri.Sub(v.UpdatedAt))
+			e.observed["ours all"] = append(e.observed["ours all"], p.ours.Sub(v.UpdatedAt))
+			e.observed["siri all"] = append(e.observed["siri all"], p.siri.Sub(v.UpdatedAt))
+		default:
+			keep = append(keep, p)
+		}
+	}
+	e.pending = keep
 }
 
 func (e *evaluator) round(w io.Writer, n int) {
@@ -217,6 +259,14 @@ func (e *evaluator) result(w io.Writer) {
 	r := eta.Summarise(e.all)
 	r.Expected = e.expected["all"]
 	r.Print(w, "all")
+	if len(e.observed) > 0 {
+		fmt.Fprintln(w, "\nagainst arrivals observed in the GPS feed (predicted − observed)")
+		for _, b := range []string{"≤5 min", "5–10 min", "10–20 min", "all"} {
+			eta.Summarise(e.observed["ours "+b]).Print(w, "ours "+b)
+			eta.Summarise(e.observed["siri "+b]).Print(w, "siri "+b)
+		}
+		fmt.Fprintln(w)
+	}
 	if r.Within1m >= 0.8 {
 		fmt.Fprintln(w, "PASS: at least 80 % of predictions within ±1 min of SIRI")
 	} else {
@@ -281,6 +331,7 @@ func replayRecording(ctx context.Context, path string, warmup time.Duration, ix 
 	defer f.Close()
 	var cur recEvent
 	clock := time.Time{}
+	ev.observed = map[string][]time.Duration{}
 	fetcher := feeds.NewFetcher(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		h := http.Header{}
 		h.Set("Last-Modified", cur.LastModified)
@@ -306,6 +357,10 @@ func replayRecording(ctx context.Context, path string, warmup time.Duration, ix 
 		case "gps":
 			if _, err := gps.Poll(ctx); err != nil {
 				return err
+			}
+			if g := tracker.Geometry(); g != nil && len(ev.pending) > 0 {
+				_, vs := vehicles.Snapshot()
+				ev.resolve(g, vs)
 			}
 		case "siri":
 			st, ok := ix.Stop(cur.Stop)

@@ -82,9 +82,18 @@ type track struct {
 }
 
 // segPace accumulates time and distance driven on one stop-to-stop segment,
-// dwell at the end stop included. Old observations decay so the pace follows
-// traffic through the day.
+// traffic stops included but not dwell at the stops themselves. Old
+// observations decay so the pace follows traffic through the day.
 type segPace struct{ secs, metres float64 }
+
+// stopDwell accumulates time stood at a stop and the number of passes, so
+// secs/passes is the mean dwell per pass (skipped stops count as zero).
+type stopDwell struct{ secs, passes float64 }
+
+const (
+	dwellRadiusM   = 25 // standing this close to a stop is dwelling there
+	dwellMinPasses = 3  // trust a stop's dwell after this many passes
+)
 
 const (
 	paceDecay     = 0.995 // per observation on the segment
@@ -98,11 +107,14 @@ type Tracker struct {
 	tracks     map[string]*track
 	lastPos    map[string][2]float64 // previous fix per vehicle, matched or not
 	routeSpeed map[string]float64    // EWMA of observed progress rates, m/s
-	paces      map[string][]segPace  // per pattern, one per segment (stop i → i+1)
+	// Paces are shared by every pattern driving the same stop-to-stop segment
+	// (many bus lines share streets), dwell by every pattern calling at a stop.
+	paces  map[[2]string]*segPace
+	dwells map[string]*stopDwell
 }
 
 func NewTracker() *Tracker {
-	return &Tracker{tracks: map[string]*track{}, lastPos: map[string][2]float64{}, routeSpeed: map[string]float64{}, paces: map[string][]segPace{}}
+	return &Tracker{tracks: map[string]*track{}, lastPos: map[string][2]float64{}, routeSpeed: map[string]float64{}, paces: map[[2]string]*segPace{}, dwells: map[string]*stopDwell{}}
 }
 
 // segment returns i such that StopAlong[i] <= along < StopAlong[i+1].
@@ -116,31 +128,58 @@ func segment(pg *PatternGeom, along float64) int {
 	return 0
 }
 
-// observe credits dt seconds and the distance from a to b to the segments driven.
+// observe credits dt seconds and the distance from a to b: standing at a stop
+// is dwell there, any other time goes to the segments driven.
 func (t *Tracker) observe(pg *PatternGeom, a, b, dt float64) {
 	if dt <= 0 || dt > 120 || b < a || b-a > 1500 || len(pg.StopAlong) < 2 {
 		return
 	}
-	ps := t.paces[pg.Pattern.ID]
-	if ps == nil {
-		ps = make([]segPace, len(pg.StopAlong)-1)
-		t.paces[pg.Pattern.ID] = ps
+	stops := pg.Pattern.StopIDs
+	seg := func(i int) *segPace {
+		k := [2]string{stops[i], stops[i+1]}
+		p := t.paces[k]
+		if p == nil {
+			p = &segPace{}
+			t.paces[k] = p
+		}
+		return p
+	}
+	dw := func(i int) *stopDwell {
+		d := t.dwells[stops[i]]
+		if d == nil {
+			d = &stopDwell{}
+			t.dwells[stops[i]] = d
+		}
+		return d
 	}
 	add := func(i int, secs, metres float64) {
-		ps[i].secs = ps[i].secs*paceDecay + secs
-		ps[i].metres = ps[i].metres*paceDecay + metres
+		p := seg(i)
+		p.secs = p.secs*paceDecay + secs
+		p.metres = p.metres*paceDecay + metres
 	}
-	if b == a { // standing still: dwell or traffic, charged to the segment it is on
-		// Layover at either terminus is timetable slack, not travel time.
-		if !atTerminus(pg, a) {
+	nseg := len(pg.StopAlong) - 1
+	if b == a { // standing still
+		switch {
+		case atTerminus(pg, a): // layover is timetable slack, not travel time
+		case nearStop(pg, a) >= 0:
+			dw(nearStop(pg, a)).secs += dt
+		default: // traffic: part of the segment's travel time
 			add(segment(pg, a), dt, 0)
 		}
 		return
 	}
-	// Split time across segments in proportion to the distance driven in each.
-	for i := segment(pg, a); i < len(ps) && a < b; i++ {
+	// Count passes of intermediate stops, then split time across segments in
+	// proportion to the distance driven in each.
+	for i := 1; i < len(pg.StopAlong)-1; i++ {
+		if a < pg.StopAlong[i] && pg.StopAlong[i] <= b {
+			d := dw(i)
+			d.secs *= paceDecay
+			d.passes = d.passes*paceDecay + 1
+		}
+	}
+	for i := segment(pg, a); i < nseg && a < b; i++ {
 		end := min(b, pg.StopAlong[i+1])
-		if i == len(ps)-1 {
+		if i == nseg-1 {
 			end = b
 		}
 		d := end - a
@@ -149,6 +188,16 @@ func (t *Tracker) observe(pg *PatternGeom, a, b, dt float64) {
 		}
 		a = end
 	}
+}
+
+// nearStop returns the intermediate stop within dwellRadiusM of along, or -1.
+func nearStop(pg *PatternGeom, along float64) int {
+	for i := 1; i < len(pg.StopAlong)-1; i++ {
+		if d := along - pg.StopAlong[i]; d > -dwellRadiusM && d < dwellRadiusM {
+			return i
+		}
+	}
+	return -1
 }
 
 // SetGeometry installs geometry after a static import.
@@ -346,12 +395,29 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 		return Trip{}, false
 	}
 	speed := t.speedFor(v, tr, pg.Pattern.RouteID)
-	paces := t.paces[pg.Pattern.ID]
-	pace := func(seg int) float64 { // seconds per metre
-		if seg < len(paces) && paces[seg].metres >= paceMinMetres {
-			return paces[seg].secs / paces[seg].metres
+	ids := pg.Pattern.StopIDs
+	segPaceOf := func(seg int) *segPace {
+		if seg+1 >= len(ids) {
+			return nil
 		}
-		return 1 / speed
+		p := t.paces[[2]string{ids[seg], ids[seg+1]}]
+		if p == nil || p.metres < paceMinMetres {
+			return nil
+		}
+		return p
+	}
+	pace := func(seg int) float64 { // seconds per metre
+		if p := segPaceOf(seg); p != nil {
+			return p.secs / p.metres
+		}
+		return 1 / speed // the route speed already includes dwell
+	}
+	dwell := func(stop int) float64 { // seconds stood at a stop the vehicle will pass
+		d := t.dwells[ids[stop]]
+		if d != nil && d.passes >= dwellMinPasses && segPaceOf(stop) != nil {
+			return d.secs / d.passes
+		}
+		return 0
 	}
 	// Time from the fix to each stop ahead, segment by segment; then subtract
 	// the time already elapsed since the fix (never below zero).
@@ -371,6 +437,7 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 		left := max(0, secs-elapsed)
 		d := max(0, pg.StopAlong[i]-tr.along)
 		out.Ahead = append(out.Ahead, StopETA{StopID: pg.Pattern.StopIDs[i], Index: i, DistanceM: float64(int(d)), ETA: now.Add(time.Duration(left * float64(time.Second)))})
+		secs += dwell(i) // it stands at this stop before driving on
 	}
 	return out, true
 }
@@ -378,6 +445,8 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 // Prediction is one vehicle's predicted arrival at a stop.
 type Prediction struct {
 	VehicleID string
+	PatternID string
+	StopIndex int // position of the stop in the pattern
 	ETA       time.Time
 	StopsAway int     // stops between the vehicle and this one (0 = it is the next stop)
 	DistanceM float64 // along the pattern
@@ -401,7 +470,7 @@ func (t *Tracker) Predictions(vehicles map[string]state.Vehicle, routeID, stopID
 		}
 		for k, a := range trip.Ahead {
 			if a.StopID == stopID {
-				out = append(out, Prediction{VehicleID: v.ID, ETA: a.ETA, StopsAway: k, DistanceM: a.DistanceM, AtStart: trip.NextStop <= 1 && trip.Along < 30})
+				out = append(out, Prediction{VehicleID: v.ID, PatternID: trip.PatternID, StopIndex: a.Index, ETA: a.ETA, StopsAway: k, DistanceM: a.DistanceM, AtStart: trip.NextStop <= 1 && trip.Along < 30})
 				break
 			}
 		}
