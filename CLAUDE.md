@@ -79,10 +79,11 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   Token requests are **read-only** (unsafe methods → 403), never admin, and cannot see/manage tokens or sessions
   (`requireSession`). `/me/tokens` (session only), `/admin/tokens`. `GET /api/v1/ha/lines?origin=lat,lon&departures=1..5`
   is the Home Assistant feed: every saved line flattened, `next` = first departure still catchable from the origin.
-- `ha/` — Home Assistant: `custom_components/bus` (config flow URL+token validated via `/me`, reauth on 401/403,
+- Home Assistant: `custom_components/bus` lives at the repository root (HACS requires it there; CI runs `hacs/action`
+  and `hassfest`), its tests and the card under `ha/`. The integration (config flow URL+token validated via `/me`, reauth on 401/403,
   options: lines/interval/origin entity, one coordinator request per interval, one device per line with
   `sensor.bus_<label>_next|_leave_in` and `binary_sensor.bus_<label>_catchable`, diagnostics redact the token) with
-  pytest (`pytest-homeassistant-custom-component`, run from `ha/`); `card/` — `bus-card` (Lit + TS + Rollup, editor
+  pytest (`pytest-homeassistant-custom-component`, run from `ha/`, `pythonpath = [".."]`); `ha/card/` — `bus-card` (Lit + TS + Rollup, editor
   built on `<ha-form>`; `src/model.ts` mirrors the verdict table — keep it identical to `dashboard.Judge`).
   Releases attach `bus.zip` and `bus-card.js` (`hacs.json` uses `zip_release`).
 - Metrics: `internal/metrics` (tiny Prometheus text-format registry, no client library); `internal/api/metrics.go`

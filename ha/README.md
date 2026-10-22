@@ -1,9 +1,10 @@
 # Bus for Home Assistant
 
-Two pieces, both in this folder:
+Two pieces:
 
-- **`custom_components/bus`** — an integration that turns your saved lines into sensors.
-- **`card/`** — `bus-card`, a Lovelace card that shows them like the web app does.
+- **[`custom_components/bus`](../custom_components/bus)** (at the repository root, where HACS expects it) — an
+  integration that turns your saved lines into sensors.
+- **[`card/`](card)** — `bus-card`, a Lovelace card that shows them like the web app does.
 
 ## 1. Create an API token
 
@@ -15,8 +16,8 @@ they never have admin rights. Revoke a token there (or as an admin under **Admin
 
 Requires Home Assistant 2025.2 or newer.
 
-**HACS:** add this repository as a custom repository (type *Integration*), install **Bus**, restart Home
-Assistant. **Manually:** download `bus.zip` from the latest release and unpack it into
+**HACS:** **HACS → ⋮ → Custom repositories**, add `https://github.com/unmaykr-a/transit-tracker` with type
+*Integration*, then install **Bus (Tallinn transit)** and restart Home Assistant. **Manually:** download `bus.zip` from the latest release and unpack it into
 `config/custom_components/bus/`, then restart.
 
 Then **Settings → Devices & services → Add integration → Bus** and enter:
@@ -102,9 +103,10 @@ catch, and opens the line in the Bus web app when tapped.
 ## Develop
 
 ```sh
-# integration (Python 3.13)
+# integration (Python 3.13; run from ha/, tests import ../custom_components)
 python -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 .venv/bin/python -m pytest
+.venv/bin/ruff check --config pyproject.toml . ../custom_components
 
 # card
 cd card && npm ci && npm test && npm run build   # → card/dist/bus-card.js

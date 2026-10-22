@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 — 2026-10-22
+
+- HACS: the integration moved to `custom_components/bus` at the repository root, so adding
+  `https://github.com/unmaykr-a/transit-tracker` as a custom repository (type *Integration*) works. CI now runs HACS's
+  own validation and `hassfest`. No changes to the app.
+
 ## 1.1.0 — 2026-10-22
 
 Upgrading from 1.0.0: just pull the new image. The first start adds one table (`user_identities`) and re-imports the

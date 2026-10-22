@@ -99,9 +99,9 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          jq --arg v "$VERSION" '.version = $v' ha/custom_components/bus/manifest.json > manifest.tmp
-          mv manifest.tmp ha/custom_components/bus/manifest.json
-          (cd ha/custom_components/bus && zip -r "$GITHUB_WORKSPACE/bus.zip" . -x '__pycache__/*')
+          jq --arg v "$VERSION" '.version = $v' custom_components/bus/manifest.json > manifest.tmp
+          mv manifest.tmp custom_components/bus/manifest.json
+          (cd custom_components/bus && zip -r "$GITHUB_WORKSPACE/bus.zip" . -x '__pycache__/*')
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
