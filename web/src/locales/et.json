@@ -275,7 +275,8 @@
     "dbSize": "Andmebaasi suurus",
     "dataDir": "Andmekataloog",
     "backup": "Laadi varukoopia alla",
-    "backupHint": "SQLite andmebaasi järjepidev koopia (kasutajad, salvestatud liinid, seaded)."
+    "backupHint": "SQLite andmebaasi järjepidev koopia (kasutajad, salvestatud liinid, seaded).",
+    "tokens": "API-võtmed"
   },
   "verdict": {
     "leaveIn": "Mine {{min}} min pärast",
@@ -310,5 +311,20 @@
     "hereNow": "Kasuta praegust asukohta",
     "orStop": "või peatuse juures",
     "noPlaces": "Salvestatud kohti pole."
+  },
+  "tokens": {
+    "title": "API-võtmed",
+    "intro": "Home Assistanti integratsiooni ja skriptide jaoks. Võtmega saab lugeda sinu liine ja väljumisi, kuid mitte midagi muuta.",
+    "name": "Nimi",
+    "create": "Loo võti",
+    "copyNow": "Kopeeri võti kohe — seda ei näidata uuesti.",
+    "newToken": "Uus API-võti",
+    "lastUsed": "viimati kasutatud {{when}}",
+    "neverUsed": "pole kasutatud",
+    "created": "loodud {{when}}",
+    "revoke": "Tühista",
+    "revokeNamed": "Tühista {{name}}",
+    "confirmRevoke": "Tühistada kasutaja {{user}} võti {{name}}?",
+    "none": "API-võtmeid pole."
   }
 }

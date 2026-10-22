@@ -1,0 +1,12 @@
+{
+  "domain": "tram",
+  "name": "Tram (Tallinn transit)",
+  "codeowners": ["@unmaykr-a"],
+  "config_flow": true,
+  "documentation": "https://github.com/unmaykr-a/transit-tracker/tree/main/ha",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/unmaykr-a/transit-tracker/issues",
+  "requirements": [],
+  "version": "0.6.0"
+}

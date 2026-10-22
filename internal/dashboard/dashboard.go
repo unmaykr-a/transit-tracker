@@ -116,6 +116,11 @@ func (b *Builder) now() time.Time {
 
 // Build returns one entry per saved line, in order. origin may be nil (no verdicts).
 func (b *Builder) Build(ctx context.Context, lines []db.SavedLine, origin *walk.Point, prefs Prefs) []Entry {
+	return b.BuildN(ctx, lines, origin, prefs, Shown)
+}
+
+// BuildN is Build showing up to shown departures per line.
+func (b *Builder) BuildN(ctx context.Context, lines []db.SavedLine, origin *walk.Point, prefs Prefs, shown int) []Entry {
 	ix := b.Index()
 	out := make([]Entry, len(lines))
 	var wg sync.WaitGroup
@@ -123,7 +128,7 @@ func (b *Builder) Build(ctx context.Context, lines []db.SavedLine, origin *walk.
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			out[i] = b.entry(ctx, ix, sl, origin, prefs)
+			out[i] = b.entry(ctx, ix, sl, origin, prefs, shown)
 		}()
 	}
 	wg.Wait()
@@ -150,7 +155,7 @@ func pick(all []departures.Departure, routeID, headsign string) []departures.Dep
 	return other
 }
 
-func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLine, origin *walk.Point, prefs Prefs) Entry {
+func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLine, origin *walk.Point, prefs Prefs, shown int) Entry {
 	e := Entry{Line: ResolveLine(ix, sl), NextCatchable: -1, Departures: []DepartureVerdict{}}
 	board, ok := ix.Stop(sl.BoardStopID)
 	if e.Line.Unavailable || !ok {
@@ -186,10 +191,10 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 		if e.NextCatchable < 0 && v.Level != LevelRed {
 			e.NextCatchable = i
 		}
-		if i < Shown || i == e.NextCatchable {
+		if i < shown || i == e.NextCatchable {
 			e.Departures = append(e.Departures, DepartureVerdict{d, v})
 		}
-		if i >= Shown && e.NextCatchable >= 0 {
+		if i >= shown && e.NextCatchable >= 0 {
 			break
 		}
 	}

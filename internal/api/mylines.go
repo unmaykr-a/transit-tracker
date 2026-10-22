@@ -358,11 +358,15 @@ func (s *Server) origin(r *http.Request) (*walk.Point, error) {
 		}
 		return &walk.Point{Lat: p.Lat, Lon: p.Lon}, nil
 	}
-	if q.Get("lat") == "" && q.Get("lon") == "" {
+	latS, lonS := q.Get("lat"), q.Get("lon")
+	if o := q.Get("origin"); o != "" { // "lat,lon", as Home Assistant sends it
+		latS, lonS, _ = strings.Cut(o, ",")
+	}
+	if latS == "" && lonS == "" {
 		return nil, nil
 	}
-	lat, err1 := strconv.ParseFloat(q.Get("lat"), 64)
-	lon, err2 := strconv.ParseFloat(q.Get("lon"), 64)
+	lat, err1 := strconv.ParseFloat(strings.TrimSpace(latS), 64)
+	lon, err2 := strconv.ParseFloat(strings.TrimSpace(lonS), 64)
 	if err1 != nil || err2 != nil || validatePlace("x", lat, lon) != nil {
 		return nil, invalid("lat", "invalid coordinates")
 	}

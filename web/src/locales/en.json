@@ -275,7 +275,8 @@
     "dbSize": "Database size",
     "dataDir": "Data directory",
     "backup": "Download backup",
-    "backupHint": "A consistent copy of the SQLite database (users, saved lines, settings)."
+    "backupHint": "A consistent copy of the SQLite database (users, saved lines, settings).",
+    "tokens": "API tokens"
   },
   "verdict": {
     "leaveIn": "Leave in {{min}} min",
@@ -310,5 +311,20 @@
     "hereNow": "Use my current location",
     "orStop": "or near a stop",
     "noPlaces": "No saved places."
+  },
+  "tokens": {
+    "title": "API tokens",
+    "intro": "For the Home Assistant integration and scripts. Tokens can read your lines and departures but cannot change anything.",
+    "name": "Name",
+    "create": "Create token",
+    "copyNow": "Copy this token now — it will not be shown again.",
+    "newToken": "New API token",
+    "lastUsed": "last used {{when}}",
+    "neverUsed": "never used",
+    "created": "created {{when}}",
+    "revoke": "Revoke",
+    "revokeNamed": "Revoke {{name}}",
+    "confirmRevoke": "Revoke {{name}} of {{user}}?",
+    "none": "No API tokens."
   }
 }

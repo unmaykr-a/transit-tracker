@@ -270,8 +270,10 @@ func (s *Server) mountAccount(r chi.Router) {
 		r.Get("/me", s.handleMe)
 		r.Patch("/me", s.handleUpdateMe)
 		r.Post("/me/password", s.handleChangePassword)
-		r.Get("/me/sessions", s.handleMySessions)
+		r.With(s.requireSession).Get("/me/sessions", s.handleMySessions)
 		r.Delete("/me/sessions/{id}", s.handleRevokeMySession)
+		s.mountTokens(r)
 		s.mountMyLines(r)
+		s.mountHA(r)
 	})
 }

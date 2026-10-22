@@ -6,6 +6,7 @@ import { useSession } from "@/lib/session";
 const tabs = [
   { to: "/admin/users", key: "admin.users" },
   { to: "/admin/invites", key: "admin.invites" },
+  { to: "/admin/tokens", key: "admin.tokens" },
   { to: "/admin/settings", key: "admin.settings" },
   { to: "/admin/health", key: "admin.health" },
   { to: "/admin/audit", key: "admin.audit" },
