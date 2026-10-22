@@ -99,11 +99,17 @@ func splitAliases(alias, name string) []string {
 }
 
 func (b *builder) city(routes []feeds.OTPRoute, byCode map[string]feeds.TallinnStop, aliases map[string][]string) {
+	seen := map[string]bool{}
 	for _, r := range routes {
 		mode := r.CityMode()
 		route := Route{ID: RouteID(mode, r.ShortName), Mode: mode, ShortName: r.ShortName, LongName: r.LongName,
 			Color: color(r.Color), TextColor: color(r.TextColor), Source: "tallinn"}
-		b.routes = append(b.routes, route)
+		// Two OTP routes with one short name (a seasonal variant) become one route
+		// with both sets of patterns: a duplicate id would fail every import.
+		if !seen[route.ID] {
+			seen[route.ID] = true
+			b.routes = append(b.routes, route)
+		}
 		for i, p := range r.Patterns {
 			ids := make([]string, 0, len(p.Stops))
 			for _, os := range p.Stops {
