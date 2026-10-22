@@ -365,7 +365,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     // Keep the focused point above the bottom sheet that opens with it.
     if (focus && map) {
       const h = map.getContainer().clientHeight;
-      map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * 0.45 }, essential: true });
+      map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * (globalThis.matchMedia?.("(min-width: 768px)").matches ? 0 : 0.2) }, essential: true });
     }
   }, [focus]);
 

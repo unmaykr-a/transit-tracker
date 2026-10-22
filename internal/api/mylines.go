@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"math"
 	"net/http"
@@ -120,12 +121,18 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		FromAreaID   string `json:"from_area_id"`
 		ToAreaID     string `json:"to_area_id"`
 		Label        string `json:"label"`
+		OriginPlace  *int64 `json:"origin_place_id"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		s.writeErr(w, err)
 		return
 	}
 	p := principal(r)
+	originPlace, err := s.ownPlace(r, in.OriginPlace)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
 	if n, err := s.db.Q.CountSavedLines(r.Context(), p.User.ID); err != nil {
 		s.writeErr(w, err)
 		return
@@ -140,6 +147,7 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		}
 		sl, err := s.db.Q.CreateSavedTrip(r.Context(), db.CreateSavedTripParams{
 			UserID: p.User.ID, FromAreaID: in.FromAreaID, ToAreaID: in.ToAreaID, Label: strings.TrimSpace(in.Label), CreatedAt: time.Now().Unix(),
+			OriginPlaceID: originPlace,
 		})
 		if err != nil {
 			s.writeErr(w, err)
@@ -159,6 +167,7 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 	sl, err := s.db.Q.CreateSavedLine(r.Context(), db.CreateSavedLineParams{
 		UserID: p.User.ID, RouteID: in.RouteID, Direction: int64(in.Direction), Headsign: headsign,
 		BoardStopID: in.BoardStopID, AlightStopID: in.AlightStopID, Label: strings.TrimSpace(in.Label), CreatedAt: time.Now().Unix(),
+		OriginPlaceID: originPlace,
 	})
 	if err != nil {
 		s.writeErr(w, err)
@@ -188,6 +197,10 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		Label        *string `json:"label"`
 		AlightStopID *string `json:"alight_stop_id"`
 		NotifyMin    *int    `json:"notify_threshold_min"`
+		FromAreaID   *string `json:"from_area_id"` // trips only
+		ToAreaID     *string `json:"to_area_id"`
+		// OriginPlace: a place id, or null to clear; absent leaves it as is.
+		OriginPlace json.RawMessage `json:"origin_place_id"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		s.writeErr(w, err)
@@ -200,12 +213,43 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, invalid("alight_stop_id", "a trip already ends at its destination"))
 		return
 	}
+	if (in.FromAreaID != nil || in.ToAreaID != nil) && sl.Kind != dashboard.KindTrip {
+		s.writeErr(w, invalid("from_area_id", "only trips have a from and to stop"))
+		return
+	}
 	if in.AlightStopID != nil {
 		if _, err := validateLine(s.index(), sl.RouteID, int(sl.Direction), sl.BoardStopID, *in.AlightStopID); err != nil {
 			s.writeErr(w, err)
 			return
 		}
 		sl.AlightStopID = *in.AlightStopID
+	}
+	if in.FromAreaID != nil || in.ToAreaID != nil {
+		from, to := sl.FromAreaID, sl.ToAreaID
+		if in.FromAreaID != nil {
+			from = *in.FromAreaID
+		}
+		if in.ToAreaID != nil {
+			to = *in.ToAreaID
+		}
+		if err := validateTrip(s.index(), from, to); err != nil {
+			s.writeErr(w, err)
+			return
+		}
+		sl.FromAreaID, sl.ToAreaID = from, to
+	}
+	if len(in.OriginPlace) > 0 {
+		var id *int64
+		if err := json.Unmarshal(in.OriginPlace, &id); err != nil {
+			s.writeErr(w, invalid("origin_place_id", "must be a place id or null"))
+			return
+		}
+		place, err := s.ownPlace(r, id)
+		if err != nil {
+			s.writeErr(w, err)
+			return
+		}
+		sl.OriginPlaceID = place
 	}
 	if in.NotifyMin != nil {
 		if *in.NotifyMin < 0 || *in.NotifyMin > 60 {
@@ -214,11 +258,40 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		}
 		sl.NotifyThresholdMin = int64(*in.NotifyMin)
 	}
-	if err := s.db.Q.UpdateSavedLine(r.Context(), db.UpdateSavedLineParams{Label: sl.Label, AlightStopID: sl.AlightStopID, NotifyThresholdMin: sl.NotifyThresholdMin, ID: sl.ID, UserID: sl.UserID}); err != nil {
+	if err := s.db.Q.UpdateSavedLine(r.Context(), db.UpdateSavedLineParams{
+		Label: sl.Label, AlightStopID: sl.AlightStopID, NotifyThresholdMin: sl.NotifyThresholdMin,
+		FromAreaID: sl.FromAreaID, ToAreaID: sl.ToAreaID, OriginPlaceID: sl.OriginPlaceID, ID: sl.ID, UserID: sl.UserID,
+	}); err != nil {
 		s.writeErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"line": dashboard.ResolveLine(s.index(), sl)})
+}
+
+// ownPlace checks that id (if any) is one of the user's saved places.
+func (s *Server) ownPlace(r *http.Request, id *int64) (sql.NullInt64, error) {
+	if id == nil {
+		return sql.NullInt64{}, nil
+	}
+	if _, err := s.db.Q.GetSavedPlace(r.Context(), db.GetSavedPlaceParams{ID: *id, UserID: principal(r).User.ID}); errors.Is(err, sql.ErrNoRows) {
+		return sql.NullInt64{}, invalid("origin_place_id", "unknown place")
+	} else if err != nil {
+		return sql.NullInt64{}, err
+	}
+	return sql.NullInt64{Int64: *id, Valid: true}, nil
+}
+
+// userPlaces are the user's saved places by id, for lines that start at one.
+func (s *Server) userPlaces(r *http.Request) (map[int64]dashboard.Place, error) {
+	rows, err := s.db.Q.ListSavedPlaces(r.Context(), principal(r).User.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]dashboard.Place, len(rows))
+	for _, p := range rows {
+		out[p.ID] = dashboard.Place{Label: p.Label, Point: walk.Point{Lat: p.Lat, Lon: p.Lon}}
+	}
+	return out, nil
 }
 
 func (s *Server) handleDeleteLine(w http.ResponseWriter, r *http.Request) {
@@ -450,9 +523,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, err)
 		return
 	}
+	places, err := s.userPlaces(r)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
 	entries := []dashboard.Entry{}
 	if s.dashboard != nil {
-		entries = s.dashboard.Build(r.Context(), lines, origin, prefs)
+		entries = s.dashboard.Build(r.Context(), lines, origin, places, prefs)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "prefs": prefs, "has_origin": origin != nil, "server_time": time.Now()})
 }

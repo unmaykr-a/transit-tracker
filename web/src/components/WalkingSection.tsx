@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LocateFixed, MapPin, Trash2 } from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import { LocateFixed, Map as MapIcon, MapPin, Trash2 } from "lucide-react";
+import { lazy, Suspense, useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, fetchSearch, places, prefs } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
+
+const PointPicker = lazy(() => import("@/map/PointPicker"));
 
 const SPEEDS = [3.6, 4.2, 4.8, 5.4, 6.0];
 const BUFFERS = [0, 1, 2, 3, 5];
@@ -31,7 +33,14 @@ export function WalkingSection() {
     setStopQ("");
     void qc.invalidateQueries({ queryKey: ["places"] });
   };
-  const add = useMutation({ mutationFn: places.create, onSuccess: done });
+  const [picking, setPicking] = useState(false);
+  const add = useMutation({
+    mutationFn: places.create,
+    onSuccess: () => {
+      setPicking(false);
+      done();
+    },
+  });
   const remove = useMutation({ mutationFn: places.remove, onSuccess: done });
   const [locErr, setLocErr] = useState(false);
 
@@ -70,7 +79,7 @@ export function WalkingSection() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div id="places" className="flex scroll-mt-4 flex-col gap-2">
         <h3 className="text-sm font-medium">{t("walking.places")}</h3>
         <p className="text-sm text-muted-foreground">{t("walking.placesHint")}</p>
         <ul className="divide-y rounded-xl border bg-card">
@@ -96,6 +105,20 @@ export function WalkingSection() {
             {t("walking.hereNow")}
           </Button>
           {locErr && <p className="text-sm text-red-600 dark:text-red-400">{t("home.locationDenied")}</p>}
+          {picking ? (
+            <Suspense fallback={<p className="text-sm text-muted-foreground">{t("common.loading")}</p>}>
+              <PointPicker
+                disabled={!label.trim() || add.isPending}
+                onPick={(lat, lon) => add.mutate({ label: label.trim(), lat, lon })}
+                onCancel={() => setPicking(false)}
+              />
+            </Suspense>
+          ) : (
+            <Button variant="outline" onClick={() => setPicking(true)} className="self-start">
+              <MapIcon className="size-4" aria-hidden />
+              {t("walking.pickOnMap")}
+            </Button>
+          )}
           <Field label={t("walking.orStop")}>
             <Input type="search" value={stopQ} onChange={(e) => setStopQ(e.target.value)} placeholder={t("search.placeholder")} />
           </Field>

@@ -46,6 +46,9 @@ type Line struct {
 	Alight      *StopRef   `json:"alight_stop,omitempty"`
 	NotifyMin   int        `json:"notify_threshold_min"`
 	Unavailable bool       `json:"unavailable,omitempty"` // route or stop missing after a static import
+	// OriginPlaceID is the saved place walking times start from when the
+	// request carries no location of its own.
+	OriginPlaceID *int64 `json:"origin_place_id"`
 	// Kind is "line" (one route from one platform) or "trip" (any line from one
 	// stop area to another; From, To and Lines are set, RouteID and Board are not).
 	Kind  string     `json:"kind"`
@@ -75,6 +78,14 @@ type TripLine struct {
 
 // ResolveLine attaches static data to a stored saved line or trip.
 func ResolveLine(ix *staticdata.Index, sl db.SavedLine) Line {
+	l := resolve(ix, sl)
+	if sl.OriginPlaceID.Valid {
+		l.OriginPlaceID = &sl.OriginPlaceID.Int64
+	}
+	return l
+}
+
+func resolve(ix *staticdata.Index, sl db.SavedLine) Line {
 	if sl.Kind == KindTrip {
 		return resolveTrip(ix, sl)
 	}
@@ -152,6 +163,15 @@ type Entry struct {
 	// Walks is the walk to each boarding platform of a trip (its departures
 	// leave from several), so clients can judge every departure on its own.
 	Walks map[string]*Walk `json:"walks,omitempty"`
+	// WalkFrom names the line's own starting place when walks start there
+	// (the request had no location); empty otherwise.
+	WalkFrom string `json:"walk_from,omitempty"`
+}
+
+// Place is a saved starting point, by id, for lines that have one.
+type Place struct {
+	Label string
+	Point walk.Point
 }
 
 // Prefs are the user's walking settings.
@@ -178,13 +198,15 @@ func (b *Builder) now() time.Time {
 	return time.Now()
 }
 
-// Build returns one entry per saved line, in order. origin may be nil (no verdicts).
-func (b *Builder) Build(ctx context.Context, lines []db.SavedLine, origin *walk.Point, prefs Prefs) []Entry {
-	return b.BuildN(ctx, lines, origin, prefs, Shown)
+// Build returns one entry per saved line, in order. Walks start at origin;
+// without one, at the line's own place (looked up in places), else there is
+// no walk and no verdict.
+func (b *Builder) Build(ctx context.Context, lines []db.SavedLine, origin *walk.Point, places map[int64]Place, prefs Prefs) []Entry {
+	return b.BuildN(ctx, lines, origin, places, prefs, Shown)
 }
 
 // BuildN is Build showing up to shown departures per line.
-func (b *Builder) BuildN(ctx context.Context, lines []db.SavedLine, origin *walk.Point, prefs Prefs, shown int) []Entry {
+func (b *Builder) BuildN(ctx context.Context, lines []db.SavedLine, origin *walk.Point, places map[int64]Place, prefs Prefs, shown int) []Entry {
 	ix := b.Index()
 	out := make([]Entry, len(lines))
 	var wg sync.WaitGroup
@@ -192,7 +214,14 @@ func (b *Builder) BuildN(ctx context.Context, lines []db.SavedLine, origin *walk
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			out[i] = b.entry(ctx, ix, sl, origin, prefs, shown)
+			o, from := origin, ""
+			if o == nil && sl.OriginPlaceID.Valid {
+				if p, ok := places[sl.OriginPlaceID.Int64]; ok {
+					o, from = &p.Point, p.Label
+				}
+			}
+			out[i] = b.entry(ctx, ix, sl, o, prefs, shown)
+			out[i].WalkFrom = from
 		}()
 	}
 	wg.Wait()

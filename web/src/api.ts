@@ -416,6 +416,8 @@ export interface SavedLine {
   from?: AreaRef;
   to?: AreaRef;
   lines?: TripLine[];
+  /** Saved place walking times start from when no location is shared. */
+  origin_place_id?: number | null;
 }
 
 export interface Walk {
@@ -455,6 +457,8 @@ export interface DashboardEntry {
   /** A trip's walk per boarding platform (its departures leave from several). */
   walks?: Record<string, Walk>;
   walk?: Walk;
+  /** Set when walks start at the line's own place (no location was shared). */
+  walk_from?: string;
   next_catchable: number;
   error?: string;
 }
@@ -487,9 +491,12 @@ export const myLines = {
   list: (signal?: AbortSignal) => getJSON<{ lines: SavedLine[] }>("/api/v1/me/lines", signal),
   create: (l: { route_id: string; direction: number; board_stop_id: string; alight_stop_id?: string; label?: string }) =>
     send<{ line: SavedLine }>("POST", "/api/v1/me/lines", l),
-  createTrip: (t: { from_area_id: string; to_area_id: string; label?: string }) =>
+  createTrip: (t: { from_area_id: string; to_area_id: string; label?: string; origin_place_id?: number | null }) =>
     send<{ line: SavedLine }>("POST", "/api/v1/me/lines", { kind: "trip", ...t }),
-  update: (id: number, p: { label?: string; alight_stop_id?: string }) => send<{ line: SavedLine }>("PATCH", `/api/v1/me/lines/${id}`, p),
+  update: (
+    id: number,
+    p: { label?: string; alight_stop_id?: string; from_area_id?: string; to_area_id?: string; origin_place_id?: number | null },
+  ) => send<{ line: SavedLine }>("PATCH", `/api/v1/me/lines/${id}`, p),
   remove: (id: number) => send("DELETE", `/api/v1/me/lines/${id}`),
   reorder: (ids: number[]) => send<{ lines: SavedLine[] }>("POST", "/api/v1/me/lines/reorder", { ids }),
 };
