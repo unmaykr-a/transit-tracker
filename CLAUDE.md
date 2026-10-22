@@ -91,7 +91,10 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   off) or `BUS_METRICS_TOKEN`.
 - Accessibility: `web/e2e/a11y.spec.ts` runs axe (WCAG 2.1 AA) on every page in light and dark plus a keyboard-only
   flow; new pages go into its lists. Text on mode colours must keep ≥ 4.5:1 contrast with white.
-- `deploy/` — production compose + `.env.example` + `grafana-dashboard.json`. Root `compose.yaml` is the local dev build.
+- `deploy/` — homelab compose (bind mount, reverse proxy) + `.env.example` + `grafana-dashboard.json`. Root
+  `compose.yaml` runs the published GHCR image (the normal way to run Bus); `compose.dev.yaml` builds from the checkout.
+  Releases: the Release workflow (`workflow_dispatch` with a version, or a `v*` tag) publishes the image
+  (`latest`, `X.Y`, `X.Y.Z`), `bus.zip` and `bus-card.js`.
 
 ## Commands
 
@@ -105,7 +108,8 @@ BUS_FAKE_FEEDS=1 make run       # offline / night-time development with replayed
 cd web && npm run e2e            # Playwright vs ../bin/bus with fake feeds, a fresh temp DB and a seeded
                                  # admin (see playwright.config.ts). Run `make web build` first; set
                                  # PW_CHROMIUM_PATH to use a preinstalled Chromium
-docker compose up --build        # local image on http://localhost:8095
+docker compose up -d             # published image on http://localhost:8095
+docker compose -f compose.dev.yaml up --build   # image built from this checkout
 make docker       # buildx linux/amd64 + linux/arm64
 sqlc generate     # after editing internal/store/queries or migrations
 cd ha && python -m pytest        # HA integration (venv with requirements_test.txt; ruff check/format too)

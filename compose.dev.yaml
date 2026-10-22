@@ -1,0 +1,24 @@
+# Development: builds the image from this checkout instead of pulling it.
+#   docker compose -f compose.dev.yaml up --build   → http://localhost:8095
+# Set BUS_FAKE_FEEDS=1 in .env to replay recorded feeds (offline, or at night).
+services:
+  bus:
+    build:
+      context: .
+      args:
+        VERSION: dev
+    image: bus:dev
+    container_name: bus-dev
+    ports:
+      - "8095:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Europe/Tallinn
+      BUS_LOG_LEVEL: debug
+    volumes:
+      - bus-dev-data:/data
+
+volumes:
+  bus-dev-data:

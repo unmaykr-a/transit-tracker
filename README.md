@@ -25,14 +25,32 @@ See [docs/PLAN.md](docs/PLAN.md) for the original plan, [docs/feeds.md](docs/fee
 
 ## Run
 
+Bus ships as a multi-arch image (`linux/amd64` and `linux/arm64`), so the same tag runs on a Raspberry Pi 5 and an
+x86 server. Nothing needs to be built.
+
 ```sh
-docker compose up --build    # http://localhost:8095
+mkdir bus && cd bus
+curl -fsSLO https://raw.githubusercontent.com/unmaykr-a/transit-tracker/main/compose.yaml
+docker compose up -d          # http://localhost:8095
 ```
 
-Production: copy `deploy/docker-compose.yml` and `deploy/.env.example` (as `.env`) to `/opt/bus/`.
-Images are multi-arch (`linux/amd64` and `linux/arm64`), so the same tag runs on a Raspberry Pi 5 and an x86 server.
-Behind Nginx Proxy Manager, enable **WebSockets support** for the proxy host (needed for `/ws`; the app falls
-back to Server-Sent Events if WebSockets are blocked).
+Optional settings go in a `.env` next to it ([.env.example](.env.example)). To upgrade:
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+`latest` follows releases; pin a version (`ghcr.io/unmaykr-a/bus:1.1`) to upgrade on your own schedule. The first start
+after an upgrade migrates the database and re-imports the timetable data by itself.
+
+**Homelab deployment** (bind-mounted data under `/opt/bus`, behind a reverse proxy): copy
+[deploy/docker-compose.yml](deploy/docker-compose.yml) and [deploy/.env.example](deploy/.env.example) (as `.env`) to
+`/opt/bus/` and follow the comments at the top of the compose file. Behind Nginx Proxy Manager, enable **WebSockets
+support** for the proxy host (needed for `/ws`; the app falls back to Server-Sent Events if WebSockets are blocked)
+and set `BUS_TRUSTED_PROXIES` to the proxy's network.
+
+**Backups:** everything lives in one SQLite file, `bus.db`, in the data volume. Download a consistent copy any time
+from **Administration → About → Download backup**.
 
 ## First start
 
@@ -99,16 +117,17 @@ scrape_configs:
 | `BUS_STOPS_URL`, `BUS_ELRON_GTFS_URL` | transport.tallinn.ee, eu-gtfs.remix.com | Static data (imported nightly at 03:30) |
 
 Feed URLs, poll intervals and the User-Agent contact can also be changed at runtime in the admin settings; those
-override the environment. The SQLite database lives in `BUS_DATA_DIR` (`/data` in the container). With a bind mount, make the host
-directory writable by the container user.
+override the environment. The SQLite database lives in `BUS_DATA_DIR` (`/data` in the container). With a bind mount,
+make the host directory writable by the container user.
 
 ## Develop
 
-Requires Go 1.27+ and Node 22+.
+Requires Go 1.27+ and Node 22+ (or just Docker: `docker compose -f compose.dev.yaml up --build` builds the image from
+the checkout).
 
 ```sh
 make web build && ./bin/bus   # http://localhost:8080
-BUS_FAKE_FEEDS=1 ./bin/bus   # replay recorded feeds (offline, or at night)
+BUS_FAKE_FEEDS=1 ./bin/bus    # replay recorded feeds (offline, or at night)
 make test lint
 cd web && npm run e2e          # Playwright end-to-end tests (incl. axe accessibility checks)
 cd ha && python -m pytest      # Home Assistant integration

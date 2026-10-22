@@ -5,6 +5,9 @@
 Upgrading from 1.0.0: just pull the new image. The first start adds one table (`user_identities`) and re-imports the
 static data with county routes (a few seconds); nothing else to do.
 
+- `compose.yaml` now runs the published image (`docker compose up -d`, upgrade with `docker compose pull`); building
+  from source moved to `compose.dev.yaml`. README rewritten around running the image, upgrading and backups.
+
 - Vehicle ETAs calibrate themselves: the tracker checks its own predictions against the arrivals it later sees and
   learns a correction per mode and horizon (`bus_eta_scale` metric). On recorded peaks this lifted agreement with
   SIRI from ~59 % to ~66 % within ±1 min, and predictions now match observed arrivals as well as SIRI does.
