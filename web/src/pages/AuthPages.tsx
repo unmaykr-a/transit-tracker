@@ -90,13 +90,32 @@ function CredentialsForm({
   );
 }
 
+const loginRoute = getRouteApi("/login");
+
+const SSO_ERRORS = ["sso_unavailable", "sso_denied", "sso_expired", "sso_failed", "sso_no_account", "sso_disabled"];
+
 export function LoginPage() {
   const { t } = useTranslation();
   const session = useSession();
+  const { next, error } = loginRoute.useSearch();
   const name = session.data?.settings.instance_name ?? "Bus";
   const canSignup = session.data?.settings.signup_mode === "open";
+  const sso = session.data?.sso;
   return (
     <AuthCard title={t("auth.loginTitle", { name })}>
+      {error && SSO_ERRORS.includes(error) && (
+        <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-100">
+          {t(`auth.sso.${error}`)}
+        </p>
+      )}
+      {sso && (
+        <>
+          <Button asChild variant="outline" className="w-full">
+            <a href={`${sso.login}?next=${encodeURIComponent(next ?? "/")}`}>{t("auth.sso.button", { name: sso.name })}</a>
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">{t("auth.sso.or")}</p>
+        </>
+      )}
       <CredentialsForm submit={login} button={t("auth.login")} />
       {canSignup && (
         <p className="text-sm text-muted-foreground">

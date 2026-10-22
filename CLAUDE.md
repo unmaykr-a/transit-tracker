@@ -67,6 +67,11 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `src/lib/liveClient.ts` is the single shared WS/SSE connection; `src/map/VehicleMap.tsx` animates markers
   outside React (tweens in `src/lib/tween.ts`). Builds to `web/dist`, copied into `internal/api/dist`
   (gitignored except `.gitkeep`) and embedded via `go:embed`.
+- Single sign-on (`internal/auth/oidc.go`, `internal/api/oidc.go`): OpenID Connect code flow with PKCE via go-oidc;
+  state/nonce/verifier/next travel in an HMAC-signed 10-minute cookie (`bus_oidc`, per-process key). Identities are
+  `user_identities` (issuer + subject → user); users are auto-created (`CreateUserNoPassword`, empty password hash =
+  no local password), the admin role follows `BUS_OIDC_ADMIN_GROUP` (last admin never demoted). Errors redirect to
+  `/login?error=sso_*`. Tests use an in-process fake IdP (`oidc_test.go`).
 - API tokens (`api_tokens`, `internal/auth/tokens.go`): `Authorization: Bearer bus_…`, only the sha256 stored.
   Token requests are **read-only** (unsafe methods → 403), never admin, and cannot see/manage tokens or sessions
   (`requireSession`). `/me/tokens` (session only), `/admin/tokens`. `GET /api/v1/ha/lines?origin=lat,lon&departures=1..5`

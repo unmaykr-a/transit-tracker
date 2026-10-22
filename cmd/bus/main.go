@@ -130,9 +130,15 @@ func serve(cfg config.Config) error {
 	})
 	board := &dashboard.Builder{Index: importer.Index, Departures: deps, Walk: walker}
 
+	var sso *auth.OIDC
+	if cfg.OIDC.Enabled() {
+		sso = auth.NewOIDC(cfg.OIDC, cfg.BaseURL+"/api/v1/auth/oidc/callback")
+		log.Info("single sign-on enabled", "issuer", cfg.OIDC.Issuer, "admin_group", cfg.OIDC.AdminGroup)
+	}
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: api.NewServer(log, api.Deps{
+			OIDC: sso, OIDCConfig: cfg.OIDC,
 			Store: vehicles, Health: health, Static: importer.Index, StaticStatus: importer.Status, Departures: deps,
 			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies,
 			RefreshStatic: importer.Import, Dashboard: board, Tracker: tracker,

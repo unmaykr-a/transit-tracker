@@ -189,6 +189,11 @@ func (s *Service) Login(ctx context.Context, username, password, ip, userAgent s
 	} else if err != nil {
 		return "", nil, err
 	}
+	if u.PasswordHash == "" { // single sign-on account without a local password
+		_, _ = VerifyPassword(dummyHash, password)
+		s.Limiter.Fail(keys...)
+		return "", nil, ErrInvalidCredentials
+	}
 	ok, err := VerifyPassword(u.PasswordHash, password)
 	if err != nil {
 		return "", nil, err
@@ -252,9 +257,12 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return s.Store.Q.DeleteSession(ctx, HashToken(token))
 }
 
-// ChangePassword verifies the current password, sets a new one and signs out
-// the user's other sessions.
+// ChangePassword verifies the current password (if the account has one), sets
+// a new one and signs out the user's other sessions.
 func (s *Service) ChangePassword(ctx context.Context, p *Principal, current, next string) error {
+	if p.User.PasswordHash == "" { // single sign-on account adding a local password
+		return s.SetPassword(ctx, p.User.ID, next, p.SessionID)
+	}
 	ok, err := VerifyPassword(p.User.PasswordHash, current)
 	if err != nil {
 		return err

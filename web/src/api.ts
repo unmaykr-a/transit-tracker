@@ -188,6 +188,8 @@ export interface User {
   theme: string;
   disabled: boolean;
   created_at: string;
+  /** False for single sign-on accounts without a local password. */
+  has_password: boolean;
 }
 
 export interface PublicSettings {
@@ -208,6 +210,8 @@ export interface SessionInfo {
   setup_required: boolean;
   user: User | null;
   csrf?: string;
+  /** Present when single sign-on (OIDC) is configured. */
+  sso?: { name: string; login: string };
 }
 
 export const fetchSession = (signal?: AbortSignal) => getJSON<SessionInfo>("/api/v1/session", signal);

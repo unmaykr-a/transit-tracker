@@ -22,10 +22,12 @@ type userJSON struct {
 	Theme     string    `json:"theme"`
 	Disabled  bool      `json:"disabled"`
 	CreatedAt time.Time `json:"created_at"`
+	// HasPassword is false for single sign-on accounts without a local password.
+	HasPassword bool `json:"has_password"`
 }
 
 func toUserJSON(u db.User) userJSON {
-	return userJSON{u.ID, u.Username, u.Email, u.Role, u.Locale, u.Theme, u.Disabled != 0, time.Unix(u.CreatedAt, 0).UTC()}
+	return userJSON{u.ID, u.Username, u.Email, u.Role, u.Locale, u.Theme, u.Disabled != 0, time.Unix(u.CreatedAt, 0).UTC(), u.PasswordHash != ""}
 }
 
 // audit records an admin or security-relevant action. Failures are logged, never fatal.
@@ -48,6 +50,9 @@ func (s *Server) audit(ctx context.Context, r *http.Request, action, target, det
 // needed, and the current user with their CSRF token.
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"settings": s.settingsNow().Public(), "version": buildinfo.Version, "user": nil, "setup_required": false}
+	if s.oidc != nil {
+		out["sso"] = map[string]string{"name": s.oidc.Name(), "login": oidcBasePath + "/login"}
+	}
 	if s.auth != nil {
 		need, err := s.auth.NeedsSetup(r.Context())
 		if err != nil {
@@ -265,6 +270,7 @@ func (s *Server) mountAccount(r chi.Router) {
 	r.Post("/auth/logout", s.handleLogout)
 	r.Post("/auth/signup", s.handleSignup)
 	r.Get("/auth/invites/{token}", s.handleInviteCheck)
+	s.mountOIDC(r)
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireUser)
 		r.Get("/me", s.handleMe)

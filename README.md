@@ -38,6 +38,16 @@ Open the app and create the administrator account, or set `BUS_ADMIN_USER` and `
 on first start. Invite others from **Settings → Administration → Invites**. Sign-up is invite-only by default; the
 map, search and stop pages are public unless you turn **Public map** off.
 
+## Single sign-on
+
+Bus can sign users in with any OpenID Connect provider; it is tested with Authentik. Create an OAuth2/OpenID
+provider and application in Authentik (confidential client, scopes `openid profile email` plus a `groups` claim),
+set the redirect URI to `https://bus.example.com/api/v1/auth/oidc/callback`, then set `BUS_BASE_URL`,
+`BUS_OIDC_ISSUER` (the application's issuer URL), `BUS_OIDC_CLIENT_ID` and `BUS_OIDC_CLIENT_SECRET`. The login page
+then shows *Sign in with …* next to the password form. Accounts are created on first sign-in (turn that off with
+`BUS_OIDC_AUTO_CREATE=false`); with `BUS_OIDC_ADMIN_GROUP` the admin role follows group membership on every sign-in.
+Single sign-on users can add a local password under **Settings → Account**.
+
 ## Home Assistant
 
 Create an API token under **Settings → API tokens**, install the integration and card from the release
@@ -75,6 +85,9 @@ scrape_configs:
 | `BUS_TRUSTED_PROXIES` | — | CIDRs whose `X-Forwarded-For`/`-Proto` are trusted (your reverse proxy) |
 | `BUS_METRICS` | `private` | `/metrics` access: `private` (loopback/private networks), `public` or `off` |
 | `BUS_METRICS_TOKEN` | — | If set, `/metrics` requires `Authorization: Bearer <token>` instead |
+| `BUS_OIDC_ISSUER`, `BUS_OIDC_CLIENT_ID`, `BUS_OIDC_CLIENT_SECRET` | — | Single sign-on (see above) |
+| `BUS_OIDC_ADMIN_GROUP` | — | Members of this group are admins (others are demoted) |
+| `BUS_OIDC_NAME`, `BUS_OIDC_AUTO_CREATE` | `single sign-on`, `true` | Button label; create accounts on first sign-in |
 | `BUS_FAKE_FEEDS` | `false` | Replay recorded feeds instead of polling upstream |
 | `BUS_CONTACT` | base URL or repo URL | Contact URL sent to upstream feeds |
 | `BUS_GPS_URL`, `BUS_GPS_INTERVAL` | Tallinn `gps.txt`, `5s` | City vehicle feed (minimum 2 s) |

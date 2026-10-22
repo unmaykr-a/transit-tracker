@@ -141,6 +141,15 @@ type User struct {
 	CreatedAt    int64
 }
 
+type UserIdentity struct {
+	Issuer    string
+	Subject   string
+	UserID    int64
+	Email     string
+	CreatedAt int64
+	LastLogin int64
+}
+
 type UserPref struct {
 	UserID       int64
 	WalkSpeedKmh float64

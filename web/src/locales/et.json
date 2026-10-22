@@ -168,6 +168,16 @@
     "roles": {
       "admin": "administraatori",
       "user": "kasutaja"
+    },
+    "sso": {
+      "button": "Logi sisse: {{name}}",
+      "or": "või parooliga",
+      "sso_unavailable": "Ühekordne sisselogimine pole praegu kättesaadav. Proovi hiljem uuesti või kasuta parooli.",
+      "sso_denied": "Sisselogimine katkestati teenusepakkuja juures.",
+      "sso_expired": "Sisselogimine võttis liiga kaua aega või alustati mujal. Proovi uuesti.",
+      "sso_failed": "Ühekordne sisselogimine ebaõnnestus. Proovi uuesti.",
+      "sso_no_account": "Selle sisselogimise jaoks pole kontot. Küsi administraatorilt kutset.",
+      "sso_disabled": "See konto on keelatud."
     }
   },
   "account": {
@@ -183,7 +193,9 @@
     "revoke": "Logi välja",
     "lastSeen": "viimati {{when}}",
     "admin": "Haldus",
-    "signedOut": "Sa ei ole sisse logitud."
+    "signedOut": "Sa ei ole sisse logitud.",
+    "setPassword": "Määra parool",
+    "setPasswordHint": "Sa logid sisse ühekordse sisselogimisega. Parooliga saad sisse logida ka ilma selleta."
   },
   "admin": {
     "title": "Haldus",

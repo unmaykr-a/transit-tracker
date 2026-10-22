@@ -14,6 +14,7 @@ import (
 
 	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
+	"github.com/unmaykr-a/transit-tracker/internal/config"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
 	"github.com/unmaykr-a/transit-tracker/internal/eta"
@@ -46,6 +47,8 @@ type Server struct {
 	metrics        *serverMetrics
 	metricsMode    string
 	metricsToken   string
+	oidc           *auth.OIDC
+	oidcConfig     config.OIDCConfig
 }
 
 // Deps are the server's collaborators.
@@ -67,6 +70,9 @@ type Deps struct {
 	Tracker        *eta.Tracker
 	// MetricsMode is BUS_METRICS ("private" when empty); MetricsToken BUS_METRICS_TOKEN.
 	MetricsMode, MetricsToken string
+	// OIDC enables single sign-on; nil when not configured.
+	OIDC       *auth.OIDC
+	OIDCConfig config.OIDCConfig
 }
 
 func NewServer(log *slog.Logger, d Deps) *Server {
@@ -82,7 +88,8 @@ func NewServer(log *slog.Logger, d Deps) *Server {
 	s := &Server{log: log, started: time.Now(), store: d.Store, health: d.Health, originPatterns: d.OriginPatterns,
 		static: d.Static, staticStatus: d.StaticStatus, departures: d.Departures,
 		auth: d.Auth, settings: d.Settings, db: d.DB, dataDir: d.DataDir, trustedProxies: d.TrustedProxies, refreshStatic: d.RefreshStatic,
-		dashboard: d.Dashboard, tracker: d.Tracker, metricsMode: d.MetricsMode, metricsToken: d.MetricsToken}
+		dashboard: d.Dashboard, tracker: d.Tracker, metricsMode: d.MetricsMode, metricsToken: d.MetricsToken,
+		oidc: d.OIDC, oidcConfig: d.OIDCConfig}
 	s.initMetrics()
 	return s
 }
