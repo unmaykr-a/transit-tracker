@@ -55,3 +55,52 @@ func TestFakeTransportMovesVehicles(t *testing.T) {
 		t.Error("unknown URL should 404")
 	}
 }
+
+func TestFakeStaticAndDepartures(t *testing.T) {
+	now := time.Date(2026, 10, 22, 9, 0, 0, 0, time.UTC)
+	ft := FakeTransport{Now: func() time.Time { return now }, Lines: func(id string) []FakeLine {
+		if id == "1298" {
+			return []FakeLine{{ModeTram, "T4", "Lennujaam"}, {ModeBus, "17", "Väike-Õismäe"}}
+		}
+		if id == "10137" {
+			return []FakeLine{{ModeTrain, "R12", "Keila"}}
+		}
+		return nil
+	}}
+	client := &http.Client{Transport: ft}
+	f := NewFetcher(client, "test")
+	ctx := context.Background()
+
+	r, err := f.Get(ctx, "https://transport.tallinn.ee/data/stops.txt", false)
+	if err != nil || !bytes.Contains(r.Body, []byte("Hobujaama")) {
+		t.Fatalf("stops.txt: %v", err)
+	}
+	r, err = f.Get(ctx, "https://eu-gtfs.remix.com/elron.zip", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g, err := ReadGTFSZip(r.Body); err != nil || len(g.Routes) != 2 {
+		t.Fatalf("elron.zip: %v", err)
+	}
+	otp := &OTP{URL: DefaultOTPURL, Fetcher: f}
+	if routes, err := otp.AgencyRoutes(ctx, TallinnAgencyID); err != nil || len(routes) != 80 {
+		t.Fatalf("agency routes: %d %v", len(routes), err)
+	}
+	r, err = f.Get(ctx, "https://transport.tallinn.ee/siri-stop-departures.php?stopid=1298", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	board, skipped, err := ParseSiri(bytes.NewReader(r.Body))
+	if err != nil || skipped != 0 || board.StopID != "1298" || len(board.Departures) < 8 {
+		t.Fatalf("siri board %+v skipped=%d err=%v", board, skipped, err)
+	}
+	for _, d := range board.Departures {
+		if d.SecondsUntil < 0 || d.SecondsUntil > 3600+150 {
+			t.Errorf("departure out of window: %+v", d)
+		}
+	}
+	times, err := otp.StopTimes(ctx, []string{"estonia:10137"}, 10, 3600)
+	if err != nil || len(times["estonia:10137"]) == 0 || times["estonia:10137"][0].Trip.Route.Mode != "RAIL" {
+		t.Fatalf("otp stoptimes: %+v %v", times, err)
+	}
+}

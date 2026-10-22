@@ -17,3 +17,8 @@ services:
     environment:
       TZ: Europe/Tallinn
       TRAM_LOG_LEVEL: debug
+    volumes:
+      - tram-data:/data
+
+volumes:
+  tram-data:

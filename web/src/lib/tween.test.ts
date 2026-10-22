@@ -16,8 +16,8 @@ describe("tween", () => {
     expect(isMoving(first, t0)).toBe(false);
 
     const second = nextTween(first, at(59.401, 24.7, "2026-10-22T09:00:10Z"), t0 + 500, true);
-    expect(second.duration).toBe(10_000);
-    const [mid] = positionAt(second, t0 + 500 + 5_000);
+    expect(second.duration).toBe(12_500);
+    const [mid] = positionAt(second, t0 + 500 + 6_250);
     expect(mid).toBeCloseTo(59.4005, 6);
     expect(positionAt(second, t0 + 500 + 20_000)).toEqual([59.401, 24.7]);
     expect(isMoving(second, t0 + 600)).toBe(true);
@@ -27,7 +27,7 @@ describe("tween", () => {
     const t0 = 0;
     let tw = nextTween(undefined, at(59.4, 24.7, "2026-10-22T09:00:00Z"), t0, true);
     tw = nextTween(tw, at(59.401, 24.7, "2026-10-22T09:00:10Z"), t0, true);
-    const tw2 = nextTween(tw, at(59.402, 24.7, "2026-10-22T09:00:20Z"), t0 + 5_000, true);
+    const tw2 = nextTween(tw, at(59.402, 24.7, "2026-10-22T09:00:20Z"), t0 + 6_250, true);
     expect(tw2.fromLat).toBeCloseTo(59.4005, 6);
   });
 

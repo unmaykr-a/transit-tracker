@@ -32,7 +32,7 @@ describe("vehicleFeatures", () => {
     const first = nextTween(undefined, vehicles[0]!, 0, true);
     const moved = { ...vehicles[0]!, lat: 59.401, updated_at: "2026-10-22T09:00:10Z" };
     const tweens = new Map([["tram-1", nextTween(first, moved, 0, true)]]);
-    const fc = vehicleFeatures([moved], tweens, 5_000, ALL_MODES, []);
+    const fc = vehicleFeatures([moved], tweens, 6_250, ALL_MODES, []);
     expect(fc.features[0]!.geometry.coordinates[1]).toBeCloseTo(59.4005, 6);
   });
 });

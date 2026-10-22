@@ -1,14 +1,36 @@
 {
-  "app": { "name": "Tram", "tagline": "Live Tallinn buses, trams, trolleybuses and Elron trains." },
-  "nav": { "home": "Home", "map": "Map", "search": "Search", "settings": "Settings", "main": "Main navigation" },
-  "mode": { "tram": "Tram", "bus": "Bus", "trolley": "Trolleybus", "train": "Train" },
-  "modeShort": { "tram": "Tram", "bus": "Bus", "trolley": "Trolley", "train": "Train" },
+  "app": {
+    "name": "Tram",
+    "tagline": "Live Tallinn buses, trams, trolleybuses and Elron trains."
+  },
+  "nav": {
+    "home": "Home",
+    "map": "Map",
+    "search": "Search",
+    "settings": "Settings",
+    "main": "Main navigation"
+  },
+  "mode": {
+    "tram": "Tram",
+    "bus": "Bus",
+    "trolley": "Trolleybus",
+    "train": "Train"
+  },
+  "modeShort": {
+    "tram": "Tram",
+    "bus": "Bus",
+    "trolley": "Trolley",
+    "train": "Train"
+  },
   "live": {
     "delayed": "Live data delayed: {{feeds}}",
     "reconnecting": "Reconnecting…",
     "vehicles_one": "{{count}} vehicle",
     "vehicles_other": "{{count}} vehicles",
-    "feed": { "gps": "city transport", "elron": "trains" }
+    "feed": {
+      "gps": "city transport",
+      "elron": "trains"
+    }
   },
   "map": {
     "filters": "Filters",
@@ -40,7 +62,13 @@
   },
   "search": {
     "title": "Search",
-    "soon": "Search by line number or stop name is coming next."
+    "soon": "Search by line number or stop name is coming next.",
+    "placeholder": "Line number or stop name",
+    "lines": "Lines",
+    "stops": "Stops",
+    "noResults": "Nothing found for “{{q}}”.",
+    "hint": "Try a line number such as 4 or 24A, or a stop such as Balti jaam.",
+    "label": "Search lines and stops"
   },
   "settings": {
     "title": "Settings",
@@ -54,5 +82,42 @@
     "feeds": "Data feeds",
     "feedOk": "OK",
     "feedStale": "Delayed"
+  },
+  "time": {
+    "now": "now",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min"
+  },
+  "stop": {
+    "all": "All",
+    "platform": "Platform {{letter}}",
+    "platforms": "Platforms",
+    "towards": "towards {{list}}",
+    "departures": "Departures",
+    "noDepartures": "No departures in the next hours.",
+    "scheduled": "scheduled",
+    "delayed": "+{{min}} min",
+    "error": "Could not load departures.",
+    "showOnMap": "Show on map",
+    "lines": "Lines",
+    "notFound": "Stop not found.",
+    "openStop": "Open stop page",
+    "lowFloor": "low floor"
+  },
+  "line": {
+    "direction": "Direction",
+    "stops_one": "{{count}} stop",
+    "stops_other": "{{count}} stops",
+    "here": "Here now",
+    "approaching": "Approaching",
+    "live_one": "{{count}} vehicle on the line",
+    "live_other": "{{count}} vehicles on the line",
+    "notFound": "Line not found.",
+    "showOnMap": "Show on map"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "back": "Back"
   }
 }

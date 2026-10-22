@@ -17,6 +17,13 @@ export interface Tween {
 }
 
 export const DEFAULT_INTERVAL_MS = 10_000;
+/**
+ * Fixes reach the client 10 ± 5 s apart (feed every ~10 s, server polls every
+ * 5 s). Gliding a bit longer than the interval keeps markers moving until the
+ * next fix instead of stalling; a fix that arrives mid-glide continues from
+ * the drawn position.
+ */
+const STRETCH = 1.25;
 const MAX_TWEEN_MS = 15_000;
 const MIN_TWEEN_MS = 1_000;
 /** Jumps longer than this are teleports (GPS glitch, vehicle reappearing), not motion. */
@@ -56,7 +63,7 @@ export function nextTween(prev: Tween | undefined, v: Vehicle, now: number, anim
     toLat: v.lat,
     toLon: v.lon,
     start: now,
-    duration: far ? 0 : Math.min(MAX_TWEEN_MS, Math.max(MIN_TWEEN_MS, interval)),
+    duration: far ? 0 : Math.min(MAX_TWEEN_MS, Math.max(MIN_TWEEN_MS, interval * STRETCH)),
     lastFixAt: fixAt,
   };
 }

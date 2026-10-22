@@ -290,5 +290,9 @@ func (s *Server) vehicle(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 func (s *Server) status(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"feeds": s.health.Snapshot(), "server_time": time.Now()})
+	out := map[string]any{"feeds": s.health.Snapshot(), "server_time": time.Now()}
+	if s.staticStatus != nil {
+		out["static"] = s.staticStatus()
+	}
+	writeJSON(w, http.StatusOK, out)
 }
