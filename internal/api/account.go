@@ -279,6 +279,7 @@ func (s *Server) mountAccount(r chi.Router) {
 		r.With(s.requireSession).Get("/me/sessions", s.handleMySessions)
 		r.Delete("/me/sessions/{id}", s.handleRevokeMySession)
 		s.mountTokens(r)
+		s.mountIdentities(r)
 		s.mountMyLines(r)
 		s.mountHA(r)
 	})

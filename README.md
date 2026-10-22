@@ -69,6 +69,12 @@ then shows *Sign in with …* next to the password form. Accounts are created on
 `BUS_OIDC_AUTO_CREATE=false`); with `BUS_OIDC_ADMIN_GROUP` the admin role follows group membership on every sign-in.
 Single sign-on users can add a local password under **Settings → Account**.
 
+**Linking an existing account** (including the admin you created at setup): log in with your password, open
+**Settings → Single sign-on** and press **Link … account**. After the provider confirms, either way of signing in opens
+the same account; you can unlink there too (not your only way in, though). If `BUS_OIDC_ADMIN_GROUP` is set, put the
+provider account in that group before signing in with it, or it becomes a regular user (the last admin is never
+demoted); Bus warns you about this when you link.
+
 ## Home Assistant
 
 Create an API token under **Settings → API tokens**, install the integration and card from the release

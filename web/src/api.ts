@@ -254,6 +254,22 @@ export interface SessionRow {
 export const fetchMySessions = (signal?: AbortSignal) => getJSON<{ sessions: SessionRow[] }>("/api/v1/me/sessions", signal);
 export const revokeMySession = (id: string) => send("DELETE", `/api/v1/me/sessions/${id}`);
 
+/** A single sign-on identity linked to the signed-in user. */
+export interface Identity {
+  issuer: string;
+  subject: string;
+  email: string;
+  created_at: string;
+  last_login: string;
+}
+
+export const identities = {
+  list: (signal?: AbortSignal) => getJSON<{ identities: Identity[] }>("/api/v1/me/identities", signal),
+  /** Starts linking: returns the provider URL to send the browser to. */
+  link: () => send<{ url: string }>("POST", "/api/v1/me/identities/oidc"),
+  unlink: (i: Pick<Identity, "issuer" | "subject">) => send("POST", "/api/v1/me/identities/unlink", { issuer: i.issuer, subject: i.subject }),
+};
+
 export interface ApiToken {
   id: number;
   name: string;

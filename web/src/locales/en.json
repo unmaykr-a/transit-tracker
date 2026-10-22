@@ -177,7 +177,7 @@
       "sso_denied": "Sign-in was cancelled at the provider.",
       "sso_expired": "The sign-in took too long or was started elsewhere. Try again.",
       "sso_failed": "Single sign-on failed. Try again.",
-      "sso_no_account": "There is no account for this sign-in. Ask an administrator for an invite.",
+      "sso_no_account": "There is no account for this sign-in. If you already have one, log in with your password and link it under Settings → Single sign-on; otherwise ask an administrator for an invite.",
       "sso_disabled": "This account is disabled."
     }
   },
@@ -196,7 +196,19 @@
     "admin": "Administration",
     "signedOut": "You are not logged in.",
     "setPassword": "Set a password",
-    "setPasswordHint": "You sign in with single sign-on. A password also lets you log in without it."
+    "setPasswordHint": "You sign in with single sign-on. A password also lets you log in without it.",
+    "sso": {
+      "title": "Single sign-on",
+      "intro": "Link your {{name}} account to sign in to this account with it as well as with your password.",
+      "introOff": "Single sign-on is turned off on this server.",
+      "link": "Link {{name}} account",
+      "linked": "Linked. You can now sign in with single sign-on.",
+      "unlink": "Unlink",
+      "lastSignIn": "Set a password first: this is your only way to sign in.",
+      "adminGroup": "This provider account is not in the administrators group, so signing in with it makes this account a regular user (unless it is the last administrator). Add it to the group at your provider, or keep signing in with your password.",
+      "sso_link_taken": "That provider account is already linked to another user. Unlink it there first.",
+      "sso_link_session": "The link was finished in a different session. Start again from here."
+    }
   },
   "admin": {
     "title": "Administration",

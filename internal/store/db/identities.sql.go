@@ -81,6 +81,24 @@ func (q *Queries) CreateUserNoPassword(ctx context.Context, arg CreateUserNoPass
 	return i, err
 }
 
+const deleteUserIdentity = `-- name: DeleteUserIdentity :execrows
+DELETE FROM user_identities WHERE issuer = ? AND subject = ? AND user_id = ?
+`
+
+type DeleteUserIdentityParams struct {
+	Issuer  string
+	Subject string
+	UserID  int64
+}
+
+func (q *Queries) DeleteUserIdentity(ctx context.Context, arg DeleteUserIdentityParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUserIdentity, arg.Issuer, arg.Subject, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getIdentityUser = `-- name: GetIdentityUser :one
 SELECT user_identities.issuer, user_identities.subject, user_identities.user_id, user_identities.email, user_identities.created_at, user_identities.last_login, users.id, users.username, users.email, users.password_hash, users.role, users.locale, users.theme, users.disabled, users.created_at
 FROM user_identities JOIN users ON users.id = user_identities.user_id
@@ -118,6 +136,40 @@ func (q *Queries) GetIdentityUser(ctx context.Context, arg GetIdentityUserParams
 		&i.User.CreatedAt,
 	)
 	return i, err
+}
+
+const listUserIdentities = `-- name: ListUserIdentities :many
+SELECT issuer, subject, user_id, email, created_at, last_login FROM user_identities WHERE user_id = ? ORDER BY created_at
+`
+
+func (q *Queries) ListUserIdentities(ctx context.Context, userID int64) ([]UserIdentity, error) {
+	rows, err := q.db.QueryContext(ctx, listUserIdentities, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []UserIdentity{}
+	for rows.Next() {
+		var i UserIdentity
+		if err := rows.Scan(
+			&i.Issuer,
+			&i.Subject,
+			&i.UserID,
+			&i.Email,
+			&i.CreatedAt,
+			&i.LastLogin,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const touchIdentity = `-- name: TouchIdentity :exec

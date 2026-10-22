@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 — 2026-10-22
+
+- Single sign-on: link an existing account, the admin included, to your provider account under **Settings → Single
+  sign-on**, and unlink it there. Linking runs the normal sign-in at the provider and completes only in the session
+  that started it; an identity already used by another account is refused, and an admin whose provider account is
+  outside `BUS_OIDC_ADMIN_GROUP` is warned. Both actions are in the audit log.
+- The e2e tests run against a fake OpenID provider.
+
 ## 1.2.0 — 2026-10-22
 
 - **Trips between two stops**: in My lines, *Add a trip* (or *Trip from here* on a stop page) picks a start and an
