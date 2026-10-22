@@ -88,4 +88,9 @@ test("a matched vehicle's sheet lists its next stops", async ({ page, request })
   await expect(sheet.getByText("Next stops")).toBeVisible();
   await expect(sheet.getByRole("listitem").first()).toContainText(/(now|\d+ min)$/);
   await expect(sheet.getByRole("link", { name: "Open line" })).toBeVisible();
+  // Its route is drawn with the stops along it.
+  await page.waitForFunction(() => {
+    const m = (globalThis as { __tramMap?: { querySourceFeatures: (s: string) => unknown[] } }).__tramMap;
+    return !!m && m.querySourceFeatures("selected-route").length > 0 && m.querySourceFeatures("selected-route-stops").length > 1;
+  });
 });

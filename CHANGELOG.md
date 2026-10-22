@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Map: a selected vehicle's route is drawn in its line colour with an outline that stands out on both light and dark
+  maps, with its stops marked at every zoom; vehicles of other lines fade while it is selected.
+
 ## 1.3.0 — 2026-10-22
 
 - Single sign-on: link an existing account, the admin included, to your provider account under **Settings → Single
