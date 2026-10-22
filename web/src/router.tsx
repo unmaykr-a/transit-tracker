@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, lazyRouteComponent } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/AppShell";
 import HomePage from "@/pages/HomePage";
@@ -7,6 +7,12 @@ const rootRoute = createRootRoute({ component: AppShell });
 
 // The router parses search values as JSON, so ?stop=1234 arrives as a number.
 const str = (v: unknown) => (typeof v === "string" && v !== "" ? v : typeof v === "number" ? String(v) : undefined);
+
+const adminRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
+  component: lazyRouteComponent(() => import("@/pages/admin/AdminLayout")),
+});
 
 const routeTree = rootRoute.addChildren([
   createRoute({ getParentRoute: () => rootRoute, path: "/", component: HomePage }),
@@ -31,6 +37,28 @@ const routeTree = rootRoute.addChildren([
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/lines/$mode/$line", component: lazyRouteComponent(() => import("@/pages/LinePage")) }),
   createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: lazyRouteComponent(() => import("@/pages/SettingsPage")) }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/login",
+    validateSearch: (s: Record<string, unknown>): { next?: string } => ({ next: str(s.next) }),
+    component: lazyRouteComponent(() => import("@/pages/AuthPages"), "LoginPage"),
+  }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: lazyRouteComponent(() => import("@/pages/AuthPages"), "SetupPage") }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/signup",
+    validateSearch: (s: Record<string, unknown>): { invite?: string } => ({ invite: str(s.invite) }),
+    component: lazyRouteComponent(() => import("@/pages/AuthPages"), "SignupPage"),
+  }),
+  adminRoute.addChildren([
+    createRoute({ getParentRoute: () => adminRoute, path: "/", beforeLoad: () => { throw redirect({ to: "/admin/users" }); } }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/users", component: lazyRouteComponent(() => import("@/pages/admin/UsersPage")) }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/invites", component: lazyRouteComponent(() => import("@/pages/admin/InvitesPage")) }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/settings", component: lazyRouteComponent(() => import("@/pages/admin/SettingsAdminPage")) }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/health", component: lazyRouteComponent(() => import("@/pages/admin/HealthPage")) }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/audit", component: lazyRouteComponent(() => import("@/pages/admin/AuditPage")) }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/about", component: lazyRouteComponent(() => import("@/pages/admin/AboutPage")) }),
+  ]),
 ]);
 
 export function makeRouter() {

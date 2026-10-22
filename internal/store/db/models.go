@@ -4,6 +4,31 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
+type AuditLog struct {
+	ID      int64
+	At      int64
+	ActorID sql.NullInt64
+	Actor   string
+	Action  string
+	Target  string
+	Detail  string
+}
+
+type Invite struct {
+	ID        int64
+	TokenHash string
+	Role      string
+	CreatedBy sql.NullInt64
+	CreatedAt int64
+	ExpiresAt int64
+	UsedBy    sql.NullInt64
+	UsedAt    sql.NullInt64
+}
+
 type Pattern struct {
 	ID        string
 	RouteID   string
@@ -24,6 +49,22 @@ type Route struct {
 	TextColor string
 	Source    string
 	Sort      int64
+}
+
+type Session struct {
+	ID         string
+	UserID     int64
+	Csrf       string
+	CreatedAt  int64
+	LastSeenAt int64
+	ExpiresAt  int64
+	UserAgent  string
+	Ip         string
+}
+
+type Setting struct {
+	Key   string
+	Value string
 }
 
 type StaticMetum struct {
@@ -52,4 +93,16 @@ type StopArea struct {
 	Lat   float64
 	Lon   float64
 	Modes string
+}
+
+type User struct {
+	ID           int64
+	Username     string
+	Email        string
+	PasswordHash string
+	Role         string
+	Locale       string
+	Theme        string
+	Disabled     int64
+	CreatedAt    int64
 }

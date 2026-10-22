@@ -13,7 +13,7 @@ import (
 
 // GPSPoller polls transport.tallinn.ee/gps.txt into the store.
 type GPSPoller struct {
-	URL     string
+	URL     func() string
 	Fetcher *feeds.Fetcher
 	Store   *state.Store
 	Now     func() time.Time
@@ -22,7 +22,7 @@ type GPSPoller struct {
 }
 
 func (p *GPSPoller) Poll(ctx context.Context) (Result, error) {
-	res, err := p.Fetcher.Get(ctx, p.URL, true)
+	res, err := p.Fetcher.Get(ctx, p.URL(), true)
 	if err != nil {
 		return Result{}, err
 	}
@@ -72,7 +72,7 @@ func (p *GPSPoller) now() time.Time {
 
 // ElronPoller polls elron.ee/map_data.json into the store.
 type ElronPoller struct {
-	URL      string
+	URL      func() string
 	Fetcher  *feeds.Fetcher
 	Store    *state.Store
 	Location *time.Location
@@ -80,7 +80,7 @@ type ElronPoller struct {
 
 func (p *ElronPoller) Poll(ctx context.Context) (Result, error) {
 	// Elron sends a 14-day max-age and no useful validators; always fetch the body.
-	res, err := p.Fetcher.Get(ctx, p.URL, false)
+	res, err := p.Fetcher.Get(ctx, p.URL(), false)
 	if err != nil {
 		return Result{}, err
 	}

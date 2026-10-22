@@ -25,6 +25,17 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `Build` output changes for the same input.
 - `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail and city
   platforms without live rows; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
+- `internal/auth` — argon2id passwords, cookie sessions (`tram_session`, HttpOnly, SameSite=Lax, Secure behind
+  HTTPS; 30-day sliding expiry; only the token's sha256 is stored), invites, login rate limit (5 per 15 min per IP
+  and per username), last-admin guard. `internal/settings` — admin-editable settings (one JSON row per key over env
+  defaults; `null` resets). Pollers, fetcher User-Agent and upstream URLs read settings through getter funcs
+  (`func() string` / `feeds.Const`) so edits apply without a restart.
+- API middleware order: `withSession` (client IP/scheme from `TRAM_TRUSTED_PROXIES` only) → `csrfGuard` (unsafe
+  methods: same-origin `Origin`, and `X-CSRF-Token` = session CSRF when logged in) → `publicGate` (map/search/stops
+  need login when `public_map` is off) / `requireUser` / `requireAdmin`. Audit every admin action via `s.audit`.
+- Account API: `GET /session` (bootstrap: public settings, setup_required, user, csrf), `/auth/{setup,login,logout,
+  signup}`, `/auth/invites/{token}`, `/me`, `/me/password`, `/me/sessions`. Admin API under `/admin/*`: users,
+  invites, settings, health (with per-minute history), static/refresh, audit, about, backup (`VACUUM INTO`).
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
   `/stops/{areaOrPlatformId}`, `/stops/{id}/departures?platform=&limit=`, `/lines/{mode}/{line}`.
 - Live API: `GET /api/v1/vehicles?mode=&line=`, `GET /api/v1/vehicles/{id}`, `GET /api/v1/status`,
@@ -48,8 +59,9 @@ make test         # go test -race ./... and vitest
 make lint         # gofmt, go vet, eslint, tsc
 make run          # go run ./cmd/tram  (UI: cd web && npm run dev → proxies /api, /ws to :8080)
 TRAM_FAKE_FEEDS=1 make run       # offline / night-time development with replayed fixtures
-cd web && npm run e2e            # Playwright vs ../bin/tram with fake feeds (run `make web build` first;
-                                 # set PW_CHROMIUM_PATH to use a preinstalled Chromium)
+cd web && npm run e2e            # Playwright vs ../bin/tram with fake feeds, a fresh temp DB and a seeded
+                                 # admin (see playwright.config.ts). Run `make web build` first; set
+                                 # PW_CHROMIUM_PATH to use a preinstalled Chromium
 docker compose up --build        # local image on http://localhost:8095
 make docker       # buildx linux/amd64 + linux/arm64
 sqlc generate     # after editing internal/store/queries or migrations

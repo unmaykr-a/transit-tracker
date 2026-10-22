@@ -19,3 +19,19 @@ export function clock(t: string, locale?: string): string {
   // Timetables in Estonia are 24-hour in every language.
   return new Date(t).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Tallinn" });
 }
+
+/** "3 minutes ago", "in 2 days" in the given language. */
+export function relative(t: string, lang?: string, now = Date.now()): string {
+  const s = Math.round((Date.parse(t) - now) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+  if (Math.abs(s) < 60) return rtf.format(s, "second");
+  if (Math.abs(s) < 3600) return rtf.format(Math.round(s / 60), "minute");
+  if (Math.abs(s) < 86400) return rtf.format(Math.round(s / 3600), "hour");
+  return rtf.format(Math.round(s / 86400), "day");
+}
+
+export function bytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 ** 2).toFixed(1)} MB`;
+}

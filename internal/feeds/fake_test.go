@@ -82,7 +82,7 @@ func TestFakeStaticAndDepartures(t *testing.T) {
 	if g, err := ReadGTFSZip(r.Body); err != nil || len(g.Routes) != 2 {
 		t.Fatalf("elron.zip: %v", err)
 	}
-	otp := &OTP{URL: DefaultOTPURL, Fetcher: f}
+	otp := &OTP{URL: Const(DefaultOTPURL), Fetcher: f}
 	if routes, err := otp.AgencyRoutes(ctx, TallinnAgencyID); err != nil || len(routes) != 80 {
 		t.Fatalf("agency routes: %d %v", len(routes), err)
 	}

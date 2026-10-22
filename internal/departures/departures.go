@@ -37,7 +37,7 @@ type Departure struct {
 type Service struct {
 	Fetcher  *feeds.Fetcher
 	OTP      *feeds.OTP
-	SiriURL  string // e.g. https://transport.tallinn.ee/siri-stop-departures.php
+	SiriURL  func() string // e.g. https://transport.tallinn.ee/siri-stop-departures.php
 	Index    func() *staticdata.Index
 	Location *time.Location
 	Now      func() time.Time
@@ -68,7 +68,7 @@ func (s *Service) now() time.Time {
 func (s *Service) Siri(ctx context.Context, siriID string) (feeds.SiriBoard, error) {
 	s.init()
 	return s.siri.Get(ctx, siriID, func(ctx context.Context) (feeds.SiriBoard, error) {
-		res, err := s.Fetcher.Get(ctx, s.SiriURL+"?stopid="+url.QueryEscape(siriID), false)
+		res, err := s.Fetcher.Get(ctx, s.SiriURL()+"?stopid="+url.QueryEscape(siriID), false)
 		if err != nil {
 			return feeds.SiriBoard{}, err
 		}

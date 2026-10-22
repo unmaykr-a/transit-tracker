@@ -14,8 +14,8 @@ import (
 // If-None-Match / If-Modified-Since so unchanged feeds cost a 304.
 type Fetcher struct {
 	Client    *http.Client
-	UserAgent string
-	MaxBytes  int64 // response size cap; 0 means 32 MiB
+	UserAgent func() string // read per request so an admin can change the contact URL
+	MaxBytes  int64         // response size cap; 0 means 32 MiB
 
 	mu    sync.Mutex
 	cache map[string]validators
@@ -35,7 +35,7 @@ func NewFetcher(client *http.Client, userAgent string) *Fetcher {
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second}
 	}
-	return &Fetcher{Client: client, UserAgent: userAgent}
+	return &Fetcher{Client: client, UserAgent: Const(userAgent)}
 }
 
 // Get fetches url. Conditional headers are only sent when conditional is true,
@@ -46,7 +46,7 @@ func (f *Fetcher) Get(ctx context.Context, url string, conditional bool) (Respon
 	if err != nil {
 		return Response{}, err
 	}
-	req.Header.Set("User-Agent", f.UserAgent)
+	req.Header.Set("User-Agent", f.UserAgent())
 	if conditional {
 		f.mu.Lock()
 		v := f.cache[url]
@@ -107,7 +107,7 @@ func (f *Fetcher) PostJSON(ctx context.Context, url string, body []byte) (Respon
 	if err != nil {
 		return Response{}, err
 	}
-	req.Header.Set("User-Agent", f.UserAgent)
+	req.Header.Set("User-Agent", f.UserAgent())
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	res, err := f.Client.Do(req)

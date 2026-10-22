@@ -10,7 +10,7 @@ import (
 
 // OTP is a client for the peatus.ee OpenTripPlanner GraphQL API.
 type OTP struct {
-	URL     string
+	URL     func() string
 	Fetcher *Fetcher
 }
 
@@ -92,7 +92,7 @@ func (o *OTP) query(ctx context.Context, q string, vars map[string]any, out any)
 	if err != nil {
 		return err
 	}
-	res, err := o.Fetcher.PostJSON(ctx, o.URL, body)
+	res, err := o.Fetcher.PostJSON(ctx, o.URL(), body)
 	if err != nil {
 		return err
 	}

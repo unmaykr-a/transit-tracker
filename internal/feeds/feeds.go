@@ -38,3 +38,7 @@ func lines(r io.Reader, fn func(line string)) error {
 	}
 	return sc.Err()
 }
+
+// Const returns a getter for a fixed value. Upstream URLs and intervals are
+// getters so admin settings apply without a restart.
+func Const[T any](v T) func() T { return func() T { return v } }

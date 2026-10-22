@@ -64,7 +64,7 @@ func TestOTPClient(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"stops": []any{one.Data.Stop}}})
 	}))
 	defer srv.Close()
-	o := &OTP{URL: srv.URL, Fetcher: NewFetcher(srv.Client(), "test")}
+	o := &OTP{URL: Const(srv.URL), Fetcher: NewFetcher(srv.Client(), "test")}
 	got, err := o.StopTimes(context.Background(), []string{"estonia:10137"}, 6, 21600)
 	if err != nil {
 		t.Fatal(err)

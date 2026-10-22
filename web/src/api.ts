@@ -117,14 +117,43 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public field?: string,
   ) {
     super(message);
   }
 }
 
+let csrfToken = "";
+
+/** Set from the session bootstrap; sent with every state-changing request. */
+export function setCsrfToken(t: string | undefined) {
+  csrfToken = t ?? "";
+}
+
+async function toError(res: Response, url: string): Promise<ApiError> {
+  try {
+    const body = (await res.json()) as { error?: string; field?: string };
+    return new ApiError(res.status, body.error ?? `${url}: ${res.status}`, body.field);
+  } catch {
+    return new ApiError(res.status, `${url}: ${res.status}`);
+  }
+}
+
 async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
-  if (!res.ok) throw new ApiError(res.status, `${url}: ${res.status}`);
+  if (!res.ok) throw await toError(res, url);
+  return (await res.json()) as T;
+}
+
+/** POST/PATCH/DELETE with JSON and the CSRF header. Returns undefined for 204. */
+export async function send<T = unknown>(method: "POST" | "PATCH" | "DELETE", url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-Token": csrfToken },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw await toError(res, url);
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -147,3 +176,164 @@ export const fetchLine = (mode: string, line: string, signal?: AbortSignal) =>
 
 export const fetchAllStops = (signal?: AbortSignal) =>
   getJSON<{ imported_at: string; stops: MapStop[] }>("/api/v1/stops", signal);
+
+export type Role = "admin" | "user";
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: Role;
+  locale: string;
+  theme: string;
+  disabled: boolean;
+  created_at: string;
+}
+
+export interface PublicSettings {
+  instance_name: string;
+  signup_mode: "off" | "invite" | "open";
+  public_map: boolean;
+  default_locale: string;
+  default_theme: string;
+  map_style_light: string;
+  map_style_dark: string;
+  map_center: [number, number];
+  map_zoom: number;
+}
+
+export interface SessionInfo {
+  settings: PublicSettings;
+  version: string;
+  setup_required: boolean;
+  user: User | null;
+  csrf?: string;
+}
+
+export const fetchSession = (signal?: AbortSignal) => getJSON<SessionInfo>("/api/v1/session", signal);
+
+export interface Credentials {
+  username: string;
+  password: string;
+  email?: string;
+  invite?: string;
+}
+
+export const login = (c: Credentials) => send<{ user: User; csrf: string }>("POST", "/api/v1/auth/login", c);
+export const setup = (c: Credentials) => send<{ user: User; csrf: string }>("POST", "/api/v1/auth/setup", c);
+export const signup = (c: Credentials) => send<{ user: User; csrf: string }>("POST", "/api/v1/auth/signup", c);
+export const logout = () => send("POST", "/api/v1/auth/logout");
+export const checkInvite = (token: string) => getJSON<{ role: Role }>(`/api/v1/auth/invites/${encodeURIComponent(token)}`);
+
+export const updateMe = (p: Partial<Pick<User, "email" | "locale" | "theme">>) => send<{ user: User }>("PATCH", "/api/v1/me", p);
+export const changePassword = (current_password: string, new_password: string) =>
+  send("POST", "/api/v1/me/password", { current_password, new_password });
+
+export interface SessionRow {
+  id: string;
+  current: boolean;
+  created_at: string;
+  last_seen_at: string;
+  user_agent: string;
+  ip: string;
+}
+
+export const fetchMySessions = (signal?: AbortSignal) => getJSON<{ sessions: SessionRow[] }>("/api/v1/me/sessions", signal);
+export const revokeMySession = (id: string) => send("DELETE", `/api/v1/me/sessions/${id}`);
+
+// Admin
+
+export interface AdminUser extends User {
+  sessions: number;
+}
+
+export interface Invite {
+  id: number;
+  role: Role;
+  created_by: string;
+  created_at: string;
+  expires_at: string;
+  used_by?: string;
+  used_at?: string;
+  expired: boolean;
+}
+
+export interface AdminSettings extends PublicSettings {
+  gps_url: string;
+  gps_interval_s: number;
+  elron_url: string;
+  elron_interval_s: number;
+  siri_url: string;
+  otp_url: string;
+  stops_url: string;
+  elron_gtfs_url: string;
+  user_agent_contact: string;
+}
+
+export interface FeedHealth {
+  name: string;
+  last_success?: string;
+  last_data?: string;
+  last_error?: string;
+  last_error_at?: string;
+  latency_ms: number;
+  count: number;
+  consecutive_failures: number;
+  stale: boolean;
+  history: { t: number; count: number }[];
+}
+
+export interface StaticStatus {
+  imported_at?: string;
+  last_attempt?: string;
+  last_error?: string;
+  duration_ms: number;
+  stops: number;
+  areas: number;
+  routes: number;
+  patterns: number;
+}
+
+export interface AuditEntry {
+  id: number;
+  at: string;
+  actor: string;
+  action: string;
+  target: string;
+  detail: string;
+}
+
+export interface About {
+  version: string;
+  commit: string;
+  go: string;
+  os: string;
+  arch: string;
+  uptime_s: number;
+  db_bytes: number;
+  users: number;
+  data_dir: string;
+}
+
+export const admin = {
+  users: (signal?: AbortSignal) => getJSON<{ users: AdminUser[] }>("/api/v1/admin/users", signal),
+  createUser: (u: { username: string; email: string; password: string; role: Role }) => send<{ user: User }>("POST", "/api/v1/admin/users", u),
+  updateUser: (id: number, p: { role?: Role; disabled?: boolean }) => send<{ user: User }>("PATCH", `/api/v1/admin/users/${id}`, p),
+  resetPassword: (id: number, password: string) => send("POST", `/api/v1/admin/users/${id}/password`, { password }),
+  revokeSessions: (id: number) => send("DELETE", `/api/v1/admin/users/${id}/sessions`),
+  deleteUser: (id: number) => send("DELETE", `/api/v1/admin/users/${id}`),
+  invites: (signal?: AbortSignal) => getJSON<{ invites: Invite[] }>("/api/v1/admin/invites", signal),
+  createInvite: (role: Role, expires_in_hours: number) =>
+    send<{ token: string; path: string; invite: Invite }>("POST", "/api/v1/admin/invites", { role, expires_in_hours }),
+  deleteInvite: (id: number) => send("DELETE", `/api/v1/admin/invites/${id}`),
+  settings: (signal?: AbortSignal) =>
+    getJSON<{ settings: AdminSettings; defaults: AdminSettings; overrides: Record<string, boolean> }>("/api/v1/admin/settings", signal),
+  updateSettings: (patch: Partial<Record<keyof AdminSettings, unknown>>) =>
+    send<{ settings: AdminSettings; defaults: AdminSettings; overrides: Record<string, boolean> }>("PATCH", "/api/v1/admin/settings", patch),
+  health: (signal?: AbortSignal) =>
+    getJSON<{ feeds: FeedHealth[]; static?: StaticStatus; vehicles: number; server_time: string }>("/api/v1/admin/health", signal),
+  refreshStatic: () => send<{ static: StaticStatus }>("POST", "/api/v1/admin/static/refresh"),
+  audit: (action: string, before: number, signal?: AbortSignal) =>
+    getJSON<{ entries: AuditEntry[] }>(`/api/v1/admin/audit?limit=50&action=${encodeURIComponent(action)}${before ? `&before=${before}` : ""}`, signal),
+  about: (signal?: AbortSignal) => getJSON<About>("/api/v1/admin/about", signal),
+};

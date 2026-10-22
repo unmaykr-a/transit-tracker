@@ -20,8 +20,8 @@ import (
 type Importer struct {
 	Fetcher      *feeds.Fetcher
 	OTP          *feeds.OTP
-	StopsURL     string // transport.tallinn.ee/data/stops.txt
-	ElronGTFSURL string
+	StopsURL     func() string // transport.tallinn.ee/data/stops.txt
+	ElronGTFSURL func() string
 	AgencyID     string
 	Store        *store.Store
 	Log          *slog.Logger
@@ -136,7 +136,7 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 	if len(routes) == 0 {
 		return Dataset{}, errors.New("city routes: none returned")
 	}
-	res, err := im.Fetcher.Get(ctx, im.StopsURL, false)
+	res, err := im.Fetcher.Get(ctx, im.StopsURL(), false)
 	if err != nil {
 		return Dataset{}, fmt.Errorf("stops: %w", err)
 	}
@@ -145,7 +145,7 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 		return Dataset{}, fmt.Errorf("stops: %w", err)
 	}
 	src := Sources{CityRoutes: routes, TallinnStops: stops}
-	if res, err := im.Fetcher.Get(ctx, im.ElronGTFSURL, false); err != nil {
+	if res, err := im.Fetcher.Get(ctx, im.ElronGTFSURL(), false); err != nil {
 		// Trains are optional: keep the city importable when Elron's feed is down.
 		im.Log.Warn("Elron GTFS unavailable, importing without rail", "err", err)
 	} else if g, err := feeds.ReadGTFSZip(res.Body); err != nil {

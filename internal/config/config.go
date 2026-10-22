@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -22,6 +23,11 @@ type Config struct {
 	// Contact goes into the upstream User-Agent so operators can reach us, TRAM_CONTACT.
 	Contact string
 	Feeds   FeedConfig
+
+	// TrustedProxies may set X-Forwarded-For/-Proto, TRAM_TRUSTED_PROXIES (comma-separated CIDRs).
+	TrustedProxies []netip.Prefix
+	// AdminUser/AdminPassword seed the first admin on an empty database.
+	AdminUser, AdminPassword string
 }
 
 // FeedConfig holds upstream URLs and poll intervals. Admin-editable overrides arrive with settings (M3).
@@ -67,6 +73,21 @@ func load(getenv func(string) string) (Config, error) {
 	if c.Feeds.ElronInterval, err = duration(getenv, "TRAM_ELRON_INTERVAL", 10*time.Second, 5*time.Second); err != nil {
 		return c, err
 	}
+	for _, p := range strings.Split(getenv("TRAM_TRUSTED_PROXIES"), ",") {
+		if p = strings.TrimSpace(p); p == "" {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(p)
+		if err != nil {
+			addr, aerr := netip.ParseAddr(p)
+			if aerr != nil {
+				return c, fmt.Errorf("TRAM_TRUSTED_PROXIES %q: %w", p, err)
+			}
+			prefix = netip.PrefixFrom(addr, addr.BitLen())
+		}
+		c.TrustedProxies = append(c.TrustedProxies, prefix.Masked())
+	}
+	c.AdminUser, c.AdminPassword = getenv("TRAM_ADMIN_USER"), getenv("TRAM_ADMIN_PASSWORD")
 	if _, _, err := net.SplitHostPort(c.Addr); err != nil {
 		return c, fmt.Errorf("TRAM_ADDR %q: %w", c.Addr, err)
 	}

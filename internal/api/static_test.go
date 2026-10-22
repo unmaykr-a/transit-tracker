@@ -34,19 +34,19 @@ func staticServer(t *testing.T) (*httptest.Server, *state.Store) {
 		return out
 	}}
 	f := feeds.NewFetcher(&http.Client{Transport: ft}, "test")
-	otp := &feeds.OTP{URL: feeds.DefaultOTPURL, Fetcher: f}
+	otp := &feeds.OTP{URL: feeds.Const(feeds.DefaultOTPURL), Fetcher: f}
 	st, err := store.Open(context.Background(), t.TempDir(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	im = &staticdata.Importer{Fetcher: f, OTP: otp, StopsURL: staticdata.DefaultStopsURL, ElronGTFSURL: staticdata.DefaultElronGTFSURL,
+	im = &staticdata.Importer{Fetcher: f, OTP: otp, StopsURL: feeds.Const(staticdata.DefaultStopsURL), ElronGTFSURL: feeds.Const(staticdata.DefaultElronGTFSURL),
 		AgencyID: feeds.TallinnAgencyID, Store: st, Log: slog.New(slog.DiscardHandler), Location: loc}
 	if err := im.Import(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	vehicles := state.NewStore()
-	deps := &departures.Service{Fetcher: f, OTP: otp, SiriURL: departures.DefaultSiriURL, Index: im.Index, Location: loc}
+	deps := &departures.Service{Fetcher: f, OTP: otp, SiriURL: feeds.Const(departures.DefaultSiriURL), Index: im.Index, Location: loc}
 	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler), Deps{
 		Store: vehicles, Health: ingest.NewHealth(), Static: im.Index, StaticStatus: im.Status, Departures: deps,
 	}).Handler(SPA(fstest.MapFS{})))

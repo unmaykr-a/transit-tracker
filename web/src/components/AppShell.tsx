@@ -1,6 +1,11 @@
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Navigate, Outlet, useLocation } from "@tanstack/react-router";
 import { Home, Map, Search, Settings } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+
+import { applyUserPrefs, useSession } from "@/lib/session";
+
+const OPEN_PATHS = ["/login", "/signup", "/setup"];
 
 const tabs = [
   { to: "/", icon: Home, key: "nav.home" },
@@ -12,6 +17,17 @@ const tabs = [
 /** Bottom tab bar on phones, left rail on wider screens. */
 export function AppShell() {
   const { t } = useTranslation();
+  const session = useSession();
+  const { pathname, href } = useLocation();
+  const user = session.data?.user;
+  useEffect(() => applyUserPrefs(user), [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const s = session.data;
+  if (s?.setup_required && pathname !== "/setup") return <Navigate to="/setup" replace />;
+  if (s && !s.setup_required && pathname === "/setup") return <Navigate to="/" replace />;
+  if (s && !s.user && !s.settings.public_map && !OPEN_PATHS.includes(pathname)) {
+    return <Navigate to="/login" search={{ next: href }} replace />;
+  }
   return (
     <div className="flex h-dvh flex-col md:flex-row-reverse">
       <main className="relative min-h-0 flex-1 overflow-y-auto">

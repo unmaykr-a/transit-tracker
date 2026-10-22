@@ -4,8 +4,9 @@ Self-hosted, multi-user app showing live Tallinn buses, trams, trolleybuses and 
 telling you whether you can make your next departure, with a Home Assistant integration.
 Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 
-> Status: **M2 — search, stops and lines**: live map of every bus, tram, trolleybus and Elron train;
-> search by line or stop; stop pages with live departures per platform; line pages with live positions. See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
+> Status: **M3 — accounts and admin**: live map of every bus, tram, trolleybus and Elron train; search by line or
+> stop; stop and line pages with live departures; local accounts with invites; admin area for users, settings,
+> feed health, audit log and backups. See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
 > [docs/feeds.md](docs/feeds.md) for the upstream data formats.
 
 ## Run
@@ -19,6 +20,12 @@ Images are multi-arch (`linux/amd64` and `linux/arm64`), so the same tag runs on
 Behind Nginx Proxy Manager, enable **WebSockets support** for the proxy host (needed for `/ws`; the app falls
 back to Server-Sent Events if WebSockets are blocked).
 
+## First start
+
+Open the app and create the administrator account, or set `TRAM_ADMIN_USER` and `TRAM_ADMIN_PASSWORD` to create it
+on first start. Invite others from **Settings → Administration → Invites**. Sign-up is invite-only by default; the
+map, search and stop pages are public unless you turn **Public map** off.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -27,6 +34,8 @@ back to Server-Sent Events if WebSockets are blocked).
 | `TRAM_DATA_DIR` | `./data` | Database and caches |
 | `TRAM_BASE_URL` | — | Public URL, also used as the contact in the upstream User-Agent |
 | `TRAM_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `TRAM_ADMIN_USER`, `TRAM_ADMIN_PASSWORD` | — | Create the first admin on an empty database |
+| `TRAM_TRUSTED_PROXIES` | — | CIDRs whose `X-Forwarded-For`/`-Proto` are trusted (your reverse proxy) |
 | `TRAM_FAKE_FEEDS` | `false` | Replay recorded feeds instead of polling upstream |
 | `TRAM_CONTACT` | base URL or repo URL | Contact URL sent to upstream feeds |
 | `TRAM_GPS_URL`, `TRAM_GPS_INTERVAL` | Tallinn `gps.txt`, `5s` | City vehicle feed (minimum 2 s) |
@@ -34,7 +43,8 @@ back to Server-Sent Events if WebSockets are blocked).
 | `TRAM_SIRI_URL`, `TRAM_OTP_URL` | transport.tallinn.ee, api.peatus.ee | Live departures and timetables |
 | `TRAM_STOPS_URL`, `TRAM_ELRON_GTFS_URL` | transport.tallinn.ee, eu-gtfs.remix.com | Static data (imported nightly at 03:30) |
 
-The SQLite database lives in `TRAM_DATA_DIR` (`/data` in the container). With a bind mount, make the host
+Feed URLs, poll intervals and the User-Agent contact can also be changed at runtime in the admin settings; those
+override the environment. The SQLite database lives in `TRAM_DATA_DIR` (`/data` in the container). With a bind mount, make the host
 directory writable by the container user.
 
 ## Develop
