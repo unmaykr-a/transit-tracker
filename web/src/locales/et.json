@@ -177,7 +177,7 @@
       "sso_denied": "Sisselogimine katkestati teenusepakkuja juures.",
       "sso_expired": "Sisselogimine võttis liiga kaua aega või alustati mujal. Proovi uuesti.",
       "sso_failed": "Ühekordne sisselogimine ebaõnnestus. Proovi uuesti.",
-      "sso_no_account": "Selle sisselogimise jaoks pole kontot. Küsi administraatorilt kutset.",
+      "sso_no_account": "Selle sisselogimise jaoks pole kontot. Kui sul on konto olemas, logi sisse parooliga ja seo see jaotises Seaded → Ühekordne sisselogimine; muidu küsi administraatorilt kutset.",
       "sso_disabled": "See konto on keelatud."
     }
   },
@@ -196,7 +196,19 @@
     "admin": "Haldus",
     "signedOut": "Sa ei ole sisse logitud.",
     "setPassword": "Määra parool",
-    "setPasswordHint": "Sa logid sisse ühekordse sisselogimisega. Parooliga saad sisse logida ka ilma selleta."
+    "setPasswordHint": "Sa logid sisse ühekordse sisselogimisega. Parooliga saad sisse logida ka ilma selleta.",
+    "sso": {
+      "title": "Ühekordne sisselogimine",
+      "intro": "Seo oma {{name}} konto, et saaksid sellele kontole siseneda nii sellega kui ka parooliga.",
+      "introOff": "Ühekordne sisselogimine on selles serveris välja lülitatud.",
+      "link": "Seo {{name}} konto",
+      "linked": "Seotud. Nüüd saad siseneda ühekordse sisselogimisega.",
+      "unlink": "Eemalda seos",
+      "lastSignIn": "Määra enne parool: see on sinu ainus sisselogimise viis.",
+      "adminGroup": "See teenusepakkuja konto ei kuulu administraatorite gruppi, nii et sellega sisenedes muutub see konto tavakasutajaks (välja arvatud siis, kui see on viimane administraator). Lisa konto teenusepakkuja juures gruppi või jätka parooliga sisenemist.",
+      "sso_link_taken": "See teenusepakkuja konto on juba seotud teise kasutajaga. Eemalda seos seal enne.",
+      "sso_link_session": "Sidumine lõpetati teises sessioonis. Alusta siit uuesti."
+    }
   },
   "admin": {
     "title": "Haldus",

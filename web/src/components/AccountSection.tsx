@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { Shield } from "lucide-react";
+import { getRouteApi, Link } from "@tanstack/react-router";
+import { KeyRound, Shield } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, changePassword, fetchMySessions, logout, revokeMySession, updateMe, type User } from "@/api";
+import { ApiError, changePassword, fetchMySessions, identities, logout, revokeMySession, updateMe, type User } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { relative } from "@/lib/format";
-import { SESSION_KEY } from "@/lib/session";
+import { SESSION_KEY, useSession } from "@/lib/session";
 
+const settingsRoute = getRouteApi("/settings");
 
 /** Short device description from a User-Agent string. */
 function device(ua: string): string {
@@ -103,6 +104,8 @@ export function AccountSection({ user }: { user: User }) {
         </div>
       </form>
 
+      <SsoSection user={user} />
+
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">{t("account.sessions")}</h3>
         <ul className="divide-y rounded-xl border bg-card">
@@ -124,5 +127,78 @@ export function AccountSection({ user }: { user: User }) {
         </ul>
       </div>
     </section>
+  );
+}
+
+/** Single sign-on identities linked to this account, and linking another one. */
+function SsoSection({ user }: { user: User }) {
+  const { t, i18n } = useTranslation();
+  const qc = useQueryClient();
+  const sso = useSession().data?.sso;
+  const search = settingsRoute.useSearch();
+  const list = useQuery({ queryKey: ["my-identities"], queryFn: ({ signal }) => identities.list(signal) });
+  const link = useMutation({
+    mutationFn: identities.link,
+    onSuccess: ({ url }) => {
+      window.location.assign(url);
+    },
+  });
+  const unlink = useMutation({ mutationFn: identities.unlink, onSuccess: () => qc.invalidateQueries({ queryKey: ["my-identities"] }) });
+  const linked = list.data?.identities ?? [];
+  if (!sso && linked.length === 0) return null;
+  const error = search.error?.startsWith("sso_") ? search.error : undefined;
+  const failed = unlink.error ?? link.error;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+      <div>
+        <h3 className="text-sm font-medium">{t("account.sso.title")}</h3>
+        <p className="text-sm text-muted-foreground">{sso ? t("account.sso.intro", { name: sso.name }) : t("account.sso.introOff")}</p>
+      </div>
+      {search.sso === "linked" && !error && (
+        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+          {t("account.sso.linked")}
+        </p>
+      )}
+      {search.warn === "admin_group" && (
+        <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950">
+          {t("account.sso.adminGroup")}
+        </p>
+      )}
+      {(error || failed) && (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {error ? t(`account.sso.${error}`, { defaultValue: t("auth.sso.sso_failed") }) : failed instanceof ApiError ? failed.message : t("common.error")}
+        </p>
+      )}
+      {linked.length > 0 && (
+        <ul className="divide-y rounded-lg border" aria-label={t("account.sso.title")}>
+          {linked.map((i) => (
+            <li key={i.issuer + i.subject} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{i.email || i.subject}</p>
+                <p className="truncate text-muted-foreground">
+                  {new URL(i.issuer).host} · {t("account.lastSeen", { when: relative(i.last_login, i18n.resolvedLanguage) })}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={unlink.isPending || (!user.has_password && linked.length === 1)}
+                title={!user.has_password && linked.length === 1 ? t("account.sso.lastSignIn") : undefined}
+                onClick={() => unlink.mutate(i)}
+              >
+                {t("account.sso.unlink")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {sso && (
+        <Button variant="outline" size="sm" className="self-start" disabled={link.isPending} onClick={() => link.mutate()}>
+          <KeyRound className="size-4" aria-hidden />
+          {t("account.sso.link", { name: sso.name })}
+        </Button>
+      )}
+    </div>
   );
 }

@@ -78,7 +78,11 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   state/nonce/verifier/next travel in an HMAC-signed 10-minute cookie (`bus_oidc`, per-process key). Identities are
   `user_identities` (issuer + subject → user); users are auto-created (`CreateUserNoPassword`, empty password hash =
   no local password), the admin role follows `BUS_OIDC_ADMIN_GROUP` (last admin never demoted). Errors redirect to
-  `/login?error=sso_*`. Tests use an in-process fake IdP (`oidc_test.go`).
+  `/login?error=sso_*`. Tests use an in-process fake IdP (`oidc_test.go`); e2e runs `web/e2e/fake-idp.mjs` (approves as
+  the sub set with `GET /as?sub=`). Linking: `POST /me/identities/oidc` (session + CSRF) returns the provider URL and
+  puts the user id in the flow (`Flow.Link`); the callback links only if the same user's session finishes it, then
+  redirects to `/settings?sso=linked` (`&warn=admin_group`, or `?error=sso_link_taken|sso_link_session`).
+  `GET /me/identities`, `POST /me/identities/unlink` (refused for the only sign-in of a password-less account).
 - API tokens (`api_tokens`, `internal/auth/tokens.go`): `Authorization: Bearer bus_…`, only the sha256 stored.
   Token requests are **read-only** (unsafe methods → 403), never admin, and cannot see/manage tokens or sessions
   (`requireSession`). `/me/tokens` (session only), `/admin/tokens`. `GET /api/v1/ha/lines?origin=lat,lon&departures=1..5`

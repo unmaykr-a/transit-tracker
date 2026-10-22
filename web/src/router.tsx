@@ -42,7 +42,17 @@ const routeTree = rootRoute.addChildren([
     validateSearch: (s: Record<string, unknown>): { from?: string } => ({ from: str(s.from) }),
     component: lazyRouteComponent(() => import("@/pages/TripPage")),
   }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: lazyRouteComponent(() => import("@/pages/SettingsPage")) }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/settings",
+    // Set by the single sign-on link callback.
+    validateSearch: (s: Record<string, unknown>): { sso?: string; warn?: string; error?: string } => ({
+      sso: str(s.sso),
+      warn: str(s.warn),
+      error: str(s.error),
+    }),
+    component: lazyRouteComponent(() => import("@/pages/SettingsPage")),
+  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/login",

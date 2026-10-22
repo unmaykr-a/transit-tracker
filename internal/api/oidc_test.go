@@ -250,3 +250,96 @@ func TestFlowCookie(t *testing.T) {
 		}
 	}
 }
+
+// startLink runs the browser side of linking for a signed-in client and returns where it lands.
+func startLink(t *testing.T, c *client, idp *fakeIdP, claims map[string]any) string {
+	t.Helper()
+	code, out := c.do("POST", "/api/v1/me/identities/oidc", nil)
+	if code != 200 {
+		t.Fatalf("link start = %d %v", code, out)
+	}
+	res, err := c.http.Get(idp.authorize(out["url"].(string), c.base+"/api/v1/auth/oidc/callback", claims))
+	if err != nil || res.StatusCode != http.StatusFound {
+		t.Fatalf("link callback: %v %v", err, res)
+	}
+	return res.Header.Get("Location")
+}
+
+func TestOIDCLinkExistingAccount(t *testing.T) {
+	_, idp, newClient := oidcServer(t, true)
+	admin := newClient()
+	if code, _ := admin.do("POST", "/api/v1/auth/setup", map[string]string{"username": "andri", "password": "hunter2hunter2"}); code != 200 {
+		t.Fatal("setup")
+	}
+	adminID := func() any { _, me := admin.do("GET", "/api/v1/me", nil); return me["user"].(map[string]any)["id"] }()
+
+	// The admin links their provider account; it is not in the admin group, so they are warned.
+	andri := map[string]any{"sub": "andri-sso", "preferred_username": "andri.m", "email": "andri@example.com", "groups": []string{"staff"}}
+	if to := startLink(t, admin, idp, andri); to != "/settings?sso=linked&warn=admin_group" {
+		t.Errorf("link landed on %q", to)
+	}
+	if to := startLink(t, admin, idp, andri); to != "/settings?sso=linked&warn=admin_group" { // linking again is harmless
+		t.Errorf("relink landed on %q", to)
+	}
+	_, ids := admin.do("GET", "/api/v1/me/identities", nil)
+	if l := ids["identities"].([]any); len(l) != 1 || l[0].(map[string]any)["email"] != "andri@example.com" {
+		t.Errorf("identities = %v", ids)
+	}
+
+	// Single sign-on now opens the existing admin account (still admin: it is the last one).
+	c := newClient()
+	if to := signIn(t, c, idp, "/admin/users", andri); to != "/admin/users" {
+		t.Errorf("sign-in landed on %q", to)
+	}
+	if _, me := c.do("GET", "/api/v1/me", nil); me["user"].(map[string]any)["id"] != adminID || me["user"].(map[string]any)["role"] != "admin" {
+		t.Errorf("signed in as %v", me["user"])
+	}
+
+	// An identity that already has its own account cannot be linked to another.
+	mari := map[string]any{"sub": "mari-sso", "preferred_username": "mari"}
+	m := newClient()
+	signIn(t, m, idp, "/", mari)
+	m.do("GET", "/api/v1/me", nil) // picks up the CSRF token
+	if to := startLink(t, admin, idp, mari); to != "/settings?error=sso_link_taken" {
+		t.Errorf("taken identity → %q", to)
+	}
+
+	// The link only completes in the browser session that started it.
+	code, out := admin.do("POST", "/api/v1/me/identities/oidc", nil)
+	if code != 200 {
+		t.Fatal(code)
+	}
+	cb := idp.authorize(out["url"].(string), admin.base+"/api/v1/auth/oidc/callback", map[string]any{"sub": "intruder"})
+	other := newClient()
+	u, _ := url.Parse(admin.base + "/api/v1/auth/oidc/callback")
+	for _, ck := range admin.http.Jar.Cookies(u) {
+		if ck.Name == oidcCookie { // the flow cookie, but not the session
+			other.http.Jar.SetCookies(u, []*http.Cookie{ck})
+		}
+	}
+	res, _ := other.http.Get(cb)
+	if loc := res.Header.Get("Location"); loc != "/settings?error=sso_link_session" {
+		t.Errorf("foreign session → %q", loc)
+	}
+
+	// Anonymous requests cannot start a link (API tokens are refused by requireSession too).
+	if code, _ := newClient().do("POST", "/api/v1/me/identities/oidc", nil); code != 401 {
+		t.Errorf("anonymous link = %d", code)
+	}
+
+	// Unlinking: fine with a password; refused for the only sign-in of an SSO-only account.
+	if code, _ := admin.do("POST", "/api/v1/me/identities/unlink", map[string]string{"issuer": idp.srv.URL, "subject": "andri-sso"}); code != 204 {
+		t.Errorf("unlink = %d", code)
+	}
+	if code, _ := admin.do("POST", "/api/v1/me/identities/unlink", map[string]string{"issuer": idp.srv.URL, "subject": "mari-sso"}); code != 404 {
+		t.Errorf("unlinking someone else's identity = %d", code)
+	}
+	if code, _ := m.do("POST", "/api/v1/me/identities/unlink", map[string]string{"issuer": idp.srv.URL, "subject": "mari-sso"}); code != 409 {
+		t.Errorf("unlinking the only sign-in = %d", code)
+	}
+	if c2 := newClient(); signIn(t, c2, idp, "/", andri) == "/" {
+		if _, me := c2.do("GET", "/api/v1/me", nil); me["user"].(map[string]any)["id"] == adminID {
+			t.Error("unlinked identity still signs in to the admin account")
+		}
+	}
+}

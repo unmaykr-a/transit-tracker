@@ -212,7 +212,7 @@ func (s *Server) writeErr(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusUnauthorized, err.Error(), "")
 	case errors.Is(err, auth.ErrRateLimited):
 		writeError(w, http.StatusTooManyRequests, err.Error(), "")
-	case errors.Is(err, auth.ErrSetupDone), errors.Is(err, auth.ErrLastAdmin):
+	case errors.Is(err, auth.ErrSetupDone), errors.Is(err, auth.ErrLastAdmin), errors.Is(err, auth.ErrLastSignIn):
 		writeError(w, http.StatusConflict, err.Error(), "")
 	case errors.Is(err, auth.ErrUsernameTaken):
 		writeError(w, http.StatusConflict, err.Error(), "username")

@@ -17,3 +17,9 @@ SELECT count(*) FROM user_identities WHERE user_id = ?;
 INSERT INTO users (username, email, password_hash, role, created_at)
 VALUES (?, ?, '', ?, ?)
 RETURNING *;
+
+-- name: ListUserIdentities :many
+SELECT * FROM user_identities WHERE user_id = ? ORDER BY created_at;
+
+-- name: DeleteUserIdentity :execrows
+DELETE FROM user_identities WHERE issuer = ? AND subject = ? AND user_id = ?;

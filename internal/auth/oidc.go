@@ -23,6 +23,10 @@ import (
 var (
 	ErrOIDCNoAccount = errors.New("no account is linked to this sign-in and automatic sign-up is off")
 	ErrOIDCDisabled  = errors.New("this account is disabled")
+	// ErrOIDCLinkedElsewhere: the identity already belongs to another local user.
+	ErrOIDCLinkedElsewhere = errors.New("this sign-in is already linked to another account")
+	// ErrLastSignIn: removing the identity would leave the account with no way to sign in.
+	ErrLastSignIn = errors.New("set a password before unlinking your only sign-in")
 )
 
 // OIDC signs users in with an OpenID Connect provider (authorization code
@@ -80,6 +84,8 @@ type Flow struct {
 	Nonce    string `json:"n"`
 	Verifier string `json:"v"`
 	Next     string `json:"x"`
+	// Link is the signed-in user the identity is linked to; 0 for a sign-in.
+	Link int64 `json:"l,omitempty"`
 }
 
 // Start begins a sign-in and returns the provider URL to redirect to.
@@ -236,6 +242,50 @@ func (s *Service) SignInOIDC(ctx context.Context, cfg config.OIDCConfig, c Claim
 		return nil
 	})
 	return u, err
+}
+
+// LinkOIDC links verified claims to an existing local user, so they can sign
+// in with either. Linking an identity the user already has is a no-op; one
+// that belongs to someone else fails. Roles are left alone: with an admin
+// group configured they follow it on the next single sign-on.
+func (s *Service) LinkOIDC(ctx context.Context, userID int64, c Claims) error {
+	now := s.now().Unix()
+	return s.Store.Tx(ctx, func(q *db.Queries) error {
+		row, err := q.GetIdentityUser(ctx, db.GetIdentityUserParams{Issuer: c.Issuer, Subject: c.Subject})
+		switch {
+		case err == nil && row.User.ID == userID:
+			return q.TouchIdentity(ctx, db.TouchIdentityParams{LastLogin: now, Email: c.Email, Issuer: c.Issuer, Subject: c.Subject})
+		case err == nil:
+			return ErrOIDCLinkedElsewhere
+		case !errors.Is(err, sql.ErrNoRows):
+			return err
+		}
+		return q.CreateIdentity(ctx, db.CreateIdentityParams{Issuer: c.Issuer, Subject: c.Subject, UserID: userID, Email: c.Email, CreatedAt: now, LastLogin: now})
+	})
+}
+
+// UnlinkOIDC removes one of the user's identities, unless it is their only
+// way to sign in (no local password and no other identity).
+func (s *Service) UnlinkOIDC(ctx context.Context, u db.User, issuer, subject string) error {
+	return s.Store.Tx(ctx, func(q *db.Queries) error {
+		if u.PasswordHash == "" {
+			n, err := q.CountUserIdentities(ctx, u.ID)
+			if err != nil {
+				return err
+			}
+			if n <= 1 {
+				return ErrLastSignIn
+			}
+		}
+		n, err := q.DeleteUserIdentity(ctx, db.DeleteUserIdentityParams{Issuer: issuer, Subject: subject, UserID: u.ID})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }
 
 // randomKey is a per-process key for signing short-lived flow cookies.
