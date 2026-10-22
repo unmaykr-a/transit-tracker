@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 
 import { fetchHealth, updateMe } from "@/api";
 import { AccountSection } from "@/components/AccountSection";
+import { WalkingSection } from "@/components/WalkingSection";
 import { Button } from "@/components/ui/button";
 import { LANGUAGES } from "@/i18n";
 import { useSession } from "@/lib/session";
@@ -67,6 +68,8 @@ export default function SettingsPage() {
           </section>
         )
       )}
+
+      {user && <WalkingSection />}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">{t("settings.theme")}</h2>

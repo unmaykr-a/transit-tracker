@@ -58,7 +58,28 @@
   "home": {
     "title": "My lines",
     "empty": "Saved lines with live countdowns arrive in a later update. Until then, the live map shows every vehicle.",
-    "openMap": "Open live map"
+    "openMap": "Open live map",
+    "intro": "Save your everyday lines to see live countdowns and whether you can make it.",
+    "loginToSave": "Log in to save your lines.",
+    "noLines": "No saved lines yet. Open a line from Search and tap “Save line”.",
+    "findLine": "Find a line",
+    "from": "from {{stop}}",
+    "walk": "{{min}} min walk",
+    "walkApprox": "≈{{min}} min walk",
+    "origin": "Walking from",
+    "myLocation": "My location",
+    "useLocation": "Use my location",
+    "locating": "Locating…",
+    "locationDenied": "Location blocked",
+    "noOrigin": "Choose where you walk from to see whether you can make it.",
+    "edit": "Edit",
+    "done": "Done",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove",
+    "unavailable": "This line or stop no longer exists in the timetable.",
+    "noDepartures": "No departures in the next hours.",
+    "then": "then"
   },
   "search": {
     "title": "Search",
@@ -253,5 +274,39 @@
     "dataDir": "Data directory",
     "backup": "Download backup",
     "backupHint": "A consistent copy of the SQLite database (users, saved lines, settings)."
+  },
+  "verdict": {
+    "leaveIn": "Leave in {{min}} min",
+    "leaveNow": "Leave now",
+    "tooTight": "Too tight, next in {{min}} min",
+    "tooTightNone": "Too tight"
+  },
+  "save": {
+    "button": "Save line",
+    "title": "Save {{line}} → {{headsign}}",
+    "board": "Where do you get on?",
+    "alight": "Where do you get off? (optional)",
+    "none": "Not set",
+    "label": "Label (optional)",
+    "labelPlaceholder": "e.g. To work",
+    "nearest": "nearest",
+    "submit": "Save",
+    "saved": "Saved to My lines",
+    "loginFirst": "Log in to save lines"
+  },
+  "walking": {
+    "title": "Walking",
+    "speed": "Walking speed",
+    "speedValue": "{{value}} km/h",
+    "buffer": "Safety buffer",
+    "bufferValue": "{{value}} min",
+    "places": "Saved places",
+    "placesHint": "Used as the starting point when location is off.",
+    "addPlace": "Add place",
+    "placeLabel": "Name",
+    "placeLabelPlaceholder": "Home, Work…",
+    "hereNow": "Use my current location",
+    "orStop": "or near a stop",
+    "noPlaces": "No saved places."
   }
 }

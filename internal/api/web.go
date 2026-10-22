@@ -3,10 +3,16 @@ package api
 import (
 	"embed"
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
 )
+
+func init() {
+	// Not in Go's built-in table; browsers want the right type for the PWA manifest.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 // dist holds the Vite build, copied in by `make web` or the Dockerfile.
 // Only .gitkeep is committed, so a plain `go build` still compiles.

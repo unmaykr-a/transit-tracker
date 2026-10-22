@@ -28,6 +28,7 @@ func testSettings() settings.Settings {
 		GPSURL: "https://example.com/gps", GPSIntervalS: 5, ElronURL: "https://example.com/elron", ElronIntervalS: 10,
 		SiriURL: "https://example.com/siri", OTPURL: "https://example.com/otp", StopsURL: "https://example.com/stops",
 		ElronGTFSURL: "https://example.com/gtfs", UserAgentContact: "https://example.com",
+		WalkProviders: []string{"haversine"}, TransitousURL: "https://example.com/transitous",
 	}
 }
 

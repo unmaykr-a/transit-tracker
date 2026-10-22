@@ -36,6 +36,15 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - Account API: `GET /session` (bootstrap: public settings, setup_required, user, csrf), `/auth/{setup,login,logout,
   signup}`, `/auth/invites/{token}`, `/me`, `/me/password`, `/me/sessions`. Admin API under `/admin/*`: users,
   invites, settings, health (with per-minute history), static/refresh, audit, about, backup (`VACUUM INTO`).
+- My lines: `saved_lines`, `saved_places`, `user_prefs` tables. `internal/walk` (OTP plan → Transitous → haversine
+  ×1.3, order from settings, 10-min cache per ~25 m origin cell + stop; distance → minutes at the user's speed).
+  `internal/dashboard` builds cards: departures of the line from its boarding platform (whole board, then filtered by
+  route, saved headsign preferred) + walk + `Judge` (slack = min until departure − walk − buffer; ≥5 neutral, 1–4
+  green, 0 amber, <0 red). The web mirrors `Judge` in `src/lib/verdict.ts` — keep them identical. Saved boarding
+  stops are SIRI-pre-warmed every 20 s. API: `/me/lines` (+ `/reorder`), `/me/places`, `/me/prefs`,
+  `/me/dashboard?lat=&lon=|place=` (location is never stored).
+- PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell, SWR for
+  `/api/v1/stops`), icons rendered from `icon.svg`. Registered only in production builds.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
   `/stops/{areaOrPlatformId}`, `/stops/{id}/departures?platform=&limit=`, `/lines/{mode}/{line}`.
 - Live API: `GET /api/v1/vehicles?mode=&line=`, `GET /api/v1/vehicles/{id}`, `GET /api/v1/status`,

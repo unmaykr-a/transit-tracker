@@ -87,7 +87,8 @@ type gqlError struct {
 	Message string `json:"message"`
 }
 
-func (o *OTP) query(ctx context.Context, q string, vars map[string]any, out any) error {
+// Query runs any GraphQL query against the OTP endpoint.
+func (o *OTP) Query(ctx context.Context, q string, vars map[string]any, out any) error {
 	body, err := json.Marshal(map[string]any{"query": q, "variables": vars})
 	if err != nil {
 		return err
@@ -128,7 +129,7 @@ func (o *OTP) AgencyRoutes(ctx context.Context, agencyID string) ([]OTPRoute, er
 			Routes []OTPRoute `json:"routes"`
 		} `json:"agency"`
 	}
-	if err := o.query(ctx, agencyRoutesQuery, map[string]any{"id": agencyID}, &d); err != nil {
+	if err := o.Query(ctx, agencyRoutesQuery, map[string]any{"id": agencyID}, &d); err != nil {
 		return nil, err
 	}
 	if d.Agency == nil {
@@ -166,7 +167,7 @@ func (o *OTP) StopTimes(ctx context.Context, ids []string, n int, rangeSec int) 
 			StopTimes []OTPStopTime `json:"stoptimesWithoutPatterns"`
 		} `json:"stops"`
 	}
-	if err := o.query(ctx, stopTimesQuery, map[string]any{"ids": ids, "n": n, "range": rangeSec}, &d); err != nil {
+	if err := o.Query(ctx, stopTimesQuery, map[string]any{"ids": ids, "n": n, "range": rangeSec}, &d); err != nil {
 		return nil, err
 	}
 	out := make(map[string][]OTPStopTime, len(d.Stops))

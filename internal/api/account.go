@@ -272,5 +272,6 @@ func (s *Server) mountAccount(r chi.Router) {
 		r.Post("/me/password", s.handleChangePassword)
 		r.Get("/me/sessions", s.handleMySessions)
 		r.Delete("/me/sessions/{id}", s.handleRevokeMySession)
+		s.mountMyLines(r)
 	})
 }

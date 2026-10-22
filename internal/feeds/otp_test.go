@@ -77,7 +77,7 @@ func TestOTPClient(t *testing.T) {
 	if vars["n"].(float64) != 6 || vars["ids"].([]any)[0] != "estonia:10137" {
 		t.Errorf("variables = %v", vars)
 	}
-	if err := o.query(context.Background(), "nope", nil, &struct{}{}); err == nil || !strings.Contains(err.Error(), "boom") {
+	if err := o.Query(context.Background(), "nope", nil, &struct{}{}); err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Errorf("graphql error not surfaced: %v", err)
 	}
 }

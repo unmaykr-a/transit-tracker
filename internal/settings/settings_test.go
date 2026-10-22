@@ -19,6 +19,7 @@ func defaults() Settings {
 		SiriURL: "https://transport.tallinn.ee/siri-stop-departures.php", OTPURL: "https://api.peatus.ee/x",
 		StopsURL: "https://transport.tallinn.ee/data/stops.txt", ElronGTFSURL: "https://eu-gtfs.remix.com/elron.zip",
 		UserAgentContact: "https://github.com/unmaykr-a/transit-tracker",
+		WalkProviders:    []string{"otp", "transitous", "haversine"}, TransitousURL: "https://api.transitous.org/api/v5/plan",
 	}
 }
 
@@ -56,6 +57,7 @@ func TestUpdateValidateAndReset(t *testing.T) {
 		{"gps_url": "ftp://x"},
 		{"no_such_key": 1},
 		{"map_zoom": "very"},
+		{"walk_providers": []string{"google"}},
 	} {
 		var fe *FieldError
 		if _, err := s.Update(ctx, raw(bad)); !errors.As(err, &fe) {
