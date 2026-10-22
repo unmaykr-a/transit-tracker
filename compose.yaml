@@ -6,6 +6,10 @@
 # Settings go in an optional .env next to this file (copy .env.example). For a homelab
 # setup with a bind-mounted data directory and a reverse proxy, see deploy/docker-compose.yml;
 # to build the image from this checkout instead, use compose.dev.yaml.
+#
+# Behind a reverse proxy, set BUS_TRUSTED_PROXIES to the proxy's network (e.g.
+# 172.16.0.0/12). Otherwise every visitor looks like the proxy: the login rate limit
+# is shared by everyone, and /metrics (private networks only) is open to the internet.
 services:
   bus:
     image: ghcr.io/unmaykr-a/bus:latest # or pin a release: ghcr.io/unmaykr-a/bus:1.1

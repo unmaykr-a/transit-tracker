@@ -40,7 +40,8 @@ func BuildGeometry(ix *staticdata.Index) *Geometry {
 					stops = append(stops, [2]float64{s.Lon, s.Lat})
 				}
 			}
-			if len(stops) != len(p.StopIDs) || len(p.Shape) < 2 {
+			// At least two stops: the tracker indexes the first stop and the one ahead.
+			if len(stops) != len(p.StopIDs) || len(stops) < 2 || len(p.Shape) < 2 {
 				continue
 			}
 			sh := NewShape(p.Shape)
@@ -149,6 +150,8 @@ const (
 	// GPS unit) stops teaching paces and dwell: otherwise one parked vehicle
 	// slows every line sharing the street for hours.
 	maxStill = 3 * time.Minute
+	// A fix older than this gives no ETAs.
+	staleFix = 2 * time.Minute
 	// Progress below this between fixes is GPS jitter, not driving.
 	stillM         = 5.0
 	dwellMinPasses = 3 // trust a stop's dwell after this many passes
@@ -458,6 +461,10 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 	defer t.mu.Unlock()
 	tr, ok := t.tracks[v.ID]
 	if !ok {
+		return Trip{}, false
+	}
+	// From an old fix every stop within the gap would read as "now": better no ETAs.
+	if now.Sub(v.UpdatedAt) > staleFix {
 		return Trip{}, false
 	}
 	pg, ok := g.byID[tr.pattern]

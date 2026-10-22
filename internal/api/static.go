@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -115,15 +117,56 @@ func (s *Server) handleAllStops(w http.ResponseWriter, r *http.Request) {
 		Lon      float64      `json:"lon"`
 		Modes    []feeds.Mode `json:"modes"`
 	}
-	stops := ix.Stops()
-	out := make([]stopJSON, 0, len(stops))
-	for _, st := range stops {
-		out = append(out, stopJSON{st.ID, st.AreaID, st.Name, st.Platform, st.Lat, st.Lon, st.Modes})
-	}
+	body := s.importBody("stops", ix, func() any {
+		stops := ix.Stops()
+		out := make([]stopJSON, 0, len(stops))
+		for _, st := range stops {
+			out = append(out, stopJSON{st.ID, st.AreaID, st.Name, st.Platform, st.Lat, st.Lon, st.Modes})
+		}
+		return map[string]any{"imported_at": ix.ImportedAt, "stops": out}
+	})
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "public, max-age=3600")
-	writeJSONBody(w, http.StatusOK, map[string]any{"imported_at": ix.ImportedAt, "stops": out})
+	w.Header().Set("Cache-Control", s.staticCacheControl())
+	_, _ = w.Write(body)
+}
+
+// importBody returns the JSON encoding of build(), made once per static import:
+// the full stop and pattern lists only change when the data does.
+func (s *Server) importBody(name string, ix *staticdata.Index, build func() any) []byte {
+	s.bodyMu.Lock()
+	defer s.bodyMu.Unlock()
+	if b, ok := s.bodies[name]; ok && b.at.Equal(ix.ImportedAt) {
+		return b.body
+	}
+	body, err := json.Marshal(build())
+	if err != nil {
+		panic(err) // plain structs: cannot fail
+	}
+	body = append(body, '\n')
+	if s.bodies == nil {
+		s.bodies = map[string]importedBody{}
+	}
+	for k, b := range s.bodies { // bodies of older imports (and geometries) are dead weight
+		if !b.at.Equal(ix.ImportedAt) || strings.HasPrefix(k, "patterns:") && strings.HasPrefix(name, "patterns:") {
+			delete(s.bodies, k)
+		}
+	}
+	s.bodies[name] = importedBody{ix.ImportedAt, body}
+	return body
+}
+
+type importedBody struct {
+	at   time.Time
+	body []byte
+}
+
+// staticCacheControl lets shared caches keep static data only when anyone may read it.
+func (s *Server) staticCacheControl() string {
+	if s.settings != nil && !s.settingsNow().PublicMap {
+		return "private, max-age=3600"
+	}
+	return "public, max-age=3600"
 }
 
 type platformJSON struct {
@@ -321,7 +364,7 @@ func (s *Server) handlePattern(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "pattern not found", "")
 		return
 	}
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", s.staticCacheControl())
 	w.Header().Set("Content-Type", "application/json")
 	writeJSONBody(w, http.StatusOK, map[string]any{
 		"id": pg.Pattern.ID, "route_id": pg.Pattern.RouteID, "headsign": pg.Pattern.Headsign,
@@ -350,27 +393,31 @@ func (s *Server) handleAllPatterns(w http.ResponseWriter, r *http.Request) {
 		Along    []float64 `json:"stop_along_m"`
 	}
 	g := s.tracker.Geometry()
-	var out []patternJSON
-	for _, rt := range ix.Routes() {
-		for _, p := range ix.Patterns(rt.ID) {
-			pg, ok := g.Pattern(p.ID)
-			if !ok && rt.Mode != feeds.ModeTrain {
-				continue // rail is not tracked, but the map draws its lines
-			}
-			along := []float64{}
-			if ok {
-				along = make([]float64, len(pg.StopAlong))
-				for i, a := range pg.StopAlong {
-					along[i] = float64(int(a))
+	// The geometry is installed just after an import: key on it too.
+	body := s.importBody(fmt.Sprintf("patterns:%p", g), ix, func() any {
+		var out []patternJSON
+		for _, rt := range ix.Routes() {
+			for _, p := range ix.Patterns(rt.ID) {
+				pg, ok := g.Pattern(p.ID)
+				if !ok && rt.Mode != feeds.ModeTrain {
+					continue // rail is not tracked, but the map draws its lines
 				}
+				along := []float64{}
+				if ok {
+					along = make([]float64, len(pg.StopAlong))
+					for i, a := range pg.StopAlong {
+						along[i] = float64(int(a))
+					}
+				}
+				out = append(out, patternJSON{p.ID, p.RouteID, geo.EncodePolyline(p.Shape), p.StopIDs, along})
 			}
-			out = append(out, patternJSON{p.ID, p.RouteID, geo.EncodePolyline(p.Shape), p.StopIDs, along})
 		}
-	}
+		return map[string]any{"patterns": out}
+	})
 	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", s.staticCacheControl())
 	w.Header().Set("Content-Type", "application/json")
-	writeJSONBody(w, http.StatusOK, map[string]any{"patterns": out})
+	_, _ = w.Write(body)
 }
 
 func (s *Server) mountStatic(r chi.Router) {

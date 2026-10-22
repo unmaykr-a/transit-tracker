@@ -69,6 +69,18 @@ func (q *Queries) DeleteAPIToken(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteAllUserAPITokens = `-- name: DeleteAllUserAPITokens :execrows
+DELETE FROM api_tokens WHERE user_id = ?
+`
+
+func (q *Queries) DeleteAllUserAPITokens(ctx context.Context, userID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAllUserAPITokens, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteUserAPIToken = `-- name: DeleteUserAPIToken :execrows
 DELETE FROM api_tokens WHERE id = ? AND user_id = ?
 `

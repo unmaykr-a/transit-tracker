@@ -123,6 +123,9 @@ func (t Transitous) Route(ctx context.Context, from, to Point) (Route, error) {
 	return Route{DistanceM: dist, Provider: ProviderTransitous}, nil
 }
 
+// MaxRoutedM is the straight-line distance beyond which walks are not routed.
+const MaxRoutedM = 5000
+
 // Service tries providers in the configured order and caches answers per
 // (origin rounded to a ~25 m grid, destination) for 10 minutes, so GPS jitter
 // does not hammer the providers.
@@ -150,6 +153,11 @@ func gridKey(p Point) string {
 
 // Route returns the walking route from origin to a stop (destKey identifies it in the cache).
 func (s *Service) Route(ctx context.Context, from Point, destKey string, to Point) (Route, error) {
+	// Far away, walking time hardly matters and routing it would only cost the
+	// upstreams a request per origin: the straight-line estimate does.
+	if geo.DistanceM(from.Lat, from.Lon, to.Lat, to.Lon) > MaxRoutedM {
+		return Haversine{}.Route(ctx, from, to)
+	}
 	return s.cache.Get(ctx, gridKey(from)+"→"+destKey, func(ctx context.Context) (Route, error) {
 		for _, name := range s.Order() {
 			p, ok := s.Providers[name]

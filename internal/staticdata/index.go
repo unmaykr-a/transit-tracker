@@ -4,6 +4,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
@@ -28,6 +29,9 @@ type Index struct {
 	patterns   map[string][]*Pattern // by route id, main pattern per direction first
 	stopLines  map[string][]LineRef  // by stop id
 	areaSearch []areaKey
+	// conns memoises Connections per "from|to": the index never changes, and
+	// every dashboard and Home Assistant poll asks again for each saved trip.
+	conns sync.Map
 }
 
 type areaKey struct {

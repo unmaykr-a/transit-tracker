@@ -58,6 +58,7 @@ func TestUpdateValidateAndReset(t *testing.T) {
 		{"no_such_key": 1},
 		{"map_zoom": "very"},
 		{"walk_providers": []string{"google"}},
+		{"user_agent_contact": "not a contact"},
 	} {
 		var fe *FieldError
 		if _, err := s.Update(ctx, raw(bad)); !errors.As(err, &fe) {
@@ -83,5 +84,15 @@ func TestUpdateValidateAndReset(t *testing.T) {
 	}
 	if p := got.Public(); p.InstanceName != "Bus" || p.MapZoom != 13 {
 		t.Errorf("public = %+v", p)
+	}
+}
+
+func TestContactMayBeAnEmail(t *testing.T) {
+	for _, c := range []string{"ops@example.com", "mailto:ops@example.com", "https://bus.example.com"} {
+		d := defaults()
+		d.UserAgentContact = c
+		if err := d.Validate(); err != nil {
+			t.Errorf("%q: %v", c, err)
+		}
 	}
 }

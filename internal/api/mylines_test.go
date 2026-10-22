@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
@@ -299,5 +300,27 @@ func TestGeocode(t *testing.T) {
 	anon := &client{t: t, base: c.base, http: &http.Client{}}
 	if code, _ := anon.do("GET", "/api/v1/geocode?q=narva", nil); code != 401 {
 		t.Errorf("anonymous geocode = %d", code)
+	}
+}
+
+func TestInputLimits(t *testing.T) {
+	c, _ := fullServer(t)
+	// 25 letters with õ/ä/ü are 25 characters (more bytes): allowed.
+	if code, out := c.do("POST", "/api/v1/me/places", map[string]any{"label": strings.Repeat("õäü", 8) + "a", "lat": 59.43, "lon": 24.75}); code != 201 {
+		t.Fatalf("estonian label = %d %v", code, out)
+	}
+	for i := 1; i < MaxSavedPlaces; i++ {
+		c.do("POST", "/api/v1/me/places", map[string]any{"label": fmt.Sprintf("P%d", i), "lat": 59.43, "lon": 24.75})
+	}
+	if code, _ := c.do("POST", "/api/v1/me/places", map[string]any{"label": "one too many", "lat": 59.43, "lon": 24.75}); code != 400 {
+		t.Errorf("place over the limit = %d", code)
+	}
+	if code, _ := c.do("POST", "/api/v1/me/lines", map[string]any{"route_id": "tram:T4", "direction": 0, "board_stop_id": "x", "label": strings.Repeat("x", 41)}); code != 400 {
+		t.Errorf("long label = %d", code)
+	}
+	for email, want := range map[string]int{"andri@example.com": 200, "": 200, "not-an-email": 400, strings.Repeat("a", 250) + "@x.ee": 400} {
+		if code, _ := c.do("PATCH", "/api/v1/me", map[string]any{"email": email}); code != want {
+			t.Errorf("email %.20q = %d, want %d", email, code, want)
+		}
 	}
 }

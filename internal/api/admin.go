@@ -47,14 +47,18 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 		userJSON
 		Sessions int `json:"sessions"`
 	}
+	counts, err := s.db.Q.CountActiveSessionsByUser(r.Context(), time.Now().Unix())
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
+	sessions := make(map[int64]int, len(counts))
+	for _, c := range counts {
+		sessions[c.UserID] = int(c.Sessions)
+	}
 	out := make([]row, 0, len(users))
 	for _, u := range users {
-		ss, err := s.listSessions(r.Context(), u.ID, "")
-		if err != nil {
-			s.writeErr(w, err)
-			return
-		}
-		out = append(out, row{toUserJSON(u), len(ss)})
+		out = append(out, row{toUserJSON(u), sessions[u.ID]})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"users": out})
 }
@@ -161,7 +165,14 @@ func (s *Server) handleAdminResetPassword(w http.ResponseWriter, r *http.Request
 		s.writeErr(w, err)
 		return
 	}
-	s.audit(r.Context(), r, "user.password_reset", u.Username, "")
+	// A reset is what an admin does after a compromise: API tokens the intruder
+	// may have made go too (the user's own Home Assistant needs a new one).
+	n, err := s.db.Q.DeleteAllUserAPITokens(r.Context(), u.ID)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
+	s.audit(r.Context(), r, "user.password_reset", u.Username, fmt.Sprintf("api tokens revoked: %d", n))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -340,11 +351,40 @@ func (s *Server) handleAdminRefreshStatic(w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.audit(r.Context(), r, "static.refresh", "", "")
-	if err := s.refreshStatic(r.Context()); err != nil {
-		writeError(w, http.StatusBadGateway, "import failed: "+err.Error(), "")
+	// The import outlives this request (a proxy timeout or a closed tab must
+	// not abort it), and a second click joins the running import.
+	s.refreshMu.Lock()
+	run := s.refreshRun
+	if run == nil {
+		run = &refreshRun{done: make(chan struct{})}
+		s.refreshRun = run
+		go func() {
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 10*time.Minute)
+			defer cancel()
+			run.err = s.refreshStatic(ctx)
+			s.refreshMu.Lock()
+			s.refreshRun = nil
+			s.refreshMu.Unlock()
+			close(run.done)
+		}()
+	}
+	s.refreshMu.Unlock()
+	select {
+	case <-run.done:
+	case <-r.Context().Done():
+		return
+	}
+	if run.err != nil {
+		writeError(w, http.StatusBadGateway, "import failed: "+run.err.Error(), "")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"static": s.staticStatus()})
+}
+
+// refreshRun is an admin-started static import in progress.
+type refreshRun struct {
+	done chan struct{}
+	err  error
 }
 
 func (s *Server) handleAdminAudit(w http.ResponseWriter, r *http.Request) {

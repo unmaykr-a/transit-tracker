@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -117,8 +118,9 @@ func serve(cfg config.Config) error {
 	health := ingest.NewHealth()
 	gps := &ingest.GPSPoller{URL: func() string { return cur().GPSURL }, Fetcher: fetcher, Store: vehicles, Annotate: tracker.Annotate}
 	elron := &ingest.ElronPoller{URL: func() string { return cur().ElronURL }, Fetcher: fetcher, Store: vehicles, Location: tallinn}
-	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll})
-	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll})
+	// Live feeds retry at least every minute, so the map recovers soon after the upstream does.
+	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll, MaxBackoff: time.Minute})
+	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll, MaxBackoff: time.Minute})
 	go cleanupSessions(ctx, log, db)
 	go prewarmSaved(ctx, log, db, importer.Index, deps)
 	walker := walk.NewService([]walk.Provider{
@@ -151,7 +153,14 @@ func serve(cfg config.Config) error {
 			MetricsMode: cfg.Metrics, MetricsToken: cfg.MetricsToken,
 		}).Handler(api.SPA(api.Dist())),
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
 	}
+	// Live streams (WebSocket, SSE) run until their request context ends;
+	// Shutdown does not cancel those, so cancel them all when it starts.
+	baseCtx, cancelRequests := context.WithCancel(context.Background())
+	defer cancelRequests()
+	srv.BaseContext = func(net.Listener) context.Context { return baseCtx }
+	srv.RegisterOnShutdown(cancelRequests)
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
 	log.Info("listening", "addr", cfg.Addr, "version", buildinfo.Version, "commit", buildinfo.Commit)
@@ -162,10 +171,11 @@ func serve(cfg config.Config) error {
 	case <-ctx.Done():
 	}
 	log.Info("shutting down")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Within Docker's 10 s grace period.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		log.Warn("shutdown did not finish cleanly", "err", err)
 	}
 	return nil
 }
