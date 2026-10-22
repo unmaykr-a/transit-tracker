@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Vehicle ETAs calibrate themselves: the tracker checks its own predictions against the arrivals it later sees and
+  learns a correction per mode and horizon (`bus_eta_scale` metric). On recorded peaks this lifted agreement with
+  SIRI from ~59 % to ~66 % within ±1 min, and predictions now match observed arrivals as well as SIRI does.
 - Harju county buses (~220 lines from SEBE, GoBus, Hansabuss and others) from the national timetable: searchable,
   on stop boards (merged with live city departures at shared platforms), line pages and My lines; timetable only.
   `BUS_COUNTY=false` turns them off.

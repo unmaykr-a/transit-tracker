@@ -188,6 +188,22 @@ match on route + scheduled start time instead.
   decay, dwell radius and minimum observed distance moved the score by under 3 points; the step changes came from
   model structure (excluding terminus layover: route speed had collapsed to 0; separating dwell from travel;
   sharing paces across lines on the same street).
+- **Self-calibration (added after 1.0.0).** A second, 75-minute afternoon recording showed the remaining error was a
+  bias that grows with the horizon: the model was ~5 % slow. The tracker now checks its own predictions against the
+  arrivals it later sees in the GPS feed (one probe per vehicle, minute and horizon band; only once every segment and
+  stop on the way has measured data) and learns a log-scale factor per mode and band (< 5, 5–10, ≥ 10 min), applied at
+  half strength. Results, scored after warm-up (`eta-check -replay`):
+
+  | recording | metric | before | after |
+  | --- | --- | --- | --- |
+  | morning (25 min) | within ±1 min of SIRI | 58.6 % | 66.1 % |
+  | morning | within ±1 min of observed arrivals | 78.9 % | 81.5 % (SIRI 88.9 %) |
+  | afternoon (75 min) | within ±1 min of SIRI | 60.0 % | 65.9 % |
+  | afternoon | within ±1 min of observed arrivals | 72.0 % | 73.9 % (SIRI 71.4 %) |
+
+  On the larger afternoon sample our predictions match real arrivals as often as SIRI's do; the gap to the 80 %
+  "vs SIRI" target is mostly the two predictors disagreeing beyond 10 minutes. The learned factors are exported as
+  `bus_eta_scale{mode,band}`.
 - Departure boards and My lines use SIRI times, not these ETAs. Tracker ETAs drive the vehicle sheet's
   "next stops" list and the map animation only.
 

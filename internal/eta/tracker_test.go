@@ -274,3 +274,38 @@ func TestDwellIsChargedAtStopsAhead(t *testing.T) {
 		t.Errorf("ETA stop 3 %.0fs (want ~%.0f), stop 4 %.0fs (want ~%.0f)", to3, want3, to4, want4)
 	}
 }
+
+func TestSelfCalibration(t *testing.T) {
+	ix := fixtureIndex(t)
+	g := BuildGeometry(ix)
+	tr := NewTracker()
+	tr.SetGeometry(g)
+	out := mainPattern(ix, "tram:T4", 0)
+	pg, _ := g.Pattern(out.ID)
+	at := time.Date(2026, 10, 22, 9, 0, 0, 0, time.UTC)
+	last := pg.StopAlong[len(pg.StopAlong)-1] - 20
+	drive := func(id string, speed float64) {
+		for along := 10.0; along < last; along += speed * 10 {
+			v := tramAt(g, out, along, at)
+			v.ID = id
+			tr.Annotate([]state.Vehicle{v})
+			at = at.Add(10 * time.Second)
+		}
+		tr.Annotate([]state.Vehicle{}) // gone: drop its track
+	}
+	drive("slow", 4) // teaches the paces at 4 m/s
+	for _, k := range tr.Calibration()[feeds.ModeTram] {
+		if k != 0 && math.Abs(k-1) > 0.02 {
+			t.Fatalf("scale after one consistent run = %.3f", k)
+		}
+	}
+	// Later trams run at 6 m/s: their arrivals come early against the paces,
+	// so the scale drops below 1 and predictions follow.
+	for i := range 6 {
+		drive("fast-"+strconv.Itoa(i), 6)
+	}
+	k := tr.Calibration()[feeds.ModeTram]
+	if k[0] >= 0.97 || k[0] < 0.6 || k[1] >= 0.97 || k[1] < 0.6 {
+		t.Errorf("scales after faster runs = %v, want below 1", k)
+	}
+}

@@ -1,6 +1,7 @@
 package eta
 
 import (
+	"math"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -78,10 +79,57 @@ type sample struct {
 }
 
 type track struct {
-	pattern  string
-	along    float64
-	nextStop int
-	history  []sample // along-pattern progress, newest last, within progressWindow
+	pattern   string
+	along     float64
+	nextStop  int
+	history   []sample // along-pattern progress, newest last, within progressWindow
+	probes    []probe  // own predictions waiting to be checked against the arrival
+	lastProbe time.Time
+}
+
+// probe is a prediction the tracker made for itself: from a fix at at, the
+// model said secs until the vehicle reaches stop. When it does, the ratio of
+// actual to predicted time calibrates the model (see calibrate).
+type probe struct {
+	stop int
+	at   time.Time
+	secs float64
+}
+
+// Self-calibration: the per-mode factor scaling predictions, learned from the
+// tracker's own predictions against arrivals seen in the GPS feed.
+const (
+	probeEvery     = time.Minute
+	probeMinSecs   = 120  // shorter predictions are too noisy to learn from
+	probeMaxSecs   = 1200 // and longer ones rarely resolve on the same pattern
+	probeMaxAge    = 45 * time.Minute
+	probesPerTrack = 30
+	calibAlpha     = 0.01 // per resolved probe; hundreds resolve per minute at peak
+	calibBands     = 3    // horizons < 5 min, 5–10 min, ≥ 10 min: errors are not proportional to the horizon
+	// calibStrength applies part of the learned correction. Probes only resolve
+	// for vehicles that reach the stop on the same pattern, a biased sample; on
+	// two recorded peaks (docs/feeds.md) half strength matched observed arrivals
+	// best (81 % and 74 % within ±1 min, against 79 %/72 % uncorrected and
+	// 76 %/71 % at full strength).
+	calibStrength = 0.5
+)
+
+func calibBand(secs float64) int {
+	switch {
+	case secs < 300:
+		return 0
+	case secs < 600:
+		return 1
+	}
+	return 2
+}
+
+// scale is the learned factor for a prediction of secs (callers hold t.mu).
+func (t *Tracker) scale(mode feeds.Mode, secs float64) float64 {
+	if c := t.calib[mode]; c != nil {
+		return math.Exp(calibStrength * c[calibBand(secs)])
+	}
+	return 1
 }
 
 // segPace accumulates time and distance driven on one stop-to-stop segment,
@@ -114,10 +162,11 @@ type Tracker struct {
 	// (many bus lines share streets), dwell by every pattern calling at a stop.
 	paces  map[[2]string]*segPace
 	dwells map[string]*stopDwell
+	calib  map[feeds.Mode]*[calibBands]float64 // log of the prediction scale per mode and horizon band; 0 = unscaled
 }
 
 func NewTracker() *Tracker {
-	return &Tracker{tracks: map[string]*track{}, lastPos: map[string][2]float64{}, routeSpeed: map[string]float64{}, paces: map[[2]string]*segPace{}, dwells: map[string]*stopDwell{}}
+	return &Tracker{tracks: map[string]*track{}, lastPos: map[string][2]float64{}, routeSpeed: map[string]float64{}, paces: map[[2]string]*segPace{}, dwells: map[string]*stopDwell{}, calib: map[feeds.Mode]*[calibBands]float64{}}
 }
 
 // segment returns i such that StopAlong[i] <= along < StopAlong[i+1].
@@ -250,6 +299,7 @@ func (t *Tracker) Annotate(vs []state.Vehicle) {
 				t.routeSpeed[rid] = rate
 			}
 		}
+		t.calibrate(v, pg, tr)
 		v.PatternID = pg.Pattern.ID
 		v.NextStopID = pg.Pattern.StopIDs[tr.nextStop]
 		v.DistAlongM = float64(int(pr.Along))
@@ -398,6 +448,28 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 		return Trip{}, false
 	}
 	speed := t.speedFor(v, tr, pg.Pattern.RouteID)
+	// Time from the fix to each stop ahead; then subtract the time already
+	// elapsed since the fix (never below zero).
+	elapsed := max(0, now.Sub(v.UpdatedAt).Seconds())
+	out := Trip{PatternID: pg.Pattern.ID, Along: tr.along, NextStop: tr.nextStop, SpeedMps: speed}
+	for _, a := range t.ahead(pg, tr, speed, limit) {
+		left := max(0, a.secs*t.scale(v.Mode, a.secs)-elapsed)
+		d := max(0, pg.StopAlong[a.index]-tr.along)
+		out.Ahead = append(out.Ahead, StopETA{StopID: pg.Pattern.StopIDs[a.index], Index: a.index, DistanceM: float64(int(d)), ETA: now.Add(time.Duration(left * float64(time.Second)))})
+	}
+	return out, true
+}
+
+type stopSecs struct {
+	index   int
+	secs    float64 // from the fix, unscaled
+	learned bool    // every segment up to here has its own measured pace
+}
+
+// ahead is the model: seconds from the vehicle's last fix to each of up to
+// limit stops ahead, summing segment paces and dwell at the stops in between.
+// Callers hold t.mu.
+func (t *Tracker) ahead(pg *PatternGeom, tr *track, speed float64, limit int) []stopSecs {
 	ids := pg.Pattern.StopIDs
 	segPaceOf := func(seg int) *segPace {
 		if seg+1 >= len(ids) {
@@ -415,21 +487,19 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 		}
 		return 1 / speed // the route speed already includes dwell
 	}
-	dwell := func(stop int) float64 { // seconds stood at a stop the vehicle will pass
+	dwell := func(stop int) (float64, bool) { // seconds stood at a stop the vehicle will pass
 		d := t.dwells[ids[stop]]
 		if d != nil && d.passes >= dwellMinPasses && segPaceOf(stop) != nil {
-			return d.secs / d.passes
+			return d.secs / d.passes, true
 		}
-		return 0
+		return 0, false
 	}
-	// Time from the fix to each stop ahead, segment by segment; then subtract
-	// the time already elapsed since the fix (never below zero).
-	elapsed := max(0, now.Sub(v.UpdatedAt).Seconds())
-	out := Trip{PatternID: pg.Pattern.ID, Along: tr.along, NextStop: tr.nextStop, SpeedMps: speed}
-	pos, secs := tr.along, 0.0
-	for i := tr.nextStop; i < len(pg.StopAlong) && len(out.Ahead) < limit; i++ {
+	var out []stopSecs
+	pos, secs, learned := tr.along, 0.0, true
+	for i := tr.nextStop; i < len(pg.StopAlong) && len(out) < limit; i++ {
 		for pos < pg.StopAlong[i] {
 			seg := segment(pg, pos)
+			learned = learned && segPaceOf(seg) != nil
 			end := min(pg.StopAlong[i], pg.StopAlong[min(seg+1, len(pg.StopAlong)-1)])
 			if end <= pos {
 				end = pg.StopAlong[i]
@@ -437,12 +507,84 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 			secs += (end - pos) * pace(seg)
 			pos = end
 		}
-		left := max(0, secs-elapsed)
-		d := max(0, pg.StopAlong[i]-tr.along)
-		out.Ahead = append(out.Ahead, StopETA{StopID: pg.Pattern.StopIDs[i], Index: i, DistanceM: float64(int(d)), ETA: now.Add(time.Duration(left * float64(time.Second)))})
-		secs += dwell(i) // it stands at this stop before driving on
+		out = append(out, stopSecs{i, secs, learned})
+		d, ok := dwell(i) // it stands at this stop before driving on
+		secs += d
+		learned = learned && ok
 	}
-	return out, true
+	return out
+}
+
+// calibrate checks the vehicle's earlier probes against where it is now and
+// takes new ones. Callers hold t.mu.
+func (t *Tracker) calibrate(v *state.Vehicle, pg *PatternGeom, tr *track) {
+	keep := tr.probes[:0]
+	for _, p := range tr.probes {
+		switch {
+		case v.UpdatedAt.Sub(p.at) > probeMaxAge:
+			// stuck or diverted: no arrival to learn from
+		case tr.along >= pg.StopAlong[p.stop]-nextStopMarginM:
+			if actual := v.UpdatedAt.Sub(p.at).Seconds(); actual > 0 {
+				r := min(max(actual/p.secs, 0.5), 2)
+				c := t.calib[v.Mode]
+				if c == nil {
+					c = &[calibBands]float64{}
+					t.calib[v.Mode] = c
+				}
+				b := calibBand(p.secs)
+				c[b] = (1-calibAlpha)*c[b] + calibAlpha*math.Log(r)
+			}
+		default:
+			keep = append(keep, p)
+		}
+	}
+	tr.probes = keep
+	if v.UpdatedAt.Sub(tr.lastProbe) < probeEvery || len(tr.probes) >= probesPerTrack {
+		return
+	}
+	tr.lastProbe = v.UpdatedAt
+	// One probe per horizon band per vehicle and minute.
+	var near, mid, far *stopSecs
+	for _, a := range t.ahead(pg, tr, t.speedFor(*v, tr, pg.Pattern.RouteID), 200) {
+		if !a.learned {
+			break // fallback speeds would teach the scale about the fallback, not the paces
+		}
+		if a.secs < probeMinSecs {
+			continue
+		}
+		if a.secs > probeMaxSecs {
+			break
+		}
+		switch {
+		case near == nil:
+			near = &a
+		case a.secs >= 300 && mid == nil:
+			mid = &a
+		case a.secs >= 600 && far == nil:
+			far = &a
+		}
+	}
+	for _, a := range []*stopSecs{near, mid, far} {
+		if a != nil {
+			tr.probes = append(tr.probes, probe{a.index, v.UpdatedAt, a.secs})
+		}
+	}
+}
+
+// Calibration returns the learned prediction scales per mode and horizon band
+// (< 5 min, 5–10 min, ≥ 10 min; 1 = unscaled).
+func (t *Tracker) Calibration() map[feeds.Mode][calibBands]float64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make(map[feeds.Mode][calibBands]float64, len(t.calib))
+	for m, c := range t.calib {
+		var k [calibBands]float64
+		for i, l := range c {
+			k[i] = math.Exp(l)
+		}
+		out[m] = k
+	}
+	return out
 }
 
 // Prediction is one vehicle's predicted arrival at a stop.
