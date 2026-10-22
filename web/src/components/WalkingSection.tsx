@@ -3,7 +3,7 @@ import { LocateFixed, Map as MapIcon, MapPin, Trash2 } from "lucide-react";
 import { lazy, Suspense, useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiError, fetchSearch, places, prefs } from "@/api";
+import { ApiError, fetchAddresses, fetchSearch, places, prefs } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 
@@ -28,6 +28,7 @@ export function WalkingSection() {
   const [stopQ, setStopQ] = useState("");
   const q = useDeferredValue(stopQ.trim());
   const stops = useQuery({ queryKey: ["search", q], queryFn: ({ signal }) => fetchSearch(q, signal), enabled: q.length > 1 });
+  const addresses = useQuery({ queryKey: ["geocode", q], queryFn: ({ signal }) => fetchAddresses(q, signal), enabled: q.length > 2, retry: false });
   const done = () => {
     setLabel("");
     setStopQ("");
@@ -119,25 +120,30 @@ export function WalkingSection() {
               {t("walking.pickOnMap")}
             </Button>
           )}
-          <Field label={t("walking.orStop")}>
-            <Input type="search" value={stopQ} onChange={(e) => setStopQ(e.target.value)} placeholder={t("search.placeholder")} />
+          <Field label={t("walking.orAddress")}>
+            <Input type="search" value={stopQ} onChange={(e) => setStopQ(e.target.value)} placeholder={t("walking.addressPlaceholder")} />
           </Field>
-          {stops.data && q.length > 1 && (
-            <ul className="flex flex-col">
-              {stops.data.stops.slice(0, 5).map((s) => (
-                <li key={s.id}>
+          {q.length > 1 && (
+            <ul className="flex flex-col" aria-label={t("walking.addressResults")}>
+              {[
+                ...(addresses.data?.addresses ?? []).slice(0, 5).map((a) => ({ key: `a${a.lat},${a.lon}`, name: a.label, sub: a.detail, lat: a.lat, lon: a.lon })),
+                ...(stops.data?.stops ?? []).slice(0, 3).map((s) => ({ key: s.id, name: s.name, sub: t("walking.stop"), lat: s.lat, lon: s.lon })),
+              ].map((r) => (
+                <li key={r.key}>
                   <button
                     type="button"
-                    disabled={!label.trim()}
-                    onClick={() => add.mutate({ label: label.trim(), lat: s.lat, lon: s.lon })}
-                    className="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-50"
+                    disabled={!label.trim() || add.isPending}
+                    onClick={() => add.mutate({ label: label.trim(), lat: r.lat, lon: r.lon })}
+                    className="flex w-full items-baseline justify-between gap-3 rounded px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-50"
                   >
-                    {s.name}
+                    <span className="truncate font-medium">{r.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{r.sub}</span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
+          {q.length > 1 && !label.trim() && <p className="text-xs text-muted-foreground">{t("walking.nameFirst")}</p>}
           {add.error && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400">
               {add.error instanceof ApiError ? add.error.message : t("common.error")}

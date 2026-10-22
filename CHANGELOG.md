@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0 — 2026-10-22
+
+- **Big screens**: line and stop pages show the live map (animated vehicles, tap for details, scroll to zoom) beside
+  the details; My lines uses two columns.
+- **Saved places on the map**, and **address search** when adding one (Estonian addresses from the Land Board's In-ADS
+  gazetteer, through the server; admin setting `geocoder_url`).
+- **Railway lines** stay visible when the map is zoomed out (follows the Train filter).
+- **Security**: Content Security Policy and other hardening headers (HSTS behind HTTPS); the Go toolchain is pinned to
+  1.27.3, which fixes 11 standard-library vulnerabilities `govulncheck` reported for 1.27.0.
+- Fixed: the selected route's outline was missing (an invalid style expression, now caught by an e2e check).
+
 ## 1.4.0 — 2026-10-22
 
 Upgrading: pull the new image; the first start adds one column (`saved_lines.origin_place_id`). In Home Assistant,

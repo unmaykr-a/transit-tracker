@@ -4,6 +4,11 @@ import { expandSheet, renderedPills } from "./helpers";
 
 test.describe("live map", () => {
   test("shows vehicles from the feed and opens a vehicle sheet", async ({ page }) => {
+    // Style mistakes (a bad expression) only show up as console errors: the layer is silently dropped.
+    const styleErrors: string[] = [];
+    page.on("console", (m) => {
+      if (m.type() === "error" && /layers\.|source/.test(m.text())) styleErrors.push(m.text());
+    });
     await page.goto("/map");
     await expect(page.getByText(/\d{3} vehicles/)).toBeVisible();
     const pills = await renderedPills(page);
@@ -17,6 +22,13 @@ test.describe("live map", () => {
     await expect(sheet).toContainText("Updated");
     await sheet.getByRole("button", { name: "Close" }).click();
     await expect(sheet).toBeHidden();
+    // The selection drew its route (with every layer valid) and the railways are on the map.
+    const layers = await page.evaluate(() => {
+      const m = (globalThis as { __tramMap?: { getLayer: (id: string) => unknown } }).__tramMap!;
+      return ["selected-route-casing", "selected-route", "selected-route-stops", "rail", "places"].filter((l) => !m.getLayer(l));
+    });
+    expect(layers).toEqual([]);
+    expect(styleErrors).toEqual([]);
   });
 
   test("mode chips and line filter narrow the vehicles", async ({ page }) => {

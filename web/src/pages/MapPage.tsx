@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fetchAllStops } from "@/api";
+import { fetchAllStops, places } from "@/api";
 import { StopSheet } from "@/components/StopSheet";
 import type { Selection } from "@/map/VehicleMap";
 
@@ -12,6 +12,7 @@ import { StaleBanner } from "@/components/StaleBanner";
 import { VehicleSheet } from "@/components/VehicleSheet";
 import { matchesFilter, parseLineQuery } from "@/lib/lines";
 import { MODE_BG } from "@/lib/modeColors";
+import { useSession } from "@/lib/session";
 import { load, save } from "@/lib/storage";
 import { MODES, type Mode } from "@/lib/types";
 import { useLiveState } from "@/lib/useLive";
@@ -41,6 +42,8 @@ export default function MapPage() {
   const [selected, setSelected] = useState<Selection | undefined>(() => (search.stop ? { kind: "stop", id: search.stop } : undefined));
   const state = useLiveState(2000);
   const stops = useQuery({ queryKey: ["all-stops"], queryFn: ({ signal }) => fetchAllStops(signal), staleTime: 6 * 60 * 60_000 });
+  const signedIn = !!useSession().data?.user;
+  const myPlaces = useQuery({ queryKey: ["places"], queryFn: ({ signal }) => places.list(signal), enabled: signedIn });
   const focus = useMemo<[number, number] | undefined>(() => {
     const s = search.stop && stops.data?.stops.find((x) => x.id === search.stop);
     return s ? [s.lon, s.lat] : undefined;
@@ -79,6 +82,7 @@ export default function MapPage() {
           focus={focus}
           highlightPattern={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.pattern_id : undefined}
           highlightMode={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.mode : undefined}
+          places={myPlaces.data?.places}
         />
       </Suspense>
 

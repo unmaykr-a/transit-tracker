@@ -9,6 +9,9 @@ COPY web/ ./
 RUN npm run build
 
 FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+# The image pins GOTOOLCHAIN=local; auto honours go.mod's toolchain line (a patched
+# release) when the image's Go is older.
+ENV GOTOOLCHAIN=auto
 ARG TARGETOS TARGETARCH
 ARG VERSION=dev
 ARG COMMIT=unknown

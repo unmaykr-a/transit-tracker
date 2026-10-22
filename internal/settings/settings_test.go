@@ -19,7 +19,7 @@ func defaults() Settings {
 		SiriURL: "https://transport.tallinn.ee/siri-stop-departures.php", OTPURL: "https://api.peatus.ee/x",
 		StopsURL: "https://transport.tallinn.ee/data/stops.txt", ElronGTFSURL: "https://eu-gtfs.remix.com/elron.zip",
 		UserAgentContact: "https://github.com/unmaykr-a/transit-tracker",
-		WalkProviders:    []string{"otp", "transitous", "haversine"}, TransitousURL: "https://api.transitous.org/api/v5/plan",
+		WalkProviders:    []string{"otp", "transitous", "haversine"}, TransitousURL: "https://api.transitous.org/api/v5/plan", GeocoderURL: "https://example.com/geocode",
 	}
 }
 

@@ -7,11 +7,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -143,6 +145,9 @@ func serve(cfg config.Config) error {
 			Store: vehicles, Health: health, Static: importer.Index, StaticStatus: importer.Status, Departures: deps,
 			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies,
 			RefreshStatic: importer.Import, Dashboard: board, Tracker: tracker,
+			Geocode: func(ctx context.Context, q string) ([]feeds.Address, error) {
+				return geocode(ctx, fetcher, cur().GeocoderURL, q)
+			},
 			MetricsMode: cfg.Metrics, MetricsToken: cfg.MetricsToken,
 		}).Handler(api.SPA(api.Dist())),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -178,6 +183,7 @@ func defaultSettings(cfg config.Config) settings.Settings {
 		UserAgentContact: cfg.Contact,
 		WalkProviders:    []string{walk.ProviderOTP, walk.ProviderTransitous, walk.ProviderHaversine},
 		TransitousURL:    "https://api.transitous.org/api/v5/plan",
+		GeocoderURL:      feeds.DefaultInADSURL,
 	}
 }
 
@@ -258,4 +264,15 @@ func countyPrefix(on bool) string {
 		return feeds.HarjuCountyAgencyPrefix
 	}
 	return ""
+}
+
+// geocode searches Estonian addresses (In-ADS), skipping apartments.
+func geocode(ctx context.Context, f *feeds.Fetcher, base, q string) ([]feeds.Address, error) {
+	u := base + "?" + url.Values{"address": {q}, "results": {"8"}, "appartment": {"0"}}.Encode()
+	res, err := f.Get(ctx, u, false)
+	if err != nil {
+		return nil, err
+	}
+	out, _, err := feeds.ParseInADS(bytes.NewReader(res.Body))
+	return out, err
 }

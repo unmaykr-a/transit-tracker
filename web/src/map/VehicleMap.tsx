@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { MapStop } from "@/api";
 import { pillText } from "@/lib/lines";
 import { live } from "@/lib/liveClient";
-import { loadShapes, shapes } from "@/lib/shapes";
+import { loadShapes, patternRoutes, shapes } from "@/lib/shapes";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { prefersReducedMotion, useTheme } from "@/lib/theme";
 import { isMoving, nextTween, type Tween } from "@/lib/tween";
@@ -31,6 +31,10 @@ export interface VehicleMapProps {
   /** Pattern whose route is drawn under the vehicles (the selected vehicle's), in its mode's colour. */
   highlightPattern?: string;
   highlightMode?: Mode;
+  /** Points ([lon, lat]) to frame when the map opens or they change, e.g. a line's route. */
+  fit?: [number, number][];
+  /** The user's saved places, marked on the map. */
+  places?: { id: number; label: string; lat: number; lon: number }[];
 }
 
 const shapeOf = (p: string) => shapes.get(p);
@@ -56,6 +60,76 @@ function routeStopsAlong(pattern: string): Promise<number[]> {
   return p;
 }
 
+/** Railway lines from the train patterns, visible from the city-wide zoom out (base maps hide them early). */
+function addRailLayers(map: MLMap) {
+  if (!map.getSource("rail")) map.addSource("rail", { type: "geojson", data: NO_FEATURES });
+  const width: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 7, 1.5, 12, 3, 16, 5];
+  map.addLayer(
+    { id: "rail", type: "line", source: "rail", minzoom: 6, paint: { "line-color": MODE_COLORS.train, "line-opacity": 0.55, "line-width": width } },
+    "stops",
+  );
+  // White ties on the line, the usual way maps draw railways.
+  map.addLayer(
+    {
+      id: "rail-ties",
+      type: "line",
+      source: "rail",
+      minzoom: 11,
+      paint: { "line-color": "#ffffff", "line-opacity": 0.8, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 16, 2], "line-dasharray": [2, 3] },
+    },
+    "stops",
+  );
+}
+
+function railFeatures() {
+  const seen = new Set<string>();
+  const features = [];
+  for (const [id, shape] of shapes) {
+    if (!patternRoutes.get(id)?.startsWith("train:")) continue;
+    const key = `${shape.coords[0]}|${shape.coords[shape.coords.length - 1]}|${shape.coords.length}`; // both directions share track
+    if (seen.has(key)) continue;
+    seen.add(key);
+    features.push({ type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: shape.coords } });
+  }
+  return { type: "FeatureCollection" as const, features };
+}
+
+function addPlaceLayers(map: MLMap) {
+  if (!map.getSource("places")) map.addSource("places", { type: "geojson", data: NO_FEATURES });
+  map.addLayer(
+    {
+      id: "places",
+      type: "circle",
+      source: "places",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 5, 16, 8],
+        "circle-color": "#111827",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2.5,
+      },
+    },
+    "vehicle-dots",
+  );
+  map.addLayer(
+    {
+      id: "place-labels",
+      type: "symbol",
+      source: "places",
+      minzoom: 10,
+      layout: {
+        "text-field": ["get", "label"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 12,
+        "text-offset": [0, 1.2],
+        "text-anchor": "top",
+        "text-optional": true,
+      },
+      paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+    },
+    "vehicle-dots",
+  );
+}
+
 function addRouteLayers(map: MLMap, theme: keyof typeof ROUTE_CASING) {
   for (const id of ["selected-route", "selected-route-stops"]) {
     if (!map.getSource(id)) map.addSource(id, { type: "geojson", data: NO_FEATURES });
@@ -68,7 +142,8 @@ function addRouteLayers(map: MLMap, theme: keyof typeof ROUTE_CASING) {
       type: "line",
       source: "selected-route",
       layout,
-      paint: { "line-color": ROUTE_CASING[theme], "line-opacity": 0.9, "line-width": ["+", width, 4] },
+      // Zoom must be the top-level interpolate, so the halo repeats the stops 4 px wider.
+      paint: { "line-color": ROUTE_CASING[theme], "line-opacity": 0.9, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 7, 13, 9, 17, 13] },
     },
     "stops",
   );
@@ -137,6 +212,17 @@ function stopFeatures(stops: MapStop[]) {
       id: s.id,
       geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] },
       properties: { id: s.id, name: s.name, platform: s.platform },
+    })),
+  };
+}
+
+function placeFeatures(places: VehicleMapProps["places"]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: (places ?? []).map((p) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+      properties: { id: p.id, label: p.label },
     })),
   };
 }
@@ -222,7 +308,7 @@ function addVehicleLayers(map: MLMap) {
   });
 }
 
-export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern, highlightMode }: VehicleMapProps) {
+export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern, highlightMode, places, fit }: VehicleMapProps) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -232,6 +318,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
   const theme = useTheme();
   const themeRef = useRef(theme);
   const stopsRef = useRef(stops);
+  const placesRef = useRef(places);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -276,12 +363,19 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     const animate = !prefersReducedMotion();
     let ready = false;
     // Route shapes let markers follow the street between fixes instead of cutting corners.
-    void loadShapes().then(() => (dirtyRef.current = true));
+    void loadShapes().then(() => {
+      dirtyRef.current = true;
+      map.getSource<GeoJSONSource>("rail")?.setData(railFeatures());
+    });
 
     map.on("style.load", () => {
       addVehicleLayers(map);
       addStopLayers(map, "vehicle-dots");
+      addRailLayers(map);
+      addPlaceLayers(map);
       addRouteLayers(map, themeRef.current);
+      if (shapes.size > 0) map.getSource<GeoJSONSource>("rail")?.setData(railFeatures());
+      map.getSource<GeoJSONSource>("places")?.setData(placeFeatures(placesRef.current));
       map.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stopsRef.current));
       ready = true;
       dirtyRef.current = true;
@@ -359,6 +453,39 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     stopsRef.current = stops;
     mapRef.current?.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stops));
   }, [stops]);
+
+  const fitKey = fit && fit.length > 0 ? JSON.stringify([fit[0], fit[fit.length - 1], fit.length]) : "";
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !fit || fit.length === 0) return;
+    const b = new maplibregl.LngLatBounds(fit[0], fit[0]);
+    for (const p of fit) b.extend(p);
+    const go = () => map.fitBounds(b, { padding: 48, maxZoom: 16, animate: false });
+    if (map.loaded()) go();
+    else map.once("load", go);
+    // fitKey stands for fit: a new array with the same route must not re-frame the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey]);
+
+  useEffect(() => {
+    placesRef.current = places;
+    mapRef.current?.getSource<GeoJSONSource>("places")?.setData(placeFeatures(places));
+  }, [places]);
+
+  // Railway lines follow the train filter chip.
+  const showRail = modes.has("train");
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      for (const l of ["rail", "rail-ties"]) if (map.getLayer(l)) map.setLayoutProperty(l, "visibility", showRail ? "visible" : "none");
+    };
+    apply();
+    map.on("style.load", apply);
+    return () => {
+      map.off("style.load", apply);
+    };
+  }, [showRail]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -316,6 +316,7 @@ export interface AdminSettings extends PublicSettings {
   user_agent_contact: string;
   walk_providers: string[];
   transitous_url: string;
+  geocoder_url: string;
 }
 
 export interface FeedHealth {
@@ -500,6 +501,17 @@ export const myLines = {
   remove: (id: number) => send("DELETE", `/api/v1/me/lines/${id}`),
   reorder: (ids: number[]) => send<{ lines: SavedLine[] }>("POST", "/api/v1/me/lines/reorder", { ids }),
 };
+
+/** An Estonian address from the In-ADS gazetteer (via the server). */
+export interface Address {
+  label: string;
+  detail: string;
+  lat: number;
+  lon: number;
+}
+
+export const fetchAddresses = (q: string, signal?: AbortSignal) =>
+  getJSON<{ addresses: Address[] }>(`/api/v1/geocode?q=${encodeURIComponent(q)}`, signal);
 
 export const places = {
   list: (signal?: AbortSignal) => getJSON<{ places: Place[] }>("/api/v1/me/places", signal),

@@ -128,6 +128,21 @@ Feed URLs, poll intervals and the User-Agent contact can also be changed at runt
 override the environment. The SQLite database lives in `BUS_DATA_DIR` (`/data` in the container). With a bind mount,
 make the host directory writable by the container user.
 
+## Security
+
+- Passwords are hashed with argon2id; sessions are random tokens of which only a hash is stored, in `HttpOnly`,
+  `SameSite=Lax` cookies (`Secure` behind HTTPS). Logins are rate limited per IP and per user name.
+- Every state-changing request needs a same-origin `Origin` and the session's CSRF token. API tokens are read-only
+  and never admin.
+- Responses carry a strict Content Security Policy (scripts from this server only, no framing), `nosniff`,
+  `Referrer-Policy` and, behind HTTPS, HSTS. Client IPs and HTTPS are only taken from `X-Forwarded-*` when the request
+  comes from `BUS_TRUSTED_PROXIES`.
+- Your location is never stored; it is sent with each dashboard request only. Address search goes through the server
+  (In-ADS, the Land Board's public gazetteer) and is available to signed-in users only.
+- Dependencies are checked with `govulncheck` and `npm audit`; the Go toolchain is pinned to a patched release.
+- Run it behind a TLS-terminating reverse proxy (see `deploy/`), keep `/metrics` private (the default), and keep the
+  data directory (it holds the SQLite database) out of reach of other users.
+
 ## Develop
 
 Requires Go 1.27+ and Node 22+ (or just Docker: `docker compose -f compose.dev.yaml up --build` builds the image from

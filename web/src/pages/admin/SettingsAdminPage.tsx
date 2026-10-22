@@ -27,6 +27,7 @@ const sources: { key: Key; label: string; kind?: "number" | "url" }[] = [
   { key: "otp_url", label: "admin.otpUrl", kind: "url" },
   { key: "stops_url", label: "admin.stopsUrl", kind: "url" },
   { key: "elron_gtfs_url", label: "admin.elronGtfsUrl", kind: "url" },
+  { key: "geocoder_url", label: "admin.geocoderUrl", kind: "url" },
   { key: "user_agent_contact", label: "admin.uaContact", kind: "url" },
 ];
 

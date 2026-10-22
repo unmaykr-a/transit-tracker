@@ -306,7 +306,8 @@
     "dataDir": "Andmekataloog",
     "backup": "Laadi varukoopia alla",
     "backupHint": "SQLite andmebaasi järjepidev koopia (kasutajad, salvestatud liinid, seaded).",
-    "tokens": "API-võtmed"
+    "tokens": "API-võtmed",
+    "geocoderUrl": "Aadressiotsing (In-ADS)"
   },
   "verdict": {
     "leaveIn": "Mine {{min}} min pärast",
@@ -339,11 +340,15 @@
     "placeLabel": "Nimi",
     "placeLabelPlaceholder": "Kodu, töö…",
     "hereNow": "Kasuta praegust asukohta",
-    "orStop": "või peatuse juures",
     "noPlaces": "Salvestatud kohti pole.",
     "pickOnMap": "Vali kaardil",
     "mapHint": "Liiguta kaarti nii, et nööpnõel oleks kohal, ja kinnita.",
-    "useThisSpot": "Kasuta seda kohta"
+    "useThisSpot": "Kasuta seda kohta",
+    "orAddress": "või otsi aadressi või peatust",
+    "addressPlaceholder": "nt Pärnu mnt 20 või Viru",
+    "addressResults": "Aadressid ja peatused",
+    "stop": "peatus",
+    "nameFirst": "Pane kohale enne nimi."
   },
   "tokens": {
     "title": "API-võtmed",

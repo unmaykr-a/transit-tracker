@@ -115,19 +115,21 @@ function Dashboard() {
         </Button>
       </div>
       {dash.data && !dash.data.has_origin && <p className="text-sm text-muted-foreground">{t("home.noOrigin")}</p>}
-      {entries.map((e, i) => (
-        <LineCard
-          key={e.line.id}
-          entry={e}
-          now={now}
-          bufferMin={dash.data?.prefs.buffer_min ?? 1}
-          editing={editing}
-          first={i === 0}
-          last={i === entries.length - 1}
-          onMove={(d) => move(i, d)}
-          onRemove={() => remove.mutate(e.line.id)}
-        />
-      ))}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {entries.map((e, i) => (
+          <LineCard
+            key={e.line.id}
+            entry={e}
+            now={now}
+            bufferMin={dash.data?.prefs.buffer_min ?? 1}
+            editing={editing}
+            first={i === 0}
+            last={i === entries.length - 1}
+            onMove={(d) => move(i, d)}
+            onRemove={() => remove.mutate(e.line.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -137,7 +139,7 @@ export default function HomePage() {
   const session = useSession();
   const user = session.data?.user;
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex max-w-xl flex-col gap-6 px-4 py-6 lg:max-w-5xl">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">{t("home.title")}</h1>
         {!user && <p className="text-muted-foreground">{t("home.intro")}</p>}

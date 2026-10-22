@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -10,11 +11,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
+	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 	"github.com/unmaykr-a/transit-tracker/internal/store/db"
 	"github.com/unmaykr-a/transit-tracker/internal/walk"
@@ -548,4 +551,31 @@ func (s *Server) mountMyLines(r chi.Router) {
 	r.Get("/me/prefs", s.handleGetPrefs)
 	r.Patch("/me/prefs", s.handleUpdatePrefs)
 	r.Get("/me/dashboard", s.handleDashboard)
+	r.Get("/geocode", s.handleGeocode)
+}
+
+// handleGeocode searches Estonian addresses for a new saved place. Signed-in
+// users only (it proxies an upstream service); answers are cached for an hour.
+func (s *Server) handleGeocode(w http.ResponseWriter, r *http.Request) {
+	q := strings.Join(strings.Fields(r.URL.Query().Get("q")), " ")
+	if s.geocode == nil {
+		writeError(w, http.StatusNotFound, "address search is not available", "")
+		return
+	}
+	if n := utf8.RuneCountInString(q); n < 3 || n > 100 {
+		s.writeErr(w, invalid("q", "must be 3–100 characters"))
+		return
+	}
+	out, err := s.geocodeCache.Get(r.Context(), strings.ToLower(q), func(ctx context.Context) ([]feeds.Address, error) {
+		return s.geocode(ctx, q)
+	})
+	if err != nil {
+		s.log.Warn("geocode", "err", err)
+		writeError(w, http.StatusBadGateway, "address search failed", "")
+		return
+	}
+	if out == nil {
+		out = []feeds.Address{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"addresses": out})
 }

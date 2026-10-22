@@ -354,12 +354,15 @@ func (s *Server) handleAllPatterns(w http.ResponseWriter, r *http.Request) {
 	for _, rt := range ix.Routes() {
 		for _, p := range ix.Patterns(rt.ID) {
 			pg, ok := g.Pattern(p.ID)
-			if !ok {
-				continue
+			if !ok && rt.Mode != feeds.ModeTrain {
+				continue // rail is not tracked, but the map draws its lines
 			}
-			along := make([]float64, len(pg.StopAlong))
-			for i, a := range pg.StopAlong {
-				along[i] = float64(int(a))
+			along := []float64{}
+			if ok {
+				along = make([]float64, len(pg.StopAlong))
+				for i, a := range pg.StopAlong {
+					along[i] = float64(int(a))
+				}
 			}
 			out = append(out, patternJSON{p.ID, p.RouteID, geo.EncodePolyline(p.Shape), p.StopIDs, along})
 		}
