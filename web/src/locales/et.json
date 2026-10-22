@@ -1,0 +1,58 @@
+{
+  "app": { "name": "Tram", "tagline": "Tallinna bussid, trammid, trollid ja Elroni rongid reaalajas." },
+  "nav": { "home": "Avaleht", "map": "Kaart", "search": "Otsing", "settings": "Seaded", "main": "Peamenüü" },
+  "mode": { "tram": "Tramm", "bus": "Buss", "trolley": "Trollibuss", "train": "Rong" },
+  "modeShort": { "tram": "Tramm", "bus": "Buss", "trolley": "Troll", "train": "Rong" },
+  "live": {
+    "delayed": "Reaalajaandmed hilinevad: {{feeds}}",
+    "reconnecting": "Ühendan uuesti…",
+    "vehicles_one": "{{count}} sõiduk",
+    "vehicles_other": "{{count}} sõidukit",
+    "feed": { "gps": "linnatransport", "elron": "rongid" }
+  },
+  "map": {
+    "filters": "Filtrid",
+    "lineFilter": "Liinid",
+    "lineFilterPlaceholder": "nt 4, 17A",
+    "clearLines": "Tühjenda liinifilter",
+    "locate": "Näita minu asukohta",
+    "loading": "Kaart laeb…"
+  },
+  "vehicle": {
+    "towards": "suunaga {{destination}}",
+    "speed": "Kiirus",
+    "speedValue": "{{value}} km/h",
+    "delay": "Hilinemine",
+    "onTime": "Graafikus",
+    "late": "{{min}} min hilinenud",
+    "early": "{{min}} min varem",
+    "updated": "Uuendatud",
+    "secondsAgo": "{{count}} s tagasi",
+    "lowFloor": "Madala põrandaga",
+    "trip": "Reis {{trip}}",
+    "close": "Sulge",
+    "gone": "See sõiduk ei edasta enam asukohta."
+  },
+  "home": {
+    "title": "Minu liinid",
+    "empty": "Salvestatud liinid koos reaalajas loenduritega tulevad järgmises uuenduses. Seni näitab kaart kõiki sõidukeid.",
+    "openMap": "Ava reaalajas kaart"
+  },
+  "search": {
+    "title": "Otsing",
+    "soon": "Liini numbri ja peatuse nime järgi otsing tuleb järgmisena."
+  },
+  "settings": {
+    "title": "Seaded",
+    "theme": "Teema",
+    "themeSystem": "Süsteemi järgi",
+    "themeLight": "Hele",
+    "themeDark": "Tume",
+    "language": "Keel",
+    "about": "Rakendusest",
+    "version": "Versioon {{version}}",
+    "feeds": "Andmeallikad",
+    "feedOk": "Korras",
+    "feedStale": "Hilineb"
+  }
+}

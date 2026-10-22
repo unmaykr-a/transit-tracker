@@ -6,3 +6,5 @@ web/dist/
 internal/api/dist/*
 !internal/api/dist/.gitkeep
 *.tsbuildinfo
+playwright-report/
+test-results/
