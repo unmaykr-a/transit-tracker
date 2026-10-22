@@ -305,3 +305,45 @@ func TestBuildCountyRoutes(t *testing.T) {
 		t.Errorf("search 277 = %v", res)
 	}
 }
+
+func TestConnections(t *testing.T) {
+	ix, _ := fixtureIndex(t)
+	var t4 *Pattern
+	for _, p := range ix.Patterns("tram:T4") {
+		if p.Direction == 0 {
+			t4 = p
+			break
+		}
+	}
+	areaOf := func(stopID string) string {
+		s, _ := ix.Stop(stopID)
+		return s.AreaID
+	}
+	from, to := areaOf(t4.StopIDs[2]), areaOf(t4.StopIDs[6])
+	cs := ix.Connections(from, to)
+	var got *Connection
+	for i, c := range cs {
+		if c.RouteID == "tram:T4" {
+			got = &cs[i]
+		}
+		// Every connection really rides from one area to the other.
+		if bs, _ := ix.Stop(c.BoardStopID); bs.AreaID != from {
+			t.Errorf("%s boards outside the origin: %s", c.RouteID, c.BoardStopID)
+		}
+		if as, _ := ix.Stop(c.AlightStopID); as.AreaID != to {
+			t.Errorf("%s alights outside the destination: %s", c.RouteID, c.AlightStopID)
+		}
+	}
+	if got == nil || got.BoardStopID != t4.StopIDs[2] || got.Stops != 4 || !slices.Contains(got.Headsigns, t4.Headsign) {
+		t.Fatalf("T4 connection = %+v (all: %+v)", got, cs)
+	}
+	// The other way round, T4 runs from the opposite platform (the other direction).
+	for _, c := range ix.Connections(to, from) {
+		if c.RouteID == "tram:T4" && c.BoardStopID == t4.StopIDs[6] {
+			t.Errorf("reverse trip boards the outbound platform: %+v", c)
+		}
+	}
+	if ix.Connections(from, from) != nil || ix.Connections("nope", to) != nil {
+		t.Error("degenerate trips should have no connections")
+	}
+}

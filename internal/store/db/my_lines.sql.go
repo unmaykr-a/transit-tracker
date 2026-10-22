@@ -24,7 +24,7 @@ const createSavedLine = `-- name: CreateSavedLine :one
 INSERT INTO saved_lines (user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
         (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), ?8, ?9)
-RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at
+RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id
 `
 
 type CreateSavedLineParams struct {
@@ -64,6 +64,9 @@ func (q *Queries) CreateSavedLine(ctx context.Context, arg CreateSavedLineParams
 		&i.Sort,
 		&i.NotifyThresholdMin,
 		&i.CreatedAt,
+		&i.Kind,
+		&i.FromAreaID,
+		&i.ToAreaID,
 	)
 	return i, err
 }
@@ -97,6 +100,49 @@ func (q *Queries) CreateSavedPlace(ctx context.Context, arg CreateSavedPlacePara
 		&i.Lat,
 		&i.Lon,
 		&i.Sort,
+	)
+	return i, err
+}
+
+const createSavedTrip = `-- name: CreateSavedTrip :one
+INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, label, sort, notify_threshold_min, created_at)
+VALUES (?1, 'trip', '', 0, '', ?2, ?3, ?4,
+        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), 0, ?5)
+RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id
+`
+
+type CreateSavedTripParams struct {
+	UserID     int64
+	FromAreaID string
+	ToAreaID   string
+	Label      string
+	CreatedAt  int64
+}
+
+func (q *Queries) CreateSavedTrip(ctx context.Context, arg CreateSavedTripParams) (SavedLine, error) {
+	row := q.db.QueryRowContext(ctx, createSavedTrip,
+		arg.UserID,
+		arg.FromAreaID,
+		arg.ToAreaID,
+		arg.Label,
+		arg.CreatedAt,
+	)
+	var i SavedLine
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.RouteID,
+		&i.Direction,
+		&i.Headsign,
+		&i.BoardStopID,
+		&i.AlightStopID,
+		&i.Label,
+		&i.Sort,
+		&i.NotifyThresholdMin,
+		&i.CreatedAt,
+		&i.Kind,
+		&i.FromAreaID,
+		&i.ToAreaID,
 	)
 	return i, err
 }
@@ -136,7 +182,7 @@ func (q *Queries) DeleteSavedPlace(ctx context.Context, arg DeleteSavedPlacePara
 }
 
 const getSavedLine = `-- name: GetSavedLine :one
-SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at FROM saved_lines WHERE id = ? AND user_id = ?
+SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id FROM saved_lines WHERE id = ? AND user_id = ?
 `
 
 type GetSavedLineParams struct {
@@ -159,6 +205,9 @@ func (q *Queries) GetSavedLine(ctx context.Context, arg GetSavedLineParams) (Sav
 		&i.Sort,
 		&i.NotifyThresholdMin,
 		&i.CreatedAt,
+		&i.Kind,
+		&i.FromAreaID,
+		&i.ToAreaID,
 	)
 	return i, err
 }
@@ -198,7 +247,7 @@ func (q *Queries) GetUserPrefs(ctx context.Context, userID int64) (UserPref, err
 }
 
 const listBoardStops = `-- name: ListBoardStops :many
-SELECT DISTINCT board_stop_id FROM saved_lines
+SELECT DISTINCT board_stop_id FROM saved_lines WHERE kind = 'line'
 `
 
 func (q *Queries) ListBoardStops(ctx context.Context) ([]string, error) {
@@ -225,7 +274,7 @@ func (q *Queries) ListBoardStops(ctx context.Context) ([]string, error) {
 }
 
 const listSavedLines = `-- name: ListSavedLines :many
-SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at FROM saved_lines WHERE user_id = ? ORDER BY sort, id
+SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id FROM saved_lines WHERE user_id = ? ORDER BY sort, id
 `
 
 func (q *Queries) ListSavedLines(ctx context.Context, userID int64) ([]SavedLine, error) {
@@ -249,6 +298,9 @@ func (q *Queries) ListSavedLines(ctx context.Context, userID int64) ([]SavedLine
 			&i.Sort,
 			&i.NotifyThresholdMin,
 			&i.CreatedAt,
+			&i.Kind,
+			&i.FromAreaID,
+			&i.ToAreaID,
 		); err != nil {
 			return nil, err
 		}
@@ -287,6 +339,33 @@ func (q *Queries) ListSavedPlaces(ctx context.Context, userID int64) ([]SavedPla
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTripOrigins = `-- name: ListTripOrigins :many
+SELECT DISTINCT from_area_id FROM saved_lines WHERE kind = 'trip'
+`
+
+func (q *Queries) ListTripOrigins(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listTripOrigins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var from_area_id string
+		if err := rows.Scan(&from_area_id); err != nil {
+			return nil, err
+		}
+		items = append(items, from_area_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

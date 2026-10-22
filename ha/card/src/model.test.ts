@@ -66,6 +66,21 @@ describe("view", () => {
     expect(view(tight, now, 3).departures.map((d) => d.level)).toEqual(["red", "red"]);
   });
 
+  it("a trip's pill follows the first departure shown", () => {
+    const trip = {
+      ...attrs,
+      line: "T1",
+      next_departures: [
+        { ...dep(3, -2), line: "T1", mode: "tram" as const },
+        { ...dep(6, 1), line: "3", mode: "bus" as const },
+        { ...dep(9, 4), line: "T4", mode: "tram" as const },
+      ],
+    };
+    const v = view(trip, now, 2);
+    expect([v.line, v.mode]).toEqual(["3", "bus"]);
+    expect(v.departures.map((d) => d.line)).toEqual(["3", "T4"]);
+  });
+
   it("has no verdict without an origin", () => {
     const v = view({ ...attrs, next_departures: [dep(4, null)] }, now, 3);
     expect(v.departures[0]).toMatchObject({ minutes: 4, level: "none", slack: null });

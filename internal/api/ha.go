@@ -3,7 +3,9 @@ package api
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -18,6 +20,9 @@ type haDeparture struct {
 	DelayS     int       `json:"delay_s"`
 	Realtime   bool      `json:"realtime"`
 	Headsign   string    `json:"headsign"`
+	Line       string    `json:"line"`
+	Mode       string    `json:"mode"`
+	Platform   string    `json:"platform"`
 	Verdict    string    `json:"verdict"`
 	LeaveInMin *int      `json:"leave_in_min"` // nil without an origin
 }
@@ -28,6 +33,7 @@ type haDeparture struct {
 // to the following departure instead of turning negative.
 type haLine struct {
 	ID          int64         `json:"id"`
+	Kind        string        `json:"kind"` // "line" or "trip"
 	Label       string        `json:"label"`
 	Line        string        `json:"line"`
 	Mode        string        `json:"mode"`
@@ -45,6 +51,7 @@ type haLine struct {
 	LeaveInMin  *int          `json:"leave_in_min"`
 	Catchable   *bool         `json:"catchable"` // nil without an origin
 	Unavailable bool          `json:"unavailable"`
+	Lines       []string      `json:"lines,omitempty"` // a trip's connecting lines
 	Error       string        `json:"error,omitempty"`
 }
 
@@ -90,7 +97,7 @@ func (s *Server) handleHALines(w http.ResponseWriter, r *http.Request) {
 
 func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 	l := e.Line
-	h := haLine{ID: l.ID, Label: l.Label, Line: l.ShortName, Mode: string(l.Mode), RouteID: l.RouteID, Headsign: l.Headsign,
+	h := haLine{ID: l.ID, Kind: l.Kind, Label: l.Label, Line: l.ShortName, Mode: string(l.Mode), RouteID: l.RouteID, Headsign: l.Headsign,
 		Departures: []haDeparture{}, Verdict: string(dashboard.LevelNone), Unavailable: l.Unavailable, Error: e.Error}
 	if h.Label == "" {
 		h.Label = l.ShortName
@@ -109,7 +116,7 @@ func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 	}
 	for _, d := range e.Departures {
 		hd := haDeparture{Time: d.ExpectedAt, Minutes: dashboard.MinutesUntil(d.ExpectedAt, now), DelayS: d.DelayS,
-			Realtime: d.Realtime, Headsign: d.Headsign, Verdict: string(d.Verdict.Level)}
+			Realtime: d.Realtime, Headsign: d.Headsign, Line: d.Line, Mode: string(d.Mode), Platform: d.Platform, Verdict: string(d.Verdict.Level)}
 		if hasOrigin && e.Walk != nil {
 			slack := d.Verdict.SlackMin
 			hd.LeaveInMin = &slack
@@ -133,5 +140,31 @@ func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 	if len(h.Departures) > n {
 		h.Departures = h.Departures[:n]
 	}
+	if l.Kind == dashboard.KindTrip {
+		tripView(&h, l)
+	}
 	return h
+}
+
+// tripView fills the line-shaped fields for a trip: the line, mode and
+// platform are those of the next departure, whichever line it is.
+func tripView(h *haLine, l dashboard.Line) {
+	for _, tl := range l.Lines {
+		if !slices.Contains(h.Lines, tl.ShortName) {
+			h.Lines = append(h.Lines, tl.ShortName)
+		}
+	}
+	if l.From != nil {
+		h.StopID, h.StopName, h.Path = l.From.ID, l.From.Name, "/stops/"+url.PathEscape(l.From.ID)
+	}
+	if h.Label == "" && l.From != nil && l.To != nil {
+		h.Label = l.From.Name + " → " + l.To.Name
+	}
+	h.Line, h.Mode, h.Platform = strings.Join(h.Lines, " · "), "", ""
+	if len(l.Lines) > 0 {
+		h.Mode = string(l.Lines[0].Mode)
+	}
+	if h.Next != nil {
+		h.Line, h.Mode, h.Platform = h.Next.Line, h.Next.Mode, h.Next.Platform
+	}
 }

@@ -6,6 +6,7 @@ Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 
 - **My lines** — save your everyday lines and see live countdowns with a *can I make it?* verdict based on real
   walking time from where you are (or a saved place).
+  Or save a **trip** between two stops: every line that rides directly between them counts, whichever comes first.
 - **Live map** — every bus, tram, trolleybus and Elron train, gliding along its route, with the next stops and ETAs.
 - **Search, stops and lines** — departure boards per platform (live SIRI times, timetable fallback), route maps.
 - **Harju county buses** — the ~220 county lines (SEBE, GoBus, Hansabuss…) from the national timetable: search,

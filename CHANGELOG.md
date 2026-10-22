@@ -1,7 +1,12 @@
 # Changelog
 
-## 1.1.1 — 2026-10-22
+## 1.2.0 — 2026-10-22
 
+- **Trips between two stops**: in My lines, *Add a trip* (or *Trip from here* on a stop page) picks a start and an
+  end stop and shows every line that rides directly between them. The saved trip's card counts down to the next
+  departure of any of them, with walking time and the verdict per boarding platform. Home Assistant sensors work for
+  trips too (`kind`, `lines`, and each departure's `line`/`mode`); the card shows the line of each departure.
+  Upgrading: just pull the new image; the first start adds three columns to `saved_lines`.
 - HACS: the integration moved to `custom_components/bus` at the repository root, so adding
   `https://github.com/unmaykr-a/transit-tracker` as a custom repository (type *Integration*) works. CI now runs HACS's
   own validation and `hassfest`.

@@ -35,7 +35,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.getByLabel("Password").fill(E2E_ADMIN.password);
       await page.getByRole("button", { name: "Log in" }).click();
       await expect(page.getByRole("heading", { name: "My lines" })).toBeVisible();
-      for (const path of ["/", "/settings", "/admin/users", "/admin/invites", "/admin/tokens", "/admin/settings", "/admin/health", "/admin/audit", "/admin/about"]) {
+      for (const path of ["/", "/settings", "/admin/users", "/admin/invites", "/admin/tokens", "/admin/settings", "/admin/health", "/admin/audit", "/admin/about", "/trips/new"]) {
         await page.goto(path);
         await scan(page, path);
       }

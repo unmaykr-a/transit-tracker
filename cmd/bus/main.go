@@ -198,6 +198,14 @@ func prewarmSaved(ctx context.Context, log *slog.Logger, db *store.Store, ix fun
 			continue
 		}
 		index := ix()
+		// Saved trips board at any platform of their origin stop.
+		if areas, err := db.Q.ListTripOrigins(ctx); err == nil {
+			for _, a := range areas {
+				if area, ok := index.Area(a); ok {
+					ids = append(ids, area.StopIDs...)
+				}
+			}
+		}
 		for _, id := range ids {
 			if st, ok := index.Stop(id); ok && st.SiriID != "" {
 				_, _ = deps.Siri(ctx, st.SiriID)

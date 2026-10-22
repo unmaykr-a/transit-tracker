@@ -13,6 +13,15 @@ VALUES (sqlc.arg(user_id), sqlc.arg(route_id), sqlc.arg(direction), sqlc.arg(hea
         (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = sqlc.arg(user_id)), sqlc.arg(notify_threshold_min), sqlc.arg(created_at))
 RETURNING *;
 
+-- name: CreateSavedTrip :one
+INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, label, sort, notify_threshold_min, created_at)
+VALUES (sqlc.arg(user_id), 'trip', '', 0, '', sqlc.arg(from_area_id), sqlc.arg(to_area_id), sqlc.arg(label),
+        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = sqlc.arg(user_id)), 0, sqlc.arg(created_at))
+RETURNING *;
+
+-- name: ListTripOrigins :many
+SELECT DISTINCT from_area_id FROM saved_lines WHERE kind = 'trip';
+
 -- name: UpdateSavedLine :exec
 UPDATE saved_lines SET label = ?, alight_stop_id = ?, notify_threshold_min = ? WHERE id = ? AND user_id = ?;
 
@@ -23,7 +32,7 @@ UPDATE saved_lines SET sort = ? WHERE id = ? AND user_id = ?;
 DELETE FROM saved_lines WHERE id = ? AND user_id = ?;
 
 -- name: ListBoardStops :many
-SELECT DISTINCT board_stop_id FROM saved_lines;
+SELECT DISTINCT board_stop_id FROM saved_lines WHERE kind = 'line';
 
 -- name: ListSavedPlaces :many
 SELECT * FROM saved_places WHERE user_id = ? ORDER BY sort, id;

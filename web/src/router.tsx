@@ -36,6 +36,12 @@ const routeTree = rootRoute.addChildren([
     component: lazyRouteComponent(() => import("@/pages/StopPage")),
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/lines/$mode/$line", component: lazyRouteComponent(() => import("@/pages/LinePage")) }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/trips/new",
+    validateSearch: (s: Record<string, unknown>): { from?: string } => ({ from: str(s.from) }),
+    component: lazyRouteComponent(() => import("@/pages/TripPage")),
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: lazyRouteComponent(() => import("@/pages/SettingsPage")) }),
   createRoute({
     getParentRoute: () => rootRoute,

@@ -371,6 +371,7 @@ func (s *Server) handleAllPatterns(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) mountStatic(r chi.Router) {
+	r.Get("/trips", s.handleTripPreview)
 	r.Get("/patterns", s.handleAllPatterns)
 	r.Get("/vehicles/{id}/trip", s.handleVehicleTrip)
 	r.Get("/patterns/{id}", s.handlePattern)

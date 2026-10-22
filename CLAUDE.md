@@ -47,6 +47,10 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   green, 0 amber, <0 red). The web mirrors `Judge` in `src/lib/verdict.ts` — keep them identical. Saved boarding
   stops are SIRI-pre-warmed every 20 s. API: `/me/lines` (+ `/reorder`), `/me/places`, `/me/prefs`,
   `/me/dashboard?lat=&lon=|place=` (location is never stored).
+  Saved trips (`saved_lines.kind = 'trip'`, `from_area_id` → `to_area_id`): `Index.Connections` finds every
+  (route, boarding platform) whose pattern visits a platform of From before one of To; the card merges departures of
+  all those platforms (filtered to those routes/headsigns), each judged with its own platform's walk (`walks`).
+  `GET /trips?from=&to=` previews the lines; the web page is `/trips/new?from=`.
 - PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell, SWR for
   `/api/v1/stops`), icons rendered from `icon.svg`. Registered only in production builds.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
