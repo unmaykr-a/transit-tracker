@@ -25,6 +25,8 @@ type Status struct {
 	Count       int       `json:"count"`
 	Failures    int       `json:"consecutive_failures"`
 	Stale       bool      `json:"stale"`
+	Polls       int64     `json:"polls"`  // since start, successful or not
+	Errors      int64     `json:"errors"` // since start
 }
 
 // Result is what a poll reports back on success.
@@ -79,6 +81,7 @@ func (h *Health) success(name string, r Result) {
 	defer h.mu.Unlock()
 	s := h.feeds[name]
 	now := h.now()
+	s.Polls++
 	s.LastSuccess = now
 	s.LatencyMs = r.Latency.Milliseconds()
 	s.Failures = 0
@@ -111,6 +114,8 @@ func (h *Health) failure(name string, err error) int {
 	s.LastError = err.Error()
 	s.LastErrorAt = h.now()
 	s.Failures++
+	s.Polls++
+	s.Errors++
 	return s.Failures
 }
 

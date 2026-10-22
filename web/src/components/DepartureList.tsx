@@ -21,7 +21,7 @@ export function DepartureList({ departures, showPlatform = true }: { departures:
               <p className="text-xs text-muted-foreground">
                 {showPlatform && d.platform && <>{t("stop.platform", { letter: d.platform })} · </>}
                 {clock(d.expected_at, i18n.resolvedLanguage)}
-                {d.realtime && lateMin >= 2 && <span className="text-amber-600 dark:text-amber-400"> · {t("stop.delayed", { min: lateMin })}</span>}
+                {d.realtime && lateMin >= 2 && <span className="text-amber-700 dark:text-amber-400"> · {t("stop.delayed", { min: lateMin })}</span>}
                 {!d.realtime && <> · {t("stop.scheduled")}</>}
               </p>
             </div>
