@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -36,6 +36,23 @@ class BusNextSensor(BusLineEntity, SensorEntity):
     """When the next departure leaves (the next one still catchable, given an origin)."""
 
     _attr_device_class = SensorDeviceClass.TIMESTAMP
+    # These change on every poll; keeping them out of the recorder saves a lot of database rows.
+    _unrecorded_attributes = frozenset(
+        {
+            "next_departures",
+            "minutes",
+            "delay_s",
+            "realtime",
+            "leave_in_min",
+            "verdict",
+            "catchable",
+            "walk_min",
+            "walk_approx",
+            "order",
+            "url",
+            "error",
+        }
+    )
 
     @property
     def icon(self) -> str | None:
@@ -73,14 +90,15 @@ class BusNextSensor(BusLineEntity, SensorEntity):
             "leave_in_min": line.get("leave_in_min"),
             "catchable": line.get("catchable"),
             "url": self.coordinator.client.base_url + (line.get("path") or ""),
+            "error": line.get("error"),  # e.g. "departures unavailable" when the upstream feed failed
         }
 
 
 class BusLeaveInSensor(BusLineEntity, SensorEntity):
     """Minutes until you must leave for the next catchable departure (needs an origin)."""
 
+    _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 0
 
     @property

@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Ühenda Tramiga",
-        "description": "Loo API-võti Trami veebirakenduses: Seaded → API-võtmed.",
+        "title": "Ühenda Busiga",
+        "description": "Loo API-võti Busi veebirakenduses: Seaded → API-võtmed.",
         "data": {
           "url": "Serveri aadress",
           "token": "API-võti",
@@ -15,39 +15,52 @@
         }
       },
       "reauth_confirm": {
-        "title": "Trami võti lükati tagasi",
+        "title": "Busi võti lükati tagasi",
         "description": "Serveri {url} API-võti ei kehti enam. Loo uus: Seaded → API-võtmed.",
         "data": {
           "token": "API-võti"
+        }
+      },
+      "reconfigure": {
+        "title": "Muuda Busi ühendust",
+        "description": "Uuenda serveri aadressi, API-võtit või sertifikaadi kontrolli. Konto peab jääma samaks.",
+        "data": {
+          "url": "Serveri aadress",
+          "token": "API-võti",
+          "verify_ssl": "Kontrolli SSL-sertifikaati"
         }
       }
     },
     "error": {
       "cannot_connect": "Serveriga ei saa ühendust",
       "invalid_auth": "Võti lükati tagasi",
-      "not_bus": "See ei paista olevat Trami server"
+      "not_bus": "See ei paista olevat Busi server"
     },
     "abort": {
       "already_configured": "See konto selles serveris on juba seadistatud",
       "reauth_successful": "Võti uuendatud",
-      "wrong_account": "Uus võti kuulub teisele kontole"
+      "wrong_account": "Uus võti kuulub teisele kontole",
+      "reconfigure_successful": "Ühendus uuendatud"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Trami valikud",
+        "title": "Busi valikud",
         "data": {
           "lines": "Salvestatud liinid",
           "scan_interval": "Uuendamise intervall",
           "origin_entity": "Kõnni asukohast"
         },
         "data_description": {
-          "lines": "Kui kõik on valitud, järgitakse salvestatud liine; uued liinid lisanduvad pärast taaslaadimist.",
+          "lines": "Jäta kõik valituks, et jälgida oma salvestatud liine: hiljem salvestatud liinid lisanduvad ise.",
           "scan_interval": "Sekundit uuenduste vahel (15–600).",
           "origin_entity": "Tsoon, isik või seadme jälgija. Lisab kõnniaja, hinnangu ja „lahku“ aja."
         }
       }
+    },
+    "abort": {
+      "not_loaded": "Bus pole praegu ühendatud (server võib olla kättesaamatu). Proovi uuesti, kui ühendus on olemas."
     }
   },
   "entity": {
@@ -63,6 +76,14 @@
       "catchable": {
         "name": "Jõuab"
       }
+    }
+  },
+  "exceptions": {
+    "token_rejected": {
+      "message": "Busi server lükkas API-võtme tagasi"
+    },
+    "update_failed": {
+      "message": "Busi serverist ei saa uuendusi: {error}"
     }
   }
 }

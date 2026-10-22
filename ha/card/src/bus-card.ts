@@ -2,17 +2,13 @@ import { css, html, LitElement, nothing, type PropertyValues, type TemplateResul
 
 import { translator, type Key } from "./i18n";
 import { allBusEntities, clock, MODE_COLORS, view, type Level, type Mode, type NextAttributes } from "./model";
-import type { HassEntity, HomeAssistant, BusCardConfig } from "./types";
+import type { HomeAssistant, BusCardConfig } from "./types";
 import { BusCardEditor } from "./bus-card-editor";
 
-const VERSION = "1.4.0";
+// Replaced at build time with the release version (rollup.config.mjs).
+const VERSION = "__BUS_VERSION__";
 
 const DEFAULTS = { departures: 3, show_walk: true, show_verdict: true, layout: "full" as const };
-
-/** Entities created by the Bus integration for a line's next departure. */
-export function isBusNext(e: HassEntity | undefined): boolean {
-  return Boolean(e && e.entity_id.startsWith("sensor.") && e.entity_id.endsWith("_next") && Array.isArray(e.attributes.next_departures));
-}
 
 export class BusCard extends LitElement {
   static properties = {
@@ -47,7 +43,7 @@ export class BusCard extends LitElement {
   /** The configured lines, or every saved line when none are listed. */
   private get entities(): string[] {
     const listed = this._config?.entities ?? [];
-    return listed.length > 0 ? listed : this.hass ? allBusEntities(this.hass.states) : [];
+    return listed.length > 0 ? listed : this.hass ? allBusEntities(this.hass.states, this.hass.entities) : [];
   }
 
   getCardSize(): number {
@@ -71,6 +67,17 @@ export class BusCard extends LitElement {
     clearInterval(this._timer);
   }
 
+  /** Home Assistant sets hass on every state change anywhere; re-render only for this card's entities. */
+  protected shouldUpdate(changed: PropertyValues): boolean {
+    if (changed.size > 1 || !changed.has("hass")) return true;
+    const old = changed.get("hass") as HomeAssistant | undefined;
+    if (!old || !this.hass || old.locale !== this.hass.locale || old.themes?.darkMode !== this.hass.themes?.darkMode) return true;
+    const ids = this.entities;
+    const listed = (this._config?.entities ?? []).length > 0;
+    if (!listed && ids.join() !== allBusEntities(old.states, old.entities).join()) return true;
+    return ids.some((id) => old.states[id] !== this.hass!.states[id]);
+  }
+
   protected willUpdate(changed: PropertyValues): void {
     if (changed.has("hass")) this._now = new Date();
   }
@@ -84,7 +91,7 @@ export class BusCard extends LitElement {
     const c = this._config;
     const ids = this.entities;
     return html`
-      <ha-card .header=${c.title || undefined}>
+      <ha-card .header=${c.title || undefined} class=${this.hass.themes?.darkMode ? "dark" : ""}>
         <div class="lines ${c.layout}">
           ${ids.length === 0 ? html`<div class="muted empty">${this.t("noLines")}</div>` : ids.map((id) => this.renderLine(id))}
         </div>
@@ -103,8 +110,19 @@ export class BusCard extends LitElement {
     const entity = this.hass!.states[entityId];
     if (!entity) return html`<div class="warning">${t("notFound", { id: entityId })}</div>`;
     const attrs = entity.attributes as NextAttributes;
+    if (entity.state === "unavailable") {
+      // Home Assistant drops the attributes of unavailable entities: show the name only.
+      const name = String(entity.attributes.friendly_name ?? entityId).replace(/ (Next|Järgmine)$/, "");
+      return html`<div class="line">
+        <div class="row">
+          <span class="pill" style="background:var(--disabled-color, #9e9e9e)">–</span>
+          <div class="what"><div class="title">${name}</div></div>
+          <span class="muted">${t("unavailable")}</span>
+        </div>
+      </div>`;
+    }
     const v = view(attrs, this._now, c.departures!);
-    const unavailable = entity.state === "unavailable";
+    const unavailable = false;
     const [first, ...rest] = v.departures;
     const open = () => {
       if (v.url) window.open(v.url, "_blank", "noopener");
@@ -120,7 +138,7 @@ export class BusCard extends LitElement {
       : first
         ? html`<span class="big">${this.minutes(first.minutes)}</span>
             <span class="clock">${clock(first.time, lang)}${first.realtime ? nothing : html` · ${t("scheduled")}`}</span>`
-        : html`<span class="muted">${t("noDepartures")}</span>`;
+        : html`<span class="muted">${attrs.error ? t("feedError") : t("noDepartures")}</span>`;
 
     if (c.layout === "compact") {
       return html`<div class="line" role=${v.url ? "link" : nothing} tabindex=${v.url ? "0" : nothing} @click=${open}
@@ -128,7 +146,7 @@ export class BusCard extends LitElement {
         <div class="row">
           ${this.pill(v.line, v.mode)}
           <div class="what"><div class="title">${label ? html`${label} · ` : nothing}${v.title}</div></div>
-          <div class="countdown" aria-live="polite">${countdown}</div>
+          <div class="countdown">${countdown}</div>
         </div>
       </div>`;
     }
@@ -148,7 +166,7 @@ export class BusCard extends LitElement {
           </div>
         </div>
         <div class="row second">
-          <div class="countdown" aria-live="polite">${v.trip && first ? this.pill(v.line, v.mode, true) : nothing}${countdown}</div>
+          <div class="countdown">${v.trip && first ? this.pill(v.line, v.mode, true) : nothing}${countdown}</div>
           ${c.show_verdict && first && first.slack !== null && !unavailable ? this.chip(first.level, first.slack) : nothing}
         </div>
         ${rest.length > 0 && !unavailable
@@ -284,17 +302,27 @@ export class BusCard extends LitElement {
       background: var(--secondary-background-color, rgba(127, 127, 127, 0.15));
       color: var(--primary-text-color);
     }
+    /* Fixed colours, not the theme's status colours: those are too light for text (WCAG AA). */
     .chip.green {
-      background: rgba(16, 185, 129, 0.18);
-      color: var(--success-color, #047857);
+      background: rgba(16, 185, 129, 0.16);
+      color: #047857;
     }
     .chip.amber {
-      background: rgba(245, 158, 11, 0.2);
-      color: var(--warning-color, #b45309);
+      background: rgba(245, 158, 11, 0.18);
+      color: #92400e;
     }
     .chip.red {
-      background: rgba(239, 68, 68, 0.18);
-      color: var(--error-color, #b91c1c);
+      background: rgba(239, 68, 68, 0.16);
+      color: #b91c1c;
+    }
+    .dark .chip.green {
+      color: #6ee7b7;
+    }
+    .dark .chip.amber {
+      color: #fcd34d;
+    }
+    .dark .chip.red {
+      color: #fca5a5;
     }
     .compact .line {
       padding: 10px 14px;

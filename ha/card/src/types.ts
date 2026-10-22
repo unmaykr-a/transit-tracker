@@ -8,6 +8,9 @@ export interface HassEntity {
 
 export interface HomeAssistant {
   states: Record<string, HassEntity>;
+  /** The entity registry (which integration each entity belongs to). */
+  entities?: Record<string, { platform?: string }>;
+  themes?: { darkMode?: boolean };
   locale?: { language: string };
   language?: string;
 }

@@ -123,7 +123,9 @@ func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 	for _, d := range e.Departures {
 		hd := haDeparture{Time: d.ExpectedAt, Minutes: dashboard.MinutesUntil(d.ExpectedAt, now), DelayS: d.DelayS,
 			Realtime: d.Realtime, Headsign: d.Headsign, Line: d.Line, Mode: string(d.Mode), Platform: d.Platform, Verdict: string(d.Verdict.Level)}
-		if hasOrigin && e.Walk != nil {
+		// Only departures judged with a walk have a "leave in"; a trip platform whose walk
+		// failed has no verdict, and its slack would just be the minutes until departure.
+		if hasOrigin && d.Verdict.Level != dashboard.LevelNone {
 			slack := d.Verdict.SlackMin
 			hd.LeaveInMin = &slack
 		}
@@ -140,6 +142,9 @@ func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 	if next >= 0 && next < len(h.Departures) {
 		d := h.Departures[next]
 		h.Next, h.Verdict, h.LeaveInMin = &d, d.Verdict, d.LeaveInMin
+		if h.Catchable != nil && !*h.Catchable {
+			h.LeaveInMin = nil // nothing can be caught: a negative "leave in" would only confuse automations
+		}
 		// The list starts at the next departure: missed ones are no use on a wall display.
 		h.Departures = h.Departures[next:]
 	}

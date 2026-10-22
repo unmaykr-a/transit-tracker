@@ -56,8 +56,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: BusConfigEntry) -> bool
 
 
 async def _reload(hass: HomeAssistant, entry: BusConfigEntry) -> None:
-    """Options changed (lines, interval, origin): rebuild entities."""
-    await hass.config_entries.async_reload(entry.entry_id)
+    """Options changed (lines, interval, origin): rebuild entities.
+
+    Reauth and reconfigure update the entry's data and reload it themselves.
+    """
+    if entry.options != entry.runtime_data.options:
+        await hass.config_entries.async_reload(entry.entry_id)
 
 
 def _remove_stale_devices(hass: HomeAssistant, entry: BusConfigEntry) -> None:
