@@ -4,9 +4,10 @@ Self-hosted, multi-user app showing live Tallinn buses, trams, trolleybuses and 
 telling you whether you can make your next departure, with a Home Assistant integration.
 Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 
-> Status: **M4 — My lines**: save your everyday lines and see live countdowns with a "can I make it?" verdict based
-> on real walking time from where you are; live map of every bus, tram, trolleybus and Elron train; search; stop and
-> line pages; accounts with invites; admin area. Installable as a PWA. See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
+> Status: **M6 — Home Assistant**: save your everyday lines and see live countdowns with a "can I make it?" verdict
+> based on real walking time from where you are; live map of every bus, tram, trolleybus and Elron train, matched to
+> their routes with next-stop ETAs; search; stop and line pages; accounts with invites; admin area; installable as a
+> PWA; Home Assistant sensors and a Lovelace card ([ha/README.md](ha/README.md)). See [docs/PLAN.md](docs/PLAN.md) for the roadmap and
 > [docs/feeds.md](docs/feeds.md) for the upstream data formats.
 
 ## Run
@@ -25,6 +26,12 @@ back to Server-Sent Events if WebSockets are blocked).
 Open the app and create the administrator account, or set `TRAM_ADMIN_USER` and `TRAM_ADMIN_PASSWORD` to create it
 on first start. Invite others from **Settings → Administration → Invites**. Sign-up is invite-only by default; the
 map, search and stop pages are public unless you turn **Public map** off.
+
+## Home Assistant
+
+Create an API token under **Settings → API tokens**, install the integration and card from the release
+(`tram.zip`, `tram-card.js`) and follow [ha/README.md](ha/README.md). Each saved line becomes a device with
+`sensor.tram_<label>_next`, `sensor.tram_<label>_leave_in` and `binary_sensor.tram_<label>_catchable`.
 
 ## Configuration
 

@@ -429,5 +429,7 @@ func (s *Server) mountAdmin(r chi.Router) {
 		r.Get("/audit", s.handleAdminAudit)
 		r.Get("/about", s.handleAdminAbout)
 		r.Get("/backup", s.handleAdminBackup)
+		r.Get("/tokens", s.handleAdminTokens)
+		r.Delete("/tokens/{id}", s.handleAdminRevokeToken)
 	})
 }

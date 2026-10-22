@@ -54,6 +54,7 @@ const routeTree = rootRoute.addChildren([
     createRoute({ getParentRoute: () => adminRoute, path: "/", beforeLoad: () => { throw redirect({ to: "/admin/users" }); } }),
     createRoute({ getParentRoute: () => adminRoute, path: "/users", component: lazyRouteComponent(() => import("@/pages/admin/UsersPage")) }),
     createRoute({ getParentRoute: () => adminRoute, path: "/invites", component: lazyRouteComponent(() => import("@/pages/admin/InvitesPage")) }),
+    createRoute({ getParentRoute: () => adminRoute, path: "/tokens", component: lazyRouteComponent(() => import("@/pages/admin/TokensPage")) }),
     createRoute({ getParentRoute: () => adminRoute, path: "/settings", component: lazyRouteComponent(() => import("@/pages/admin/SettingsAdminPage")) }),
     createRoute({ getParentRoute: () => adminRoute, path: "/health", component: lazyRouteComponent(() => import("@/pages/admin/HealthPage")) }),
     createRoute({ getParentRoute: () => adminRoute, path: "/audit", component: lazyRouteComponent(() => import("@/pages/admin/AuditPage")) }),

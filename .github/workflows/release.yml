@@ -5,7 +5,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
+  contents: write # attach the Home Assistant integration and card to the release
   packages: write
 
 jobs:
@@ -41,3 +41,27 @@ jobs:
             COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  home-assistant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ha/card/package-lock.json
+      - name: Build the card
+        working-directory: ha/card
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Package the integration
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          jq --arg v "$version" '.version = $v' ha/custom_components/tram/manifest.json > manifest.tmp
+          mv manifest.tmp ha/custom_components/tram/manifest.json
+          (cd ha/custom_components/tram && zip -r "$GITHUB_WORKSPACE/tram.zip" . -x '__pycache__/*')
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            tram.zip
+            ha/card/dist/tram-card.js

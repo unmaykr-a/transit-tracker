@@ -1,0 +1,7 @@
+{
+  "name": "Tram (Tallinn transit)",
+  "zip_release": true,
+  "filename": "tram.zip",
+  "homeassistant": "2025.2.0",
+  "render_readme": false
+}

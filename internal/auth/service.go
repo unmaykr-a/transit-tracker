@@ -85,7 +85,11 @@ type Principal struct {
 	User      db.User
 	SessionID string // hashed session id; empty for API-token requests
 	CSRF      string
+	TokenID   int64 // API token behind the request; 0 for sessions
 }
+
+// ViaToken reports whether the request authenticated with an API token.
+func (p *Principal) ViaToken() bool { return p != nil && p.TokenID != 0 }
 
 func (p *Principal) IsAdmin() bool { return p != nil && p.User.Role == RoleAdmin }
 

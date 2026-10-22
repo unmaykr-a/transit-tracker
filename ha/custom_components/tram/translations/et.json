@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ühenda Tramiga",
+        "description": "Loo API-võti Trami veebirakenduses: Seaded → API-võtmed.",
+        "data": {
+          "url": "Serveri aadress",
+          "token": "API-võti",
+          "verify_ssl": "Kontrolli SSL-sertifikaati"
+        },
+        "data_description": {
+          "url": "Näiteks https://tram.example.com",
+          "token": "Algab tram_"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Trami võti lükati tagasi",
+        "description": "Serveri {url} API-võti ei kehti enam. Loo uus: Seaded → API-võtmed.",
+        "data": {
+          "token": "API-võti"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Serveriga ei saa ühendust",
+      "invalid_auth": "Võti lükati tagasi",
+      "not_tram": "See ei paista olevat Trami server"
+    },
+    "abort": {
+      "already_configured": "See konto selles serveris on juba seadistatud",
+      "reauth_successful": "Võti uuendatud",
+      "wrong_account": "Uus võti kuulub teisele kontole"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Trami valikud",
+        "data": {
+          "lines": "Salvestatud liinid",
+          "scan_interval": "Uuendamise intervall",
+          "origin_entity": "Kõnni asukohast"
+        },
+        "data_description": {
+          "lines": "Kui kõik on valitud, järgitakse salvestatud liine; uued liinid lisanduvad pärast taaslaadimist.",
+          "scan_interval": "Sekundit uuenduste vahel (15–600).",
+          "origin_entity": "Tsoon, isik või seadme jälgija. Lisab kõnniaja, hinnangu ja „lahku“ aja."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next": {
+        "name": "Järgmine väljumine"
+      },
+      "leave_in": {
+        "name": "Lahku"
+      }
+    },
+    "binary_sensor": {
+      "catchable": {
+        "name": "Jõuab"
+      }
+    }
+  }
+}

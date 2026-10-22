@@ -241,6 +241,23 @@ export interface SessionRow {
 export const fetchMySessions = (signal?: AbortSignal) => getJSON<{ sessions: SessionRow[] }>("/api/v1/me/sessions", signal);
 export const revokeMySession = (id: string) => send("DELETE", `/api/v1/me/sessions/${id}`);
 
+export interface ApiToken {
+  id: number;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  last_used_ip?: string;
+  user_id?: number;
+  username?: string;
+}
+
+export const tokens = {
+  list: (signal?: AbortSignal) => getJSON<{ tokens: ApiToken[] }>("/api/v1/me/tokens", signal),
+  create: (name: string) => send<{ token: string; info: ApiToken }>("POST", "/api/v1/me/tokens", { name }),
+  revoke: (id: number) => send("DELETE", `/api/v1/me/tokens/${id}`),
+};
+
 // Admin
 
 export interface AdminUser extends User {
@@ -338,6 +355,8 @@ export const admin = {
   audit: (action: string, before: number, signal?: AbortSignal) =>
     getJSON<{ entries: AuditEntry[] }>(`/api/v1/admin/audit?limit=50&action=${encodeURIComponent(action)}${before ? `&before=${before}` : ""}`, signal),
   about: (signal?: AbortSignal) => getJSON<About>("/api/v1/admin/about", signal),
+  tokens: (signal?: AbortSignal) => getJSON<{ tokens: ApiToken[] }>("/api/v1/admin/tokens", signal),
+  revokeToken: (id: number) => send("DELETE", `/api/v1/admin/tokens/${id}`),
 };
 
 // My lines

@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "sensor": {
+      "next": { "default": "mdi:bus-clock" },
+      "leave_in": { "default": "mdi:walk" }
+    },
+    "binary_sensor": {
+      "catchable": {
+        "default": "mdi:run-fast",
+        "state": { "off": "mdi:timer-sand-complete" }
+      }
+    }
+  }
+}

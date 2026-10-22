@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Tram",
+        "description": "Create an API token in the Tram web app under Settings → API tokens.",
+        "data": {
+          "url": "Server URL",
+          "token": "API token",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "url": "For example https://tram.example.com",
+          "token": "Starts with tram_"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Tram token rejected",
+        "description": "The API token for {url} no longer works. Create a new one under Settings → API tokens.",
+        "data": {
+          "token": "API token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the server",
+      "invalid_auth": "The token was rejected",
+      "not_tram": "This does not look like a Tram server"
+    },
+    "abort": {
+      "already_configured": "This account on this server is already set up",
+      "reauth_successful": "Token updated",
+      "wrong_account": "The new token belongs to a different account"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tram options",
+        "data": {
+          "lines": "Saved lines",
+          "scan_interval": "Update interval",
+          "origin_entity": "Walk from"
+        },
+        "data_description": {
+          "lines": "Leave all selected to follow your saved lines; new lines appear after a reload.",
+          "scan_interval": "Seconds between updates (15–600).",
+          "origin_entity": "A zone, person or device tracker. Enables walking time, the verdict and \"leave in\"."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next": {
+        "name": "Next"
+      },
+      "leave_in": {
+        "name": "Leave in"
+      }
+    },
+    "binary_sensor": {
+      "catchable": {
+        "name": "Catchable"
+      }
+    }
+  }
+}

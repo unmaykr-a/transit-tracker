@@ -66,6 +66,16 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `src/lib/liveClient.ts` is the single shared WS/SSE connection; `src/map/VehicleMap.tsx` animates markers
   outside React (tweens in `src/lib/tween.ts`). Builds to `web/dist`, copied into `internal/api/dist`
   (gitignored except `.gitkeep`) and embedded via `go:embed`.
+- API tokens (`api_tokens`, `internal/auth/tokens.go`): `Authorization: Bearer tram_…`, only the sha256 stored.
+  Token requests are **read-only** (unsafe methods → 403), never admin, and cannot see/manage tokens or sessions
+  (`requireSession`). `/me/tokens` (session only), `/admin/tokens`. `GET /api/v1/ha/lines?origin=lat,lon&departures=1..5`
+  is the Home Assistant feed: every saved line flattened, `next` = first departure still catchable from the origin.
+- `ha/` — Home Assistant: `custom_components/tram` (config flow URL+token validated via `/me`, reauth on 401/403,
+  options: lines/interval/origin entity, one coordinator request per interval, one device per line with
+  `sensor.tram_<label>_next|_leave_in` and `binary_sensor.tram_<label>_catchable`, diagnostics redact the token) with
+  pytest (`pytest-homeassistant-custom-component`, run from `ha/`); `card/` — `tram-card` (Lit + TS + Rollup, editor
+  built on `<ha-form>`; `src/model.ts` mirrors the verdict table — keep it identical to `dashboard.Judge`).
+  Releases attach `tram.zip` and `tram-card.js` (`hacs.json` uses `zip_release`).
 - `deploy/` — production compose + `.env.example`. Root `compose.yaml` is the local dev build.
 
 ## Commands
@@ -83,6 +93,8 @@ cd web && npm run e2e            # Playwright vs ../bin/tram with fake feeds, a 
 docker compose up --build        # local image on http://localhost:8095
 make docker       # buildx linux/amd64 + linux/arm64
 sqlc generate     # after editing internal/store/queries or migrations
+cd ha && python -m pytest        # HA integration (venv with requirements_test.txt; ruff check/format too)
+cd ha/card && npm test && npm run build   # Lovelace card → ha/card/dist/tram-card.js
 ```
 
 Go toolchain is pinned by `go.mod` (`go 1.27`); older local Go auto-downloads it (GOTOOLCHAIN=auto).

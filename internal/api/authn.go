@@ -81,7 +81,22 @@ func (s *Server) clientMeta(r *http.Request) *requestMeta {
 func (s *Server) withSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		m := s.clientMeta(r)
-		if s.auth != nil {
+		if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok && s.auth != nil {
+			// API tokens (Home Assistant, scripts): read-only, never admin.
+			p, err := s.auth.AuthenticateToken(r.Context(), strings.TrimSpace(bearer), m.IP)
+			if err != nil {
+				s.log.Error("token lookup", "err", err)
+			}
+			if p == nil {
+				writeError(w, http.StatusUnauthorized, "invalid API token", "")
+				return
+			}
+			if !isSafe(r.Method) {
+				writeError(w, http.StatusForbidden, "API tokens are read-only", "")
+				return
+			}
+			m.Principal = p
+		} else if s.auth != nil {
 			if c, err := r.Cookie(sessionCookie); err == nil {
 				p, err := s.auth.Authenticate(r.Context(), c.Value, m.IP)
 				if err != nil {
@@ -157,8 +172,19 @@ func (s *Server) requireAdmin(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "login required", "")
 			return
 		}
-		if !p.IsAdmin() {
+		if !p.IsAdmin() || p.ViaToken() {
 			writeError(w, http.StatusForbidden, "admin only", "")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requireSession rejects API tokens: account security pages need a login.
+func (s *Server) requireSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if principal(r).ViaToken() {
+			writeError(w, http.StatusForbidden, "not available to API tokens", "")
 			return
 		}
 		next.ServeHTTP(w, r)
