@@ -260,3 +260,48 @@ func zipFixtureGTFS(t *testing.T) []byte {
 	_ = zw.Close()
 	return buf.Bytes()
 }
+
+func TestBuildCountyRoutes(t *testing.T) {
+	src := fixtureSources(t)
+	b, err := os.ReadFile(testdata + "otp_county_routes.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	county, err := feeds.ParseAgencyRoutes(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A county route sharing a city line's short name must not take over its id.
+	clash := county[0]
+	clash.ShortName = src.CityRoutes[0].ShortName
+	src.CountyRoutes = append(county, clash)
+	ix := NewIndex(Build(src, fixtureTime))
+
+	r, ok := ix.Route("bus:120")
+	if !ok || r.Source != "county" || r.Mode != feeds.ModeBus || r.LongName != "Tallinn - Jüri" || len(ix.Patterns("bus:120")) == 0 {
+		t.Fatalf("county route 120 = %+v", r)
+	}
+	if _, ok := ix.Route("bus:277"); !ok {
+		t.Error("county route 277 missing")
+	}
+	city := src.CityRoutes[0]
+	if r, _ := ix.Route(RouteID(city.CityMode(), city.ShortName)); r.Source != "tallinn" {
+		t.Errorf("city route %s replaced by county: %+v", city.ShortName, r)
+	}
+	// County-only platforms have no SIRI id (the city feed knows nothing about them),
+	// and are searchable.
+	var countyOnly *Stop
+	for _, p := range ix.Patterns("bus:277") {
+		for _, id := range p.StopIDs {
+			if s, _ := ix.Stop(id); s.Source == "county" {
+				countyOnly = s
+			}
+		}
+	}
+	if countyOnly == nil || countyOnly.SiriID != "" {
+		t.Fatalf("county-only stop = %+v", countyOnly)
+	}
+	if res := ix.SearchRoutes("277", 5); len(res) == 0 || res[0].ID != "bus:277" {
+		t.Errorf("search 277 = %v", res)
+	}
+}

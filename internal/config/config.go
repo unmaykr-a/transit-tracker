@@ -21,6 +21,8 @@ type Config struct {
 
 	// FakeFeeds replays recorded fixtures instead of calling upstream, BUS_FAKE_FEEDS=1.
 	FakeFeeds bool
+	// County imports Harju county bus timetables too (BUS_COUNTY, default true).
+	County bool
 	// Contact goes into the upstream User-Agent so operators can reach us, BUS_CONTACT.
 	Contact string
 	Feeds   FeedConfig
@@ -86,6 +88,9 @@ func load(getenv func(string) string) (Config, error) {
 		ElronGTFSURL: or(getenv("BUS_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
 	}
 	var err error
+	if c.County, err = parseBoolDefault(getenv("BUS_COUNTY"), true); err != nil {
+		return c, fmt.Errorf("BUS_COUNTY: %w", err)
+	}
 	if c.FakeFeeds, err = parseBool(getenv("BUS_FAKE_FEEDS")); err != nil {
 		return c, fmt.Errorf("BUS_FAKE_FEEDS: %w", err)
 	}

@@ -104,8 +104,9 @@ func serve(cfg config.Config) error {
 	importer = &staticdata.Importer{
 		OnSwap:  func(ix *staticdata.Index) { tracker.SetGeometry(eta.BuildGeometry(ix)) },
 		Fetcher: fetcher, OTP: otp, AgencyID: feeds.TallinnAgencyID, Store: db, Log: log, Location: tallinn,
-		StopsURL:     func() string { return cur().StopsURL },
-		ElronGTFSURL: func() string { return cur().ElronGTFSURL },
+		CountyAgencyPrefix: countyPrefix(cfg.County),
+		StopsURL:           func() string { return cur().StopsURL },
+		ElronGTFSURL:       func() string { return cur().ElronGTFSURL },
 	}
 	go importer.Run(ctx)
 	deps := &departures.Service{Fetcher: fetcher, OTP: otp, SiriURL: func() string { return cur().SiriURL }, Index: importer.Index, Location: tallinn}
@@ -241,4 +242,12 @@ func fakeLines(ix *staticdata.Index, stopID string) []feeds.FakeLine {
 		}
 	}
 	return out
+}
+
+// countyPrefix selects the Harju county operators when county buses are on.
+func countyPrefix(on bool) string {
+	if on {
+		return feeds.HarjuCountyAgencyPrefix
+	}
+	return ""
 }

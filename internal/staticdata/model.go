@@ -46,7 +46,7 @@ type Route struct {
 	LongName  string     `json:"long_name"`
 	Color     string     `json:"color,omitempty"` // "#rrggbb"
 	TextColor string     `json:"text_color,omitempty"`
-	Source    string     `json:"-"`
+	Source    string     `json:"source"` // tallinn, county or elron
 	Sort      int        `json:"-"`
 }
 

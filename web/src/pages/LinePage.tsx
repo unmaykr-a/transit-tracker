@@ -48,7 +48,7 @@ export default function LinePage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold tracking-tight">{r.long_name}</h1>
           <p className="text-sm text-muted-foreground">
-            {t(`mode.${r.mode}`)} · {t("line.live", { count: vehicles.length })}
+            {r.source === "county" ? t("line.county") : `${t(`mode.${r.mode}`)} · ${t("line.live", { count: vehicles.length })}`}
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>

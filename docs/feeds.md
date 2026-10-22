@@ -190,3 +190,15 @@ match on route + scheduled start time instead.
   sharing paces across lines on the same street).
 - Departure boards and My lines use SIRI times, not these ETAs. Tracker ETAs drive the vehicle sheet's
   "next stops" list and the map animation only.
+
+## Notes on Harju county buses
+
+- OTP lists the county operators as agencies `estonia:harjumaa_<registry code>` (2026-10-22: Hansabuss 125 routes,
+  SEBE 53, GoBus 43, Ekspressbussiliinid 1, Alukvik 1). All are mode `BUS`; short names (100–277, `H1`…, `J1`…,
+  `Anija1`…) do not clash with city lines.
+- No live data: `gps.txt` and SIRI cover Tallinn city vehicles only (types 1–3), and OTP marks county stoptimes
+  `SCHEDULED` (`realtime: false`). The Ridango system the operators use has no public feed we know of.
+- County terminals in Tallinn use numbered platform names (`Balti jaam 1`, `Balti jaam 6`), so they form their own stop
+  areas next to the city's `Balti jaam`.
+- Importing them grows the static data from ~1 360 to ~3 500 stops and ~270 to ~880 patterns (import ~5 s); idle
+  memory with county routes is ~56 MB RSS.

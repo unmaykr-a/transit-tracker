@@ -25,10 +25,13 @@ type Geometry struct {
 	byID    map[string]*PatternGeom
 }
 
-// BuildGeometry prepares all patterns of an index (a few hundred; milliseconds).
+// BuildGeometry prepares the city patterns of an index (a few hundred; milliseconds).
 func BuildGeometry(ix *staticdata.Index) *Geometry {
 	g := &Geometry{byRoute: map[string][]*PatternGeom{}, byID: map[string]*PatternGeom{}}
 	for _, r := range ix.Routes() {
+		if r.Source != "tallinn" {
+			continue // only city vehicles report live positions; county and rail have none to match
+		}
 		for _, p := range ix.Patterns(r.ID) {
 			stops := make([][2]float64, 0, len(p.StopIDs))
 			for _, id := range p.StopIDs {

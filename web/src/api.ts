@@ -20,6 +20,8 @@ export interface Route {
   long_name: string;
   color?: string;
   text_color?: string;
+  /** "tallinn" (city, live), "county" (Harju county, timetable only) or "elron". */
+  source?: "tallinn" | "county" | "elron";
 }
 
 export interface AreaHit {
