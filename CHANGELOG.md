@@ -4,7 +4,9 @@
 
 - HACS: the integration moved to `custom_components/bus` at the repository root, so adding
   `https://github.com/unmaykr-a/transit-tracker` as a custom repository (type *Integration*) works. CI now runs HACS's
-  own validation and `hassfest`. No changes to the app.
+  own validation and `hassfest`.
+- Single sign-on: an issuer URL entered without the provider's trailing slash (or with an extra one) no longer fails
+  discovery with "issuer URL … did not match"; Authentik's issuer ends in `/`.
 
 ## 1.1.0 — 2026-10-22
 
