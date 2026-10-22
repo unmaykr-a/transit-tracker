@@ -1,5 +1,5 @@
 import { ChevronUp } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
@@ -11,10 +11,36 @@ const wide = () => typeof window !== "undefined" && window.matchMedia?.("(min-wi
  * summary) so the map stays visible, and expands on demand; on wider screens it
  * is a side card and always open.
  */
-export function MapSheet({ label, header, summary, children }: { label?: string; header: ReactNode; summary?: ReactNode; children: ReactNode }) {
+export function MapSheet({
+  label,
+  header,
+  summary,
+  children,
+  onClose,
+}: {
+  label?: string;
+  header: ReactNode;
+  summary?: ReactNode;
+  children: ReactNode;
+  onClose?: () => void;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(wide);
   const bodyId = useId();
+  // Escape closes the sheet (wherever focus is, except while typing in a field).
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return;
+      close.current?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <section aria-label={label} className="pointer-events-auto mx-auto w-full max-w-md rounded-t-2xl border bg-card shadow-lg md:rounded-2xl">
       <button
@@ -33,14 +59,15 @@ export function MapSheet({ label, header, summary, children }: { label?: string;
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="mt-2 flex w-full items-center gap-2 text-left text-sm"
+            className="mt-2 flex w-full items-center gap-2 text-left text-sm md:hidden"
             aria-controls={bodyId}
           >
             <span className="min-w-0 flex-1 truncate">{summary}</span>
             <ChevronUp className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           </button>
         )}
-        <div id={bodyId} hidden={!open} className={cn("max-h-[45vh] overflow-y-auto md:max-h-none")}>
+        {/* Always shown from md up, also when a narrow window that collapsed it is widened. */}
+        <div id={bodyId} className={cn("max-h-[45vh] overflow-y-auto md:block md:max-h-none", !open && "hidden")}>
           {children}
         </div>
       </div>

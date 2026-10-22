@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -31,7 +32,7 @@ func HashPassword(password string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	key := idKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
 	b64 := base64.RawStdEncoding
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, argonMemory, argonTime, argonThreads,
 		b64.EncodeToString(salt), b64.EncodeToString(key)), nil
@@ -61,8 +62,18 @@ func VerifyPassword(encoded, password string) (bool, error) {
 	if err1 != nil || err2 != nil || len(want) == 0 {
 		return false, errBadHash
 	}
-	got := argon2.IDKey([]byte(password), salt, t, m, p, uint32(len(want)))
+	got := idKey([]byte(password), salt, t, m, p, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
+}
+
+// hashSlots caps concurrent argon2 runs: each takes ~19 MiB and ~100 ms of CPU,
+// so a burst of logins (even rate-limited ones) must queue rather than exhaust a Raspberry Pi.
+var hashSlots = make(chan struct{}, max(2, runtime.NumCPU()))
+
+func idKey(password, salt []byte, t, m uint32, p uint8, keyLen uint32) []byte {
+	hashSlots <- struct{}{}
+	defer func() { <-hashSlots }()
+	return argon2.IDKey(password, salt, t, m, p, keyLen)
 }
 
 // dummyHash is verified against when a username does not exist, so failed

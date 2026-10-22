@@ -30,3 +30,6 @@ DELETE FROM api_tokens WHERE id = ?;
 
 -- name: CountUserAPITokens :one
 SELECT count(*) FROM api_tokens WHERE user_id = ?;
+
+-- name: DeleteAllUserAPITokens :execrows
+DELETE FROM api_tokens WHERE user_id = ?;

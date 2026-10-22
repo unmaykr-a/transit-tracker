@@ -139,7 +139,7 @@ func (s *Server) observeRequest(r *http.Request, status int, d time.Duration) {
 	if status == 0 {
 		status = http.StatusOK
 	}
-	s.metrics.requests.Inc(route, r.Method, strconv.Itoa(status))
+	s.metrics.requests.Inc(route, methodLabel(r.Method), strconv.Itoa(status))
 	if route != "/ws" && route != "/api/v1/vehicles/stream" {
 		s.metrics.duration.Observe(d.Seconds(), route)
 	}
@@ -176,4 +176,14 @@ func (s *Server) metricsAllowed(r *http.Request) bool {
 	}
 	a = a.Unmap()
 	return a.IsLoopback() || a.IsPrivate()
+}
+
+// methodLabel keeps the method label bounded: made-up methods would otherwise
+// create a new series each, kept forever.
+func methodLabel(m string) string {
+	switch m {
+	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions:
+		return m
+	}
+	return "OTHER"
 }

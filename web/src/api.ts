@@ -478,6 +478,13 @@ export interface Place {
 
 export type Origin = { lat: number; lon: number } | { place: number } | null;
 
+export interface Dashboard {
+  entries: DashboardEntry[];
+  prefs: Prefs;
+  has_origin: boolean;
+  server_time: string;
+}
+
 export const fetchDashboard = (origin: Origin, signal?: AbortSignal) => {
   const p = new URLSearchParams();
   if (origin && "place" in origin) p.set("place", String(origin.place));
@@ -485,7 +492,7 @@ export const fetchDashboard = (origin: Origin, signal?: AbortSignal) => {
     p.set("lat", origin.lat.toFixed(5));
     p.set("lon", origin.lon.toFixed(5));
   }
-  return getJSON<{ entries: DashboardEntry[]; prefs: Prefs; has_origin: boolean; server_time: string }>(`/api/v1/me/dashboard?${p}`, signal);
+  return getJSON<Dashboard>(`/api/v1/me/dashboard?${p}`, signal);
 };
 
 export const myLines = {

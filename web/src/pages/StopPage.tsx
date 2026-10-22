@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { Map as MapIcon, Route } from "lucide-react";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchDepartures, fetchStop } from "@/api";
@@ -28,11 +28,17 @@ export default function StopPage() {
   const stop = useQuery({ queryKey: ["stop", id], queryFn: ({ signal }) => fetchStop(id, signal), staleTime: 60 * 60_000 });
   const areaId = stop.data?.id;
   const deps = useQuery({
-    queryKey: ["departures", areaId, platform ?? ""],
+    queryKey: ["departures", areaId, platform ?? "", 40],
     queryFn: ({ signal }) => fetchDepartures(areaId!, { platform, limit: 40 }, signal),
     enabled: !!areaId,
     refetchInterval: 20_000,
   });
+
+  // A platform link (/stops/<platform id>) opens that platform's tab, under the area's own URL so "All" still works.
+  const focus = stop.data?.focus;
+  useEffect(() => {
+    if (areaId && focus && id !== areaId && !platform) void navigate({ to: "/stops/$id", params: { id: areaId }, search: { p: focus }, replace: true });
+  }, [areaId, focus, id, platform, navigate]);
 
   const lat = stop.data?.lat;
   const lon = stop.data?.lon;

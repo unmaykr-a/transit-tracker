@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.6.0 — 2026-10-22
+
+A review and polish pass over the whole project; no new features. Upgrading: pull the new image, and update the Home
+Assistant integration through HACS. Nothing to migrate.
+
+- **Web**:
+  - The admin settings for map styles, map start view, default language and default theme now take effect (visitors
+    who never picked their own follow them).
+  - After a deploy, open tabs pick up the new build by themselves, and the offline copy can no longer be replaced by
+    an API or `/metrics` page.
+  - Signing out (or in as someone else) clears the previous user's lines and places from the page.
+  - The live connection closes in background tabs and reconnects at once when you come back or go back online.
+  - Links to a platform open that platform's departures. New pages open scrolled to the top.
+  - My lines: loading and error states, and reordering keeps up with quick taps.
+  - Removing a line or place, and revoking an API token, now ask first.
+  - Escape closes map sheets, and screen readers are no longer interrupted every few seconds.
+  - A message shows when the map can't load. "On time" is used for delays under 30 s.
+- **Home Assistant**:
+  - Change the server URL or token under Reconfigure.
+  - Picking every line in options now also follows lines you add later.
+  - "Leave in" is a duration and is unknown when nothing is catchable, instead of a negative number.
+  - New `error` and `destination` attributes.
+  - The card shows unavailable lines, and its chips are readable in dark themes.
+- **Security**:
+  - The login rate limit can no longer be raced by parallel requests, and IPv6 clients are limited per /64.
+  - Stricter post-login redirects.
+  - Only `bus_…` bearer tokens are treated as API tokens.
+  - An admin password reset also revokes the user's API tokens.
+  - Sessions renew their cookie as they slide.
+  - Password hashing is bounded, so a burst of logins can't exhaust memory.
+- **Data and ETAs**:
+  - Vehicles parked for minutes no longer teach the model that a street is slow.
+  - An empty or collapsed GPS snapshot is refused instead of clearing the map.
+  - If Elron or county data fails at the nightly import, the previous data is kept.
+  - Cached departures are refreshed in the background (stale-while-revalidate), and upstream errors are cached briefly.
+  - A city route listed twice upstream no longer fails the import.
+- **Server**:
+  - Graceful shutdown closes live streams promptly.
+  - Live streams end when the session that opened them does.
+  - Admin static-data refresh runs once even when clicked repeatedly.
+  - Limits on saved places (20) and label length.
+  - `/stops` and `/patterns` responses are encoded once per import.
+  - Walks over 5 km use the straight-line estimate instead of routing.
+  - `BUS_CONTACT` may be an email address.
+- **Releases**: prereleases no longer move the `latest` image tag.
+
 ## 1.5.0 — 2026-10-22
 
 - **Big screens**: line and stop pages show the live map (animated vehicles, tap for details, scroll to zoom) beside

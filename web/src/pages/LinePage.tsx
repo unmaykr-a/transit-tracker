@@ -44,7 +44,8 @@ export default function LinePage() {
   const placements = useMemo(() => (q.data ? placeVehicles(q.data.patterns, vehicles) : []), [q.data, vehicles]);
 
   if (q.isError) return <p className="p-6 text-muted-foreground">{t("line.notFound")}</p>;
-  if (!q.data || !pattern) return <p className="p-6 text-muted-foreground">{t("common.loading")}</p>;
+  if (!q.data) return <p className="p-6 text-muted-foreground">{t("common.loading")}</p>;
+  if (!pattern) return <p className="p-6 text-muted-foreground">{t("line.noPatterns")}</p>;
   const r = q.data.route;
   const color = MODE_COLORS[r.mode];
   const here = placements.filter((p) => p.patternId === pattern.id);

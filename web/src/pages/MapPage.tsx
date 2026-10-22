@@ -51,7 +51,8 @@ export default function MapPage() {
 
   const update = (f: Filters) => {
     setFilters(f);
-    save(FILTER_KEY, f);
+    // A ?lines= visit keeps the saved line filter; mode changes are still remembered.
+    save(FILTER_KEY, search.lines ? { ...load(FILTER_KEY, { modes: [...MODES], lines: "" }), modes: f.modes } : f);
   };
   const modes = useMemo(() => new Set(filters.modes), [filters.modes]);
   const tokens = useMemo(() => parseLineQuery(filters.lines), [filters.lines]);
@@ -125,7 +126,7 @@ export default function MapPage() {
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-background/90 px-3 py-1 text-xs text-muted-foreground shadow-sm tabular-nums" aria-live="polite">
+          <span className="rounded-full bg-background/90 px-3 py-1 text-xs text-muted-foreground shadow-sm tabular-nums">
             {t("live.vehicles", { count: visible })}
           </span>
           <StaleBanner />

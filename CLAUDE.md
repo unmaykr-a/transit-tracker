@@ -64,8 +64,15 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `govulncheck ./...` after bumping.
 - Map sheets (`components/MapSheet.tsx`) open compact on phones (header + one-line summary), full on md+. Places can be
   picked on a map (`map/PointPicker.tsx`, centre pin).
-- PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell, SWR for
-  `/api/v1/stops`), icons rendered from `icon.svg`. Registered only in production builds.
+- PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell — HTML responses
+  only, SWR for `/api/v1/stops`), icons rendered from `icon.svg`. Registered only in production builds. `vite.config.ts`
+  stamps `__BUILD_HASH__` in `dist/sw.js` so every deploy installs a new worker; `main.tsx` reloads once on
+  `vite:preloadError` (chunks of an old build).
+- Instance defaults (`lib/mapConfig.ts`, applied in the session query before anything renders): admin map styles and
+  start view feed every map via `styleUrl`/`startView`; `default_theme`/`default_locale` apply only to visitors without
+  their own choice (`bus.theme`, `bus.lang`; the language is saved only by `setLanguage`, not by detection).
+- `liveClient` closes the stream 30 s after the last listener leaves or the tab is hidden, and reconnects at once on
+  `visibilitychange`/`online`. Destructive actions use `components/ConfirmButton.tsx`.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
   `/stops/{areaOrPlatformId}`, `/stops/{id}/departures?platform=&limit=`, `/lines/{mode}/{line}`.
 - Live API: `GET /api/v1/vehicles?mode=&line=`, `GET /api/v1/vehicles/{id}`, `GET /api/v1/status`,

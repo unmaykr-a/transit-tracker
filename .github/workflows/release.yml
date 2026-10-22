@@ -64,7 +64,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},value=${{ needs.prepare.outputs.tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.prepare.outputs.tag }}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(needs.prepare.outputs.version, '-') }}
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -94,7 +94,9 @@ jobs:
           cache-dependency-path: ha/card/package-lock.json
       - name: Build the card
         working-directory: ha/card
-        run: npm ci --no-audit --no-fund && npm run build
+        env:
+          BUS_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm ci --no-audit --no-fund && npm test && npm run build
       - name: Package the integration
         env:
           VERSION: ${{ needs.prepare.outputs.version }}

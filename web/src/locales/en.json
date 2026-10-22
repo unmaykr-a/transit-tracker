@@ -40,7 +40,8 @@
     "locate": "Show my location",
     "loading": "Loading map…",
     "sheetMore": "Show details",
-    "sheetLess": "Show less"
+    "sheetLess": "Show less",
+    "unavailable": "The map could not be loaded. Check the connection; live data still updates."
   },
   "vehicle": {
     "towards": "towards {{destination}}",
@@ -85,7 +86,8 @@
     "unavailable": "This line or stop no longer exists in the timetable.",
     "noDepartures": "No departures in the next hours.",
     "then": "then",
-    "walkFromPlace": "from {{place}}"
+    "walkFromPlace": "from {{place}}",
+    "removeLine": "Remove this line?"
   },
   "search": {
     "title": "Search",
@@ -108,7 +110,8 @@
     "version": "Version {{version}}",
     "feeds": "Data feeds",
     "feedOk": "OK",
-    "feedStale": "Delayed"
+    "feedStale": "Delayed",
+    "credits": "Map © <ofm>OpenFreeMap</ofm>, <osm>OpenStreetMap</osm> contributors. Data: Tallinna Transpordiamet, Elron, Maa- ja Ruumiamet (addresses)."
   },
   "time": {
     "now": "now",
@@ -141,7 +144,8 @@
     "live_other": "{{count}} vehicles on the line",
     "notFound": "Line not found.",
     "showOnMap": "Show on map",
-    "county": "Harju county bus · timetable only"
+    "county": "Harju county bus · timetable only",
+    "noPatterns": "No timetable for this line right now."
   },
   "common": {
     "loading": "Loading…",
@@ -307,7 +311,9 @@
     "backup": "Download backup",
     "backupHint": "A consistent copy of the SQLite database (users, saved lines, settings).",
     "tokens": "API tokens",
-    "geocoderUrl": "Address search (In-ADS)"
+    "geocoderUrl": "Address search (In-ADS)",
+    "invalidNumber": "Enter a number (the centre is “longitude, latitude”).",
+    "resetRevokes": "Their sessions and API tokens are revoked."
   },
   "verdict": {
     "leaveIn": "Leave in {{min}} min",
@@ -348,7 +354,8 @@
     "addressPlaceholder": "e.g. Pärnu mnt 20 or Viru",
     "addressResults": "Addresses and stops",
     "stop": "stop",
-    "nameFirst": "Give the place a name first."
+    "nameFirst": "Give the place a name first.",
+    "removePlace": "Delete this place?"
   },
   "tokens": {
     "title": "API tokens",
@@ -363,7 +370,8 @@
     "revoke": "Revoke",
     "revokeNamed": "Revoke {{name}}",
     "confirmRevoke": "Revoke {{name}} of {{user}}?",
-    "none": "No API tokens."
+    "none": "No API tokens.",
+    "revokeQuestion": "Revoke? Apps using it stop working."
   },
   "trip": {
     "title": "Trip between two stops",

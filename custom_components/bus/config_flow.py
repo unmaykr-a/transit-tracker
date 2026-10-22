@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import ConfigEntryState, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_TOKEN, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -71,7 +71,13 @@ class BusConfigFlow(ConfigFlow, domain=DOMAIN):
             if user is not None:
                 host = urlparse(user_input[CONF_URL]).netloc
                 await self.async_set_unique_id(f"{host}:{user['username']}".lower())
-                self._abort_if_unique_id_configured(updates={CONF_URL: user_input[CONF_URL], CONF_TOKEN: user_input[CONF_TOKEN]})
+                self._abort_if_unique_id_configured(
+                    updates={
+                        CONF_URL: user_input[CONF_URL],
+                        CONF_TOKEN: user_input[CONF_TOKEN],
+                        CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
+                    }
+                )
                 return self.async_create_entry(
                     title=f"{user['username']} @ {host}",
                     data=user_input,
@@ -90,6 +96,30 @@ class BusConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=schema, errors=errors, description_placeholders={"example_url": "https://bus.example.com"}
         )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Change the server URL, token or certificate check of the same account."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            data = {**user_input, CONF_URL: normalize_url(user_input[CONF_URL])}
+            user, errors = await self._validate(data)
+            if user is not None:
+                host = urlparse(data[CONF_URL]).netloc
+                await self.async_set_unique_id(f"{host}:{user['username']}".lower())
+                self._abort_if_unique_id_mismatch(reason="wrong_account")
+                return self.async_update_reload_and_abort(entry, data=data, title=f"{user['username']} @ {host}")
+        current = user_input or entry.data
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_URL, default=current.get(CONF_URL, "")): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+                vol.Required(CONF_TOKEN, default=current.get(CONF_TOKEN, "")): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
+                vol.Required(CONF_VERIFY_SSL, default=current.get(CONF_VERIFY_SSL, True)): bool,
+            }
+        )
+        return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         """The token was revoked: ask for a new one."""
@@ -122,16 +152,24 @@ class BusConfigFlow(ConfigFlow, domain=DOMAIN):
 class BusOptionsFlow(OptionsFlow):
     """Pick the saved lines to import, the update interval and the walking origin."""
 
+    _available: list[str]
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             if not user_input.get(CONF_ORIGIN):
                 user_input.pop(CONF_ORIGIN, None)
+            # Every line selected means "follow my saved lines", so lines saved later appear too.
+            if set(user_input.get(CONF_LINES, [])) >= set(self._available):
+                user_input.pop(CONF_LINES, None)
             user_input[CONF_SCAN_INTERVAL] = int(user_input[CONF_SCAN_INTERVAL])
             return self.async_create_entry(data=user_input)
 
+        if self.config_entry.state is not ConfigEntryState.LOADED:
+            return self.async_abort(reason="not_loaded")
         coordinator = self.config_entry.runtime_data
         await coordinator.async_request_refresh()
         lines = coordinator.data.lines if coordinator.data else {}
+        self._available = list(lines)
         choices = [
             SelectOptionDict(
                 value=lid,

@@ -40,7 +40,8 @@ func BuildGeometry(ix *staticdata.Index) *Geometry {
 					stops = append(stops, [2]float64{s.Lon, s.Lat})
 				}
 			}
-			if len(stops) != len(p.StopIDs) || len(p.Shape) < 2 {
+			// At least two stops: the tracker indexes the first stop and the one ahead.
+			if len(stops) != len(p.StopIDs) || len(stops) < 2 || len(p.Shape) < 2 {
 				continue
 			}
 			sh := NewShape(p.Shape)
@@ -85,6 +86,8 @@ type track struct {
 	history   []sample // along-pattern progress, newest last, within progressWindow
 	probes    []probe  // own predictions waiting to be checked against the arrival
 	lastProbe time.Time
+	// stillSince is when the vehicle stopped making progress (zero while moving).
+	stillSince time.Time
 }
 
 // probe is a prediction the tracker made for itself: from a fix at at, the
@@ -142,8 +145,16 @@ type segPace struct{ secs, metres float64 }
 type stopDwell struct{ secs, passes float64 }
 
 const (
-	dwellRadiusM   = 25 // standing this close to a stop is dwelling there
-	dwellMinPasses = 3  // trust a stop's dwell after this many passes
+	dwellRadiusM = 25 // standing this close to a stop is dwelling there
+	// A vehicle standing longer than this (breakdown, driver's break, a frozen
+	// GPS unit) stops teaching paces and dwell: otherwise one parked vehicle
+	// slows every line sharing the street for hours.
+	maxStill = 3 * time.Minute
+	// A fix older than this gives no ETAs.
+	staleFix = 2 * time.Minute
+	// Progress below this between fixes is GPS jitter, not driving.
+	stillM         = 5.0
+	dwellMinPasses = 3 // trust a stop's dwell after this many passes
 )
 
 const (
@@ -210,7 +221,7 @@ func (t *Tracker) observe(pg *PatternGeom, a, b, dt float64) {
 		p.metres = p.metres*paceDecay + metres
 	}
 	nseg := len(pg.StopAlong) - 1
-	if b == a { // standing still
+	if math.Abs(b-a) < stillM { // standing still (or GPS jitter)
 		switch {
 		case atTerminus(pg, a): // layover is timetable slack, not travel time
 		case nearStop(pg, a) >= 0:
@@ -286,12 +297,21 @@ func (t *Tracker) Annotate(vs []state.Vehicle) {
 			tr = &track{pattern: pg.Pattern.ID}
 			t.tracks[v.ID] = tr
 		} else if n := len(tr.history); n > 0 {
-			t.observe(pg, tr.history[n-1].along, pr.Along, v.UpdatedAt.Sub(tr.history[n-1].at).Seconds())
+			last := tr.history[n-1]
+			if math.Abs(pr.Along-last.along) >= stillM {
+				tr.stillSince = time.Time{}
+			} else if tr.stillSince.IsZero() {
+				tr.stillSince = last.at
+			}
+			if tr.stillSince.IsZero() || v.UpdatedAt.Sub(tr.stillSince) <= maxStill {
+				t.observe(pg, last.along, pr.Along, v.UpdatedAt.Sub(last.at).Seconds())
+			}
 		}
 		tr.along = pr.Along
 		tr.nextStop = nextStop(pg, pr.Along)
 		tr.history = appendSample(tr.history, sample{v.UpdatedAt, pr.Along})
-		if rate, ok := progressRate(tr.history); ok && !atTerminus(pg, pr.Along) {
+		// A stationary vehicle's rate (≈0) would drag the route's speed towards nothing.
+		if rate, ok := progressRate(tr.history); ok && rate >= 0.5 && !atTerminus(pg, pr.Along) {
 			rid := pg.Pattern.RouteID
 			if cur, ok := t.routeSpeed[rid]; ok {
 				t.routeSpeed[rid] = 0.9*cur + 0.1*rate
@@ -441,6 +461,10 @@ func (t *Tracker) Trip(v state.Vehicle, now time.Time, limit int) (Trip, bool) {
 	defer t.mu.Unlock()
 	tr, ok := t.tracks[v.ID]
 	if !ok {
+		return Trip{}, false
+	}
+	// From an old fix every stop within the gap would read as "now": better no ETAs.
+	if now.Sub(v.UpdatedAt) > staleFix {
 		return Trip{}, false
 	}
 	pg, ok := g.byID[tr.pattern]

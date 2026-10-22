@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -53,6 +54,10 @@ type Server struct {
 	oidcConfig     config.OIDCConfig
 	geocode        func(ctx context.Context, q string) ([]feeds.Address, error)
 	geocodeCache   cache.TTL[string, []feeds.Address]
+	refreshMu      sync.Mutex
+	refreshRun     *refreshRun
+	bodyMu         sync.Mutex
+	bodies         map[string]importedBody // encoded static lists, per import (see importBody)
 }
 
 // Deps are the server's collaborators.

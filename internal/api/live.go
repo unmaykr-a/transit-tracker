@@ -96,7 +96,7 @@ func sortedVehicles(m map[string]state.Vehicle) []state.Vehicle {
 // liveSession streams a snapshot, then diffs against what this client last
 // received. Diffing per client (instead of fanning out one global diff) makes
 // slow clients self-healing: they simply get a larger diff next time.
-func (s *Server) liveSession(ctx context.Context, initial Filter, filters <-chan Filter, send func(liveMessage) error) error {
+func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filter, filters <-chan Filter, send func(liveMessage) error) error {
 	notify, unsubscribe := s.store.Subscribe()
 	defer unsubscribe()
 	staleTick := time.NewTicker(5 * time.Second)
@@ -110,6 +110,7 @@ func (s *Server) liveSession(ctx context.Context, initial Filter, filters <-chan
 		return send(liveMessage{Type: "snapshot", Version: version, ServerTime: time.Now(), Vehicles: sortedVehicles(cur), Feeds: s.health.Snapshot()})
 	}
 	lastStale := s.health.StaleMap()
+	ticks := 0
 	if err := snapshot(); err != nil {
 		return err
 	}
@@ -151,6 +152,11 @@ func (s *Server) liveSession(ctx context.Context, initial Filter, filters <-chan
 				return err
 			}
 		case <-staleTick.C:
+			// Access is checked when a stream opens; re-check now and then, so turning the
+			// public map off, logging out or disabling the user also ends open streams.
+			if ticks++; ticks%6 == 0 && !s.mayStream(r) {
+				return nil
+			}
 			if st := s.health.StaleMap(); !maps.Equal(st, lastStale) {
 				lastStale = st
 				if err := send(liveMessage{Type: "stale", Version: s.store.Version(), ServerTime: time.Now(), Feeds: s.health.Snapshot()}); err != nil {
@@ -219,7 +225,7 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	err = s.liveSession(ctx, filterFromQuery(r), filters, func(m liveMessage) error {
+	err = s.liveSession(ctx, r, filterFromQuery(r), filters, func(m liveMessage) error {
 		b, err := json.Marshal(m)
 		if err != nil {
 			return err
@@ -249,18 +255,25 @@ func (s *Server) vehicleStream(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	ctx := r.Context()
+	// The pinger must stop before this handler returns: writing to w afterwards is not allowed.
+	ctx, cancel := context.WithCancel(r.Context())
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	defer cancel()
 	var mu sync.Mutex
 	write := func(chunk []byte) error {
 		mu.Lock()
 		defer mu.Unlock()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if _, err := w.Write(chunk); err != nil {
 			return err
 		}
 		flusher.Flush()
 		return nil
 	}
-	go func() {
+	wg.Go(func() {
 		t := time.NewTicker(25 * time.Second)
 		defer t.Stop()
 		for {
@@ -271,8 +284,8 @@ func (s *Server) vehicleStream(w http.ResponseWriter, r *http.Request) {
 				_ = write([]byte(": ping\n\n"))
 			}
 		}
-	}()
-	_ = s.liveSession(ctx, filterFromQuery(r), nil, func(m liveMessage) error {
+	})
+	_ = s.liveSession(ctx, r, filterFromQuery(r), nil, func(m liveMessage) error {
 		b, err := json.Marshal(m)
 		if err != nil {
 			return err
@@ -301,4 +314,26 @@ func (s *Server) status(w http.ResponseWriter, _ *http.Request) {
 		out["static"] = s.staticStatus()
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// mayStream reports whether the client behind an open stream may still see
+// the live map: it is public, or the session or token it opened with still works.
+func (s *Server) mayStream(r *http.Request) bool {
+	if s.settings == nil || s.settingsNow().PublicMap {
+		return true
+	}
+	if principal(r) == nil || s.auth == nil {
+		return false
+	}
+	ctx, ip := r.Context(), meta(r).IP
+	if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+		p, err := s.auth.AuthenticateToken(ctx, strings.TrimSpace(bearer), ip)
+		return err != nil || p != nil // a database hiccup is not a reason to cut the stream
+	}
+	c, err := r.Cookie(sessionCookie)
+	if err != nil {
+		return false
+	}
+	p, err := s.auth.Authenticate(ctx, c.Value, ip)
+	return err != nil || p != nil
 }

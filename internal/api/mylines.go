@@ -26,6 +26,17 @@ import (
 // MaxSavedLines keeps dashboards (and the SIRI pre-warm) bounded per user.
 const MaxSavedLines = 20
 
+// MaxSavedPlaces bounds saved places per user (they are origin chips in the UI).
+const MaxSavedPlaces = 20
+
+// checkLabel validates an optional saved-line label: at most 40 characters.
+func checkLabel(label string) error {
+	if utf8.RuneCountInString(strings.TrimSpace(label)) > 40 {
+		return invalid("label", "must be at most 40 characters")
+	}
+	return nil
+}
+
 func idParam(r *http.Request) int64 {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	return id
@@ -131,6 +142,10 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := principal(r)
+	if err := checkLabel(in.Label); err != nil {
+		s.writeErr(w, err)
+		return
+	}
 	originPlace, err := s.ownPlace(r, in.OriginPlace)
 	if err != nil {
 		s.writeErr(w, err)
@@ -210,6 +225,10 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Label != nil {
+		if err := checkLabel(*in.Label); err != nil {
+			s.writeErr(w, err)
+			return
+		}
 		sl.Label = strings.TrimSpace(*in.Label)
 	}
 	if in.AlightStopID != nil && sl.Kind == dashboard.KindTrip {
@@ -354,7 +373,7 @@ type placeJSON struct {
 }
 
 func validatePlace(label string, lat, lon float64) error {
-	if l := strings.TrimSpace(label); l == "" || len(l) > 40 {
+	if l := strings.TrimSpace(label); l == "" || utf8.RuneCountInString(l) > 40 {
 		return invalid("label", "must be 1–40 characters")
 	}
 	if math.IsNaN(lat) || lat < -90 || lat > 90 || math.IsNaN(lon) || lon < -180 || lon > 180 || (lat == 0 && lon == 0) {
@@ -386,6 +405,13 @@ func (s *Server) handleCreatePlace(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, err)
 		return
 	}
+	if have, err := s.db.Q.ListSavedPlaces(r.Context(), principal(r).User.ID); err != nil {
+		s.writeErr(w, err)
+		return
+	} else if len(have) >= MaxSavedPlaces {
+		s.writeErr(w, invalid("label", "you can save up to 20 places"))
+		return
+	}
 	p, err := s.db.Q.CreateSavedPlace(r.Context(), db.CreateSavedPlaceParams{UserID: principal(r).User.ID, Label: strings.TrimSpace(in.Label), Lat: in.Lat, Lon: in.Lon})
 	if err != nil {
 		s.writeErr(w, err)
@@ -407,6 +433,9 @@ func (s *Server) handleUpdatePlace(w http.ResponseWriter, r *http.Request) {
 	uid := principal(r).User.ID
 	if _, err := s.db.Q.GetSavedPlace(r.Context(), db.GetSavedPlaceParams{ID: idParam(r), UserID: uid}); errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "place not found", "")
+		return
+	} else if err != nil {
+		s.writeErr(w, err)
 		return
 	}
 	if err := s.db.Q.UpdateSavedPlace(r.Context(), db.UpdateSavedPlaceParams{Label: strings.TrimSpace(in.Label), Lat: in.Lat, Lon: in.Lon, ID: idParam(r), UserID: uid}); err != nil {

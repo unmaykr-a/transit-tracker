@@ -48,6 +48,9 @@ UPDATE sessions SET last_seen_at = ?, expires_at = ?, ip = ? WHERE id = ?;
 -- name: ListUserSessions :many
 SELECT * FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY last_seen_at DESC;
 
+-- name: CountActiveSessionsByUser :many
+SELECT user_id, count(*) AS sessions FROM sessions WHERE expires_at > ? GROUP BY user_id;
+
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;
 

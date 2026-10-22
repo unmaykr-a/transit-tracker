@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -176,7 +177,12 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	}
 	u := p.User
 	if in.Email != nil {
-		u.Email = *in.Email
+		email := strings.TrimSpace(*in.Email)
+		if len(email) > 254 || (email != "" && (strings.Count(email, "@") != 1 || strings.HasPrefix(email, "@") || strings.HasSuffix(email, "@"))) {
+			s.writeErr(w, &auth.ValidationError{Field: "email", Msg: "must be an email address"})
+			return
+		}
+		u.Email = email
 	}
 	if in.Locale != nil {
 		if !slices.Contains([]string{"", "et", "en"}, *in.Locale) {

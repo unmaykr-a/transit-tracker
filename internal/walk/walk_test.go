@@ -113,3 +113,21 @@ func TestMinutes(t *testing.T) {
 		}
 	}
 }
+
+// Far away, no provider is asked: the straight-line estimate answers.
+func TestFarOriginsAreNotRouted(t *testing.T) {
+	called := false
+	s := NewService([]Provider{providerFunc(func() { called = true })}, func() []string { return []string{"fake"} })
+	r, err := s.Route(context.Background(), Point{Lat: 58.38, Lon: 26.72}, "stop", Point{Lat: 59.437, Lon: 24.75}) // Tartu → Tallinn
+	if err != nil || !r.Approx || r.Provider != ProviderHaversine || called {
+		t.Fatalf("route = %+v err=%v called=%v", r, err, called)
+	}
+}
+
+type providerFunc func()
+
+func (providerFunc) Name() string { return "fake" }
+func (f providerFunc) Route(context.Context, Point, Point) (Route, error) {
+	f()
+	return Route{DistanceM: 1, Provider: "fake"}, nil
+}

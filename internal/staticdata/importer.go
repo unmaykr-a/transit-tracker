@@ -151,20 +151,44 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 	if im.CountyAgencyPrefix != "" {
 		// County buses are optional too: keep the city importable without them.
 		if county, err := im.countyRoutes(ctx); err != nil {
+			if im.hasSource("county") { // keep yesterday's county lines rather than drop them for a day
+				return Dataset{}, fmt.Errorf("county routes (kept the previous data): %w", err)
+			}
 			im.Log.Warn("county routes unavailable, importing without them", "err", err)
 		} else {
 			src.CountyRoutes = county
 		}
 	}
-	if res, err := im.Fetcher.Get(ctx, im.ElronGTFSURL(), false); err != nil {
-		// Trains are optional: keep the city importable when Elron's feed is down.
-		im.Log.Warn("Elron GTFS unavailable, importing without rail", "err", err)
-	} else if g, err := feeds.ReadGTFSZip(res.Body); err != nil {
-		im.Log.Warn("Elron GTFS unreadable, importing without rail", "err", err)
-	} else {
+	// Trains are optional for a first import (keep the city importable when
+	// Elron's feed is down), but once we have them, a failure keeps the old data.
+	res, err = im.Fetcher.Get(ctx, im.ElronGTFSURL(), false)
+	var g *feeds.GTFS
+	if err == nil {
+		g, err = feeds.ReadGTFSZip(res.Body)
+	}
+	switch {
+	case err == nil:
 		src.Elron = g
+	case im.hasSource("elron"):
+		return Dataset{}, fmt.Errorf("Elron GTFS (kept the previous data): %w", err)
+	default:
+		im.Log.Warn("Elron GTFS unavailable, importing without rail", "err", err)
 	}
 	return Build(src, im.now()), nil
+}
+
+// hasSource reports whether the installed data has routes from source.
+func (im *Importer) hasSource(source string) bool {
+	ix := im.Index()
+	if ix == nil {
+		return false
+	}
+	for _, r := range ix.Routes() {
+		if r.Source == source {
+			return true
+		}
+	}
+	return false
 }
 
 func (im *Importer) countyRoutes(ctx context.Context) ([]feeds.OTPRoute, error) {

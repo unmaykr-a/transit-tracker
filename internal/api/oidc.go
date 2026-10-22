@@ -45,8 +45,18 @@ func (s *Server) mountIdentities(r chi.Router) {
 }
 
 // safeNext keeps redirects on this site: a path, never "//host" or a URL.
+// Browsers drop tabs and newlines from URLs and read "\\" as "/", so any
+// control character or backslash is refused ("/\t/evil" would become "//evil").
 func safeNext(next string) string {
-	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") || strings.ContainsAny(next, "\r\n") {
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.ContainsRune(next, '\\') {
+		return "/"
+	}
+	for _, c := range next {
+		if c < 0x20 || c == 0x7f {
+			return "/"
+		}
+	}
+	if u, err := url.Parse(next); err != nil || u.Scheme != "" || u.Host != "" {
 		return "/"
 	}
 	return next

@@ -21,6 +21,38 @@ func (q *Queries) CountActiveAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countActiveSessionsByUser = `-- name: CountActiveSessionsByUser :many
+SELECT user_id, count(*) AS sessions FROM sessions WHERE expires_at > ? GROUP BY user_id
+`
+
+type CountActiveSessionsByUserRow struct {
+	UserID   int64
+	Sessions int64
+}
+
+func (q *Queries) CountActiveSessionsByUser(ctx context.Context, expiresAt int64) ([]CountActiveSessionsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, countActiveSessionsByUser, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountActiveSessionsByUserRow{}
+	for rows.Next() {
+		var i CountActiveSessionsByUserRow
+		if err := rows.Scan(&i.UserID, &i.Sessions); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT count(*) FROM users
 `

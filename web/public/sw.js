@@ -3,7 +3,9 @@
 // - Page navigations: network-first, falling back to the cached shell.
 // - /api/v1/stops (all platforms, changes nightly): stale-while-revalidate.
 // - Everything else (live data, auth): network only.
-const VERSION = "bus-v1";
+// Replaced with a hash of the build (vite.config.ts), so each deploy installs a
+// new worker whose activate step drops the previous build's cached assets.
+const VERSION = "bus-__BUILD_HASH__";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -30,7 +32,12 @@ async function cacheFirst(req) {
 async function networkFirstShell(req) {
   try {
     const res = await fetch(req);
-    if (res.ok) (await caches.open(VERSION)).put("/", res.clone());
+    // Only the app's own HTML is the offline shell (not /metrics or a JSON URL opened in a tab).
+    const path = new URL(req.url).pathname;
+    const html = (res.headers.get("content-type") ?? "").startsWith("text/html");
+    if (res.ok && html && !path.startsWith("/api/") && path !== "/metrics" && path !== "/healthz") {
+      (await caches.open(VERSION)).put("/", res.clone());
+    }
     return res;
   } catch {
     return (await caches.match("/")) ?? Response.error();

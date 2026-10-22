@@ -57,7 +57,7 @@ function StopPicker({ label, value, onChange }: { label: string; value?: Pick; o
       </Field>
       {query.length >= 2 && (
         <ul id={listId} className="divide-y rounded-lg border bg-card" aria-label={t("trip.results", { what: label })}>
-          {stops.length === 0 && !results.isPending && <li className="px-3 py-2 text-sm text-muted-foreground">{t("search.noResults")}</li>}
+          {stops.length === 0 && !results.isPending && <li className="px-3 py-2 text-sm text-muted-foreground">{t("search.noResults", { q: query })}</li>}
           {stops.map((s) => (
             <li key={s.id}>
               <button
@@ -179,6 +179,13 @@ export default function TripPage() {
           </h2>
           {lines.isPending ? (
             <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : lines.isError ? (
+            <div className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 text-sm text-muted-foreground">
+              {t("common.error")}
+              <Button variant="outline" size="sm" onClick={() => void lines.refetch()}>
+                {t("common.retry")}
+              </Button>
+            </div>
           ) : found.length === 0 ? (
             <p className="rounded-lg border bg-card p-3 text-sm text-muted-foreground">{t("trip.none")}</p>
           ) : (

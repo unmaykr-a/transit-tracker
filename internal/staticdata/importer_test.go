@@ -89,13 +89,20 @@ func TestImporterEndToEnd(t *testing.T) {
 		t.Fatal("search after import found nothing")
 	}
 
-	// Without Elron the city still imports.
+	// Elron down after rail was imported: keep yesterday's data (with rail) and retry.
 	failElron.Store(true)
-	if err := im.Import(ctx); err != nil {
-		t.Fatal(err)
+	if err := im.Import(ctx); err == nil || !strings.Contains(err.Error(), "Elron") {
+		t.Fatalf("want an Elron error, got %v", err)
 	}
-	if im.Status().Routes != 80 {
-		t.Errorf("routes without rail = %d", im.Status().Routes)
+	if im.Status().Routes != 82 || im.Index().Empty() {
+		t.Errorf("rail dropped: routes = %d", im.Status().Routes)
+	}
+	// A first import (nothing to keep) still goes ahead without rail.
+	first := newImporter()
+	first.Store, _ = store.Open(ctx, t.TempDir(), slog.New(slog.DiscardHandler))
+	defer first.Store.Close()
+	if err := first.Import(ctx); err != nil || first.Status().Routes != 80 {
+		t.Fatalf("first import without rail: routes %d, err %v", first.Status().Routes, err)
 	}
 	failElron.Store(false)
 	if err := im.Import(ctx); err != nil {
@@ -132,7 +139,7 @@ func TestImporterEndToEnd(t *testing.T) {
 	if !im2.needsImport() {
 		t.Error("stale dataset must re-import")
 	}
-	if swaps.Load() != 4 {
+	if swaps.Load() != 4 { // im: 2 good imports, first: 1, im2: the load
 		t.Errorf("swaps = %d", swaps.Load())
 	}
 }

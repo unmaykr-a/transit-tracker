@@ -4,6 +4,7 @@ import { lazy, Suspense, useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, fetchAddresses, fetchSearch, places, prefs } from "@/api";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 
@@ -91,9 +92,15 @@ export function WalkingSection() {
                 <MapPin className="size-4 text-muted-foreground" aria-hidden />
                 {pl.label}
               </span>
-              <Button variant="ghost" size="icon" onClick={() => remove.mutate(pl.id)} aria-label={`${t("home.remove")} ${pl.label}`}>
+              <ConfirmButton
+                variant="ghost"
+                size="icon"
+                onConfirm={() => remove.mutate(pl.id)}
+                question={t("walking.removePlace")}
+                aria-label={`${t("home.remove")} ${pl.label}`}
+              >
                 <Trash2 className="size-4" />
-              </Button>
+              </ConfirmButton>
             </li>
           ))}
         </ul>

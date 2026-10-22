@@ -75,3 +75,47 @@ async def test_options_flow(hass: HomeAssistant, bus_server) -> None:
     # Reloaded with one line only.
     assert hass.states.get("sensor.bus_work_next") is not None
     assert hass.states.get("sensor.bus_gym_next") is None
+
+
+async def test_options_all_lines_follow_new_lines(hass: HomeAssistant, bus_server) -> None:
+    """Every line selected stores no list, so lines saved later in Bus appear too."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id="bus.example.com:andri", data={CONF_URL: URL, CONF_TOKEN: TOKEN, CONF_VERIFY_SSL: True}
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {CONF_LINES: ["1", "2"], CONF_SCAN_INTERVAL: 30})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert CONF_LINES not in entry.options
+
+
+async def test_options_while_not_loaded(hass: HomeAssistant, aioclient_mock) -> None:
+    """The server is down at start: Configure explains instead of crashing."""
+    aioclient_mock.get(f"{URL}/api/v1/ha/lines", exc=TimeoutError)
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id="bus.example.com:andri", data={CONF_URL: URL, CONF_TOKEN: TOKEN, CONF_VERIFY_SSL: True}
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is config_entries.ConfigEntryState.SETUP_RETRY
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "not_loaded"
+
+
+async def test_reconfigure(hass: HomeAssistant, bus_server) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id="bus.example.com:andri", data={CONF_URL: URL, CONF_TOKEN: TOKEN, CONF_VERIFY_SSL: True}
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "reconfigure"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_URL: URL + "/", CONF_TOKEN: "bus_new", CONF_VERIFY_SSL: False}
+    )
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "reconfigure_successful"
+    assert entry.data == {CONF_URL: URL, CONF_TOKEN: "bus_new", CONF_VERIFY_SSL: False}

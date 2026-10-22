@@ -3,8 +3,11 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -52,23 +55,66 @@ func TestLimiter(t *testing.T) {
 	l := NewLimiter(5, 15*time.Minute)
 	l.Now = func() time.Time { return now }
 	for range 4 {
-		l.Fail("ip:1", "user:a")
+		if !l.Reserve("ip:1", "user:a") {
+			t.Fatal("reserve refused early")
+		}
 	}
 	if l.Blocked("ip:1") {
 		t.Fatal("blocked after 4")
 	}
-	l.Fail("ip:1", "user:a")
+	l.Reserve("ip:1", "user:a")
 	if !l.Blocked("ip:2", "user:a") || !l.Blocked("ip:1", "user:b") {
 		t.Fatal("either key at the limit must block")
+	}
+	if l.Reserve("ip:9", "user:a") || l.Blocked("ip:9") {
+		t.Fatal("a refused attempt must not count against its other keys")
 	}
 	now = now.Add(16 * time.Minute)
 	if l.Blocked("ip:1", "user:a") {
 		t.Fatal("window did not slide")
 	}
-	l.Fail("ip:1")
+	l.Reserve("ip:1")
 	l.Reset("ip:1")
 	if l.Blocked("ip:1") {
 		t.Fatal("reset")
+	}
+}
+
+// Parallel attempts must not all pass the check before any is counted.
+func TestLimiterParallel(t *testing.T) {
+	l := NewLimiter(5, 15*time.Minute)
+	var ok atomic.Int32
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Go(func() {
+			if l.Reserve("ip:1", "user:a") {
+				ok.Add(1)
+			}
+		})
+	}
+	wg.Wait()
+	if ok.Load() != 5 {
+		t.Fatalf("%d attempts allowed, want 5", ok.Load())
+	}
+}
+
+func TestLimitKeysAndSweep(t *testing.T) {
+	k := limitKeys("2001:db8:1:2:3:4:5:6", strings.Repeat("X", 5000))
+	if k[0] != "ip:2001:db8:1:2::/64" || len(k[1]) != len("user:")+64 {
+		t.Errorf("keys = %q", k)
+	}
+	now := time.Unix(0, 0)
+	l := NewLimiter(5, time.Minute)
+	l.Now = func() time.Time { return now }
+	for i := range 300 {
+		l.Reserve(fmt.Sprintf("user:%d", i))
+	}
+	now = now.Add(2 * time.Minute)
+	for range 256 {
+		l.Reserve("user:x")
+	}
+	if n := len(l.failures); n > 2 {
+		t.Errorf("%d keys left after the window, want the sweep to drop expired ones", n)
 	}
 }
 
@@ -124,9 +170,12 @@ func TestSetupLoginSessionLifecycle(t *testing.T) {
 	}
 
 	// Sliding expiry: use within 30 days keeps the session alive.
+	if got.Extended {
+		t.Fatal("a session just started does not need its cookie renewed")
+	}
 	*now = now.Add(29 * 24 * time.Hour)
-	if got, _ := s.Authenticate(ctx, token, ""); got == nil {
-		t.Fatal("session expired too early")
+	if got, _ := s.Authenticate(ctx, token, ""); got == nil || !got.Extended {
+		t.Fatal("session expired too early, or its cookie would not be renewed")
 	}
 	*now = now.Add(29 * 24 * time.Hour)
 	if got, _ := s.Authenticate(ctx, token, ""); got == nil {

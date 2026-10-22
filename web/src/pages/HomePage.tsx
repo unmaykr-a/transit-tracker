@@ -4,7 +4,7 @@ import { LocateFixed, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fetchDashboard, myLines, places, type Origin } from "@/api";
+import { fetchDashboard, myLines, places, type Dashboard as DashboardData, type Origin } from "@/api";
 import { LineCard } from "@/components/LineCard";
 import { StaleBanner } from "@/components/StaleBanner";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,17 @@ function Dashboard() {
     refetchInterval: 20_000,
     placeholderData: keepPreviousData,
   });
-  const reorder = useMutation({ mutationFn: myLines.reorder, onSuccess: () => qc.invalidateQueries({ queryKey: ["dashboard"] }) });
+  // Reorder optimistically, so a second quick tap moves from the order the first one produced.
+  const reorder = useMutation({
+    mutationFn: myLines.reorder,
+    onMutate: async (ids: number[]) => {
+      await qc.cancelQueries({ queryKey: ["dashboard"] });
+      qc.setQueriesData<DashboardData>({ queryKey: ["dashboard"] }, (old) =>
+        old ? { ...old, entries: ids.flatMap((id) => old.entries.filter((e) => e.line.id === id)) } : old,
+      );
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["dashboard"] }),
+  });
   const remove = useMutation({ mutationFn: myLines.remove, onSuccess: () => qc.invalidateQueries({ queryKey: ["dashboard"] }) });
 
   const pickOrigin = (c: OriginChoice) => {
@@ -58,7 +68,20 @@ function Dashboard() {
   const gpsLabel =
     geo.state.status === "locating" ? t("home.locating") : geo.state.status === "denied" ? t("home.locationDenied") : t("home.myLocation");
 
-  if (dash.data && entries.length === 0) {
+  if (!dash.data) {
+    return dash.isError ? (
+      <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-4">
+        <p className="text-muted-foreground">{t("common.error")}</p>
+        <Button variant="outline" size="sm" onClick={() => void dash.refetch()}>
+          {t("common.retry")}
+        </Button>
+      </div>
+    ) : (
+      <p className="text-muted-foreground">{t("common.loading")}</p>
+    );
+  }
+
+  if (entries.length === 0) {
     return (
       <section className="flex flex-col items-start gap-4 rounded-xl border bg-card p-4">
         <p className="text-muted-foreground">{t("home.noLines")}</p>

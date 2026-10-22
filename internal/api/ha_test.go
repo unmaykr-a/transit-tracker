@@ -130,8 +130,16 @@ func TestHAViewSkipsMissedDepartures(t *testing.T) {
 	}
 	e.NextCatchable = -1
 	h = haView(e, true, 3, now)
-	if h.Next == nil || h.Next.Minutes != 2 || *h.Catchable || *h.LeaveInMin != -5 || h.Verdict != "red" {
+	// Nothing catchable: the next departure is shown, without a negative "leave in".
+	if h.Next == nil || h.Next.Minutes != 2 || *h.Catchable || h.LeaveInMin != nil || h.Verdict != "red" {
 		t.Errorf("nothing catchable: %+v", h)
+	}
+	// A departure without a verdict (its platform's walk failed) gets no "leave in".
+	e.Departures = append(e.Departures, dep(30, dashboard.LevelNone, 30))
+	e.NextCatchable = 1
+	h = haView(e, true, 5, now)
+	if last := h.Departures[len(h.Departures)-1]; last.Minutes != 30 || last.LeaveInMin != nil {
+		t.Errorf("no-walk departure = %+v", last)
 	}
 }
 

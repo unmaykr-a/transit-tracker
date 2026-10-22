@@ -345,7 +345,8 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 		if w := walks[d.StopID]; w != nil {
 			v = Judge(d.ExpectedAt, now, w.Minutes, prefs.BufferMin)
 		}
-		if e.NextCatchable < 0 && v.Level != LevelRed {
+		// With walks, a departure from a platform whose walk failed (no verdict) is not known to be catchable.
+		if e.NextCatchable < 0 && v.Level != LevelRed && (len(walks) == 0 || v.Level != LevelNone) {
 			e.NextCatchable = i
 			if w := walks[d.StopID]; w != nil && sl.Kind == KindTrip {
 				e.Walk = w // the walk that matters is to the platform of the next catchable departure

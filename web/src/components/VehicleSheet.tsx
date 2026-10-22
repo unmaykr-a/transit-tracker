@@ -28,6 +28,7 @@ export function VehicleSheet({ id, onClose }: { id: string; onClose: () => void 
   const next = trip.data?.trip?.ahead[0];
   return (
     <MapSheet
+      onClose={onClose}
       label={v ? `${t(`mode.${v.mode}`)} ${pillText(v)}` : undefined}
       summary={
         v && next ? (
@@ -74,7 +75,7 @@ export function VehicleSheet({ id, onClose }: { id: string; onClose: () => void 
             <div>
               <dt className="text-muted-foreground">{t("vehicle.delay")}</dt>
               <dd className="font-medium tabular-nums">
-                {v.delay_s === 0
+                {Math.abs(v.delay_s) < 30
                   ? t("vehicle.onTime")
                   : v.delay_s > 0
                     ? t("vehicle.late", { min: Math.round(v.delay_s / 60) })

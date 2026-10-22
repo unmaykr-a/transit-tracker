@@ -26,6 +26,8 @@ export interface Departure {
 
 /** Attributes of a sensor.bus_*_next entity. */
 export interface NextAttributes {
+  /** Set by the server when departures could not be fetched. */
+  error?: string | null;
   kind?: "line" | "trip";
   /** A trip's connecting lines. */
   lines?: string[];
@@ -144,10 +146,19 @@ export function clock(t: string, lang: string | undefined): string {
   return new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Tallinn" }).format(new Date(t));
 }
 
-/** Every Bus "next" sensor, in the user's saved-line order. */
-export function allBusEntities(states: Record<string, { entity_id: string; attributes: Record<string, unknown> }>): string[] {
+/** Every Bus "next" sensor, in the user's saved-line order. Unavailable ones count too:
+ * Home Assistant drops their attributes while the server is unreachable. */
+export function allBusEntities(
+  states: Record<string, { entity_id: string; state: string; attributes: Record<string, unknown> }>,
+  registry?: Record<string, { platform?: string }>,
+): string[] {
   return Object.values(states)
-    .filter((e) => e.entity_id.startsWith("sensor.") && e.entity_id.endsWith("_next") && Array.isArray(e.attributes.next_departures))
+    .filter((e) => {
+      if (!e.entity_id.startsWith("sensor.") || !e.entity_id.endsWith("_next")) return false;
+      if (Array.isArray(e.attributes.next_departures)) return true;
+      const platform = registry?.[e.entity_id]?.platform;
+      return platform ? platform === "bus" : e.entity_id.startsWith("sensor.bus_") && e.state === "unavailable";
+    })
     .sort((a, b) => Number(a.attributes.order ?? 99) - Number(b.attributes.order ?? 99) || a.entity_id.localeCompare(b.entity_id))
     .map((e) => e.entity_id);
 }

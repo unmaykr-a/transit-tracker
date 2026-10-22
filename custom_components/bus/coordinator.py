@@ -34,6 +34,9 @@ def _position(state: State) -> tuple[float, float] | None:
     lat, lon = state.attributes.get(ATTR_LATITUDE), state.attributes.get(ATTR_LONGITUDE)
     if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
         return None
+    # A tracker without a fix may report 0,0: treat it (and nonsense) as "no position" rather than failing the poll.
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180) or (lat == 0 and lon == 0):
+        return None
     return float(lat), float(lon)
 
 
@@ -51,6 +54,8 @@ class BusCoordinator(DataUpdateCoordinator[BusData]):
             update_interval=timedelta(seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
         )
         self.client = client
+        # The options this setup was built from: only their change needs a reload.
+        self.options = dict(entry.options)
 
     def origin(self) -> tuple[float, float] | None:
         """Position of the origin entity (zone, person or device tracker), if it has one.
@@ -76,9 +81,11 @@ class BusCoordinator(DataUpdateCoordinator[BusData]):
         try:
             res = await self.client.lines(self.origin())
         except BusAuthError as err:
-            raise ConfigEntryAuthFailed(str(err)) from err
+            raise ConfigEntryAuthFailed(translation_domain=DOMAIN, translation_key="token_rejected") from err
         except BusError as err:
-            raise UpdateFailed(str(err)) from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN, translation_key="update_failed", translation_placeholders={"error": str(err)}
+            ) from err
         return BusData(lines={str(line["id"]): line for line in res.get("lines", [])}, has_origin=bool(res.get("has_origin")))
 
     def order(self, line_id: str) -> int:

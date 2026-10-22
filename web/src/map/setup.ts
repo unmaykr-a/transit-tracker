@@ -3,16 +3,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 // MapLibre finds its worker next to its own module, which bundling breaks; hand it Vite's build.
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
-import type { Theme } from "@/lib/theme";
-
 maplibregl.setWorkerUrl(workerUrl);
 
-export const STYLE_URL: Record<Theme, string> = {
-  light: "https://tiles.openfreemap.org/styles/positron",
-  dark: "https://tiles.openfreemap.org/styles/dark",
-};
-
-export const TALLINN: [number, number] = [24.7536, 59.437];
+export { startView, styleUrl } from "@/lib/mapConfig";
 
 export { maplibregl };
 

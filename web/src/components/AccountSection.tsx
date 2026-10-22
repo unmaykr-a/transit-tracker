@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { relative } from "@/lib/format";
 import { SESSION_KEY, useSession } from "@/lib/session";
+import { useNow } from "@/lib/useLive";
 
 const settingsRoute = getRouteApi("/settings");
 
@@ -21,6 +22,7 @@ function device(ua: string): string {
 
 export function AccountSection({ user }: { user: User }) {
   const { t, i18n } = useTranslation();
+  const now = useNow(30_000);
   const qc = useQueryClient();
   const [email, setEmail] = useState(user.email);
   const [pw, setPw] = useState({ current: "", next: "" });
@@ -34,7 +36,14 @@ export function AccountSection({ user }: { user: User }) {
   });
   const sessions = useQuery({ queryKey: ["my-sessions"], queryFn: ({ signal }) => fetchMySessions(signal) });
   const revoke = useMutation({ mutationFn: revokeMySession, onSuccess: () => qc.invalidateQueries({ queryKey: ["my-sessions"] }) });
-  const out = useMutation({ mutationFn: logout, onSuccess: () => qc.invalidateQueries() });
+  // Clear the cache on logout: the next person on this device must not see this user's lines or places.
+  const out = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== SESSION_KEY[0] });
+      void qc.invalidateQueries({ queryKey: SESSION_KEY });
+    },
+  });
   const pwErr = (f: string) => (password.error instanceof ApiError && password.error.field === f ? password.error.message : undefined);
 
   return (
@@ -114,7 +123,7 @@ export function AccountSection({ user }: { user: User }) {
               <div className="min-w-0">
                 <p className="truncate font-medium">{s.current ? t("account.thisDevice") : device(s.user_agent)}</p>
                 <p className="truncate text-muted-foreground">
-                  {s.ip} · {t("account.lastSeen", { when: relative(s.last_seen_at, i18n.resolvedLanguage) })}
+                  {s.ip} · {t("account.lastSeen", { when: relative(s.last_seen_at, i18n.resolvedLanguage, now) })}
                 </p>
               </div>
               {!s.current && (
@@ -133,6 +142,7 @@ export function AccountSection({ user }: { user: User }) {
 /** Single sign-on identities linked to this account, and linking another one. */
 function SsoSection({ user }: { user: User }) {
   const { t, i18n } = useTranslation();
+  const now = useNow(30_000);
   const qc = useQueryClient();
   const sso = useSession().data?.sso;
   const search = settingsRoute.useSearch();
@@ -177,7 +187,7 @@ function SsoSection({ user }: { user: User }) {
               <div className="min-w-0">
                 <p className="truncate font-medium">{i.email || i.subject}</p>
                 <p className="truncate text-muted-foreground">
-                  {new URL(i.issuer).host} · {t("account.lastSeen", { when: relative(i.last_login, i18n.resolvedLanguage) })}
+                  {new URL(i.issuer).host} · {t("account.lastSeen", { when: relative(i.last_login, i18n.resolvedLanguage, now) })}
                 </p>
               </div>
               <Button

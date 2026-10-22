@@ -24,6 +24,20 @@ type Connection struct {
 // and boarding platform, fewest stops first. Patterns that call at the origin
 // more than once (loops) board at their first call before the destination.
 func (ix *Index) Connections(from, to string) []Connection {
+	key := from + "|" + to
+	if v, ok := ix.conns.Load(key); ok {
+		return v.([]Connection)
+	}
+	out := ix.connections(from, to)
+	_, knownA := ix.areas[from]
+	_, knownB := ix.areas[to]
+	if knownA && knownB { // unknown ids are not worth remembering (and would be unbounded)
+		ix.conns.Store(key, out)
+	}
+	return out
+}
+
+func (ix *Index) connections(from, to string) []Connection {
 	a, okA := ix.areas[from]
 	b, okB := ix.areas[to]
 	if !okA || !okB || from == to {

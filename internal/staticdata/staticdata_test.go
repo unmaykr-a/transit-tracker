@@ -347,3 +347,33 @@ func TestConnections(t *testing.T) {
 		t.Error("degenerate trips should have no connections")
 	}
 }
+
+// A city route listed twice by OTP (same mode and short name) becomes one
+// route with both sets of patterns; a duplicate id would fail the import.
+func TestBuildMergesDuplicateCityRoutes(t *testing.T) {
+	src := fixtureSources(t)
+	dup := src.CityRoutes[0]
+	dup.Patterns = slices.Clone(dup.Patterns)
+	for i := range dup.Patterns {
+		dup.Patterns[i].Code += "-variant"
+	}
+	src.CityRoutes = append(src.CityRoutes, dup)
+	d := Build(src, fixtureTime)
+	seen := map[string]bool{}
+	for _, r := range d.Routes {
+		if seen[r.ID] {
+			t.Fatalf("duplicate route %s", r.ID)
+		}
+		seen[r.ID] = true
+	}
+	id := RouteID(dup.CityMode(), dup.ShortName)
+	n := 0
+	for _, p := range d.Patterns {
+		if p.RouteID == id {
+			n++
+		}
+	}
+	if n != 2*len(dup.Patterns) {
+		t.Errorf("%s has %d patterns, want %d", id, n, 2*len(dup.Patterns))
+	}
+}

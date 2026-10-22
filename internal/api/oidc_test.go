@@ -244,7 +244,10 @@ func TestFlowCookie(t *testing.T) {
 	if _, err := readFlow(strings.Replace(v, ".", "x.", 1), now); err == nil {
 		t.Error("tampered flow accepted")
 	}
-	for in, want := range map[string]string{"/map?x=1": "/map?x=1", "//evil": "/", "https://evil": "/", "/\\evil": "/", "": "/"} {
+	for in, want := range map[string]string{
+		"/map?x=1": "/map?x=1", "//evil": "/", "https://evil": "/", "/\\evil": "/", "": "/",
+		"/\t/evil.com": "/", "/\n/evil.com": "/", "/a\\b": "/", "/stops/a1?p=x#y": "/stops/a1?p=x#y",
+	} {
 		if got := safeNext(in); got != want {
 			t.Errorf("safeNext(%q) = %q", in, got)
 		}

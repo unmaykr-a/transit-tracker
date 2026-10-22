@@ -112,10 +112,16 @@ func (s Settings) Validate() error {
 			return &FieldError{"walk_providers", "unknown provider " + p}
 		}
 	}
+	// The User-Agent contact may be a URL or an email address (BUS_CONTACT=ops@example.com).
+	if c := strings.TrimPrefix(s.UserAgentContact, "mailto:"); strings.Count(c, "@") != 1 || strings.ContainsAny(c, " /<>") {
+		if err := checkURL("user_agent_contact", s.UserAgentContact); err != nil {
+			return &FieldError{"user_agent_contact", "must be an http(s) URL or an email address"}
+		}
+	}
 	for field, v := range map[string]string{
 		"transitous_url": s.TransitousURL, "geocoder_url": s.GeocoderURL,
 		"map_style_light": s.MapStyleLight, "map_style_dark": s.MapStyleDark, "gps_url": s.GPSURL, "elron_url": s.ElronURL,
-		"siri_url": s.SiriURL, "otp_url": s.OTPURL, "stops_url": s.StopsURL, "elron_gtfs_url": s.ElronGTFSURL, "user_agent_contact": s.UserAgentContact,
+		"siri_url": s.SiriURL, "otp_url": s.OTPURL, "stops_url": s.StopsURL, "elron_gtfs_url": s.ElronGTFSURL,
 	} {
 		if err := checkURL(field, v); err != nil {
 			return err

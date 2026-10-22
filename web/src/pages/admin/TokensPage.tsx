@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { admin } from "@/api";
 import { relative } from "@/lib/format";
-import { ConfirmButton } from "./ConfirmButton";
+import { useNow } from "@/lib/useLive";
+import { ConfirmButton } from "@/components/ConfirmButton";
 
 export default function TokensPage() {
   const { t, i18n } = useTranslation();
+  const now = useNow(30_000);
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ["admin", "tokens"], queryFn: ({ signal }) => admin.tokens(signal) });
   const revoke = useMutation({ mutationFn: admin.revokeToken, onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "tokens"] }) });
@@ -21,9 +23,9 @@ export default function TokensPage() {
               {tok.username} · {tok.name}
             </p>
             <p className="text-muted-foreground">
-              <span className="font-mono">{tok.prefix}…</span> · {t("tokens.created", { when: relative(tok.created_at, i18n.resolvedLanguage) })} ·{" "}
+              <span className="font-mono">{tok.prefix}…</span> · {t("tokens.created", { when: relative(tok.created_at, i18n.resolvedLanguage, now) })} ·{" "}
               {tok.last_used_at
-                ? t("tokens.lastUsed", { when: relative(tok.last_used_at, i18n.resolvedLanguage) }) + (tok.last_used_ip ? ` (${tok.last_used_ip})` : "")
+                ? t("tokens.lastUsed", { when: relative(tok.last_used_at, i18n.resolvedLanguage, now) }) + (tok.last_used_ip ? ` (${tok.last_used_ip})` : "")
                 : t("tokens.neverUsed")}
             </p>
           </div>

@@ -60,16 +60,18 @@ One device per saved line, e.g. a line labelled *Work*:
 | Entity | State | Notes |
 | --- | --- | --- |
 | `sensor.bus_work_next` | timestamp of the next departure | the next one you can still catch when *Walk from* is set |
-| `sensor.bus_work_leave_in` | minutes until you must leave | needs *Walk from*; unknown otherwise |
+| `sensor.bus_work_leave_in` | minutes until you must leave (a duration) | needs *Walk from*; unknown otherwise and when nothing is catchable |
 | `binary_sensor.bus_work_catchable` | on while a listed departure can be caught | needs *Walk from* |
 
 `sensor.bus_*_next` attributes: `line`, `mode`, `label`, `kind` (`line` or `trip`), `lines` (a trip's lines),
 `headsign`, `destination`, `stop_name`, `platform`, `minutes`, `delay_s`, `realtime`, `next_departures` (up to 5,
 each with `time`, `minutes`, `delay_s`, `realtime`, `headsign`, `line`, `mode`, `verdict`, `leave_in_min`),
 `walk_min`, `walk_approx`, `walk_from` (the line's own starting place, when used), `verdict`, `leave_in_min`,
-`catchable`, `order`, `url`.
+`catchable`, `order`, `url`, `error`.
 
-If the token is revoked, Home Assistant asks for a new one (re-authentication) instead of failing silently.
+If the token is revoked, Home Assistant asks for a new one (re-authentication) instead of failing silently. To move
+to another server URL or token yourself, use the integration's **Reconfigure** menu entry. When the server cannot be
+reached for a line, the `error` attribute says why.
 
 ### Automation: "time to leave"
 
