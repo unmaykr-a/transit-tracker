@@ -20,6 +20,9 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/api"
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
 	"github.com/unmaykr-a/transit-tracker/internal/config"
+	"github.com/unmaykr-a/transit-tracker/internal/feeds"
+	"github.com/unmaykr-a/transit-tracker/internal/ingest"
+	"github.com/unmaykr-a/transit-tracker/internal/state"
 )
 
 func main() {
@@ -53,9 +56,26 @@ func serve(cfg config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	tallinn, err := time.LoadLocation("Europe/Tallinn")
+	if err != nil {
+		return err
+	}
+	httpClient := &http.Client{Timeout: 20 * time.Second}
+	if cfg.FakeFeeds {
+		log.Warn("TRAM_FAKE_FEEDS is on: replaying recorded fixtures, not live data")
+		httpClient.Transport = feeds.FakeTransport{}
+	}
+	fetcher := feeds.NewFetcher(httpClient, cfg.UserAgent(buildinfo.Version))
+	store := state.NewStore()
+	health := ingest.NewHealth()
+	gps := &ingest.GPSPoller{URL: cfg.Feeds.GPSURL, Fetcher: fetcher, Store: store}
+	elron := &ingest.ElronPoller{URL: cfg.Feeds.ElronURL, Fetcher: fetcher, Store: store, Location: tallinn}
+	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: cfg.Feeds.GPSInterval, Poll: gps.Poll})
+	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: cfg.Feeds.ElronInterval, Poll: elron.Poll})
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewServer(log).Handler(api.SPA(api.Dist())),
+		Handler:           api.NewServer(log, api.Deps{Store: store, Health: health}).Handler(api.SPA(api.Dist())),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	errc := make(chan error, 1)

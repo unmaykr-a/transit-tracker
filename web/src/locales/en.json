@@ -1,0 +1,58 @@
+{
+  "app": { "name": "Tram", "tagline": "Live Tallinn buses, trams, trolleybuses and Elron trains." },
+  "nav": { "home": "Home", "map": "Map", "search": "Search", "settings": "Settings", "main": "Main navigation" },
+  "mode": { "tram": "Tram", "bus": "Bus", "trolley": "Trolleybus", "train": "Train" },
+  "modeShort": { "tram": "Tram", "bus": "Bus", "trolley": "Trolley", "train": "Train" },
+  "live": {
+    "delayed": "Live data delayed: {{feeds}}",
+    "reconnecting": "Reconnecting…",
+    "vehicles_one": "{{count}} vehicle",
+    "vehicles_other": "{{count}} vehicles",
+    "feed": { "gps": "city transport", "elron": "trains" }
+  },
+  "map": {
+    "filters": "Filters",
+    "lineFilter": "Lines",
+    "lineFilterPlaceholder": "e.g. 4, 17A",
+    "clearLines": "Clear line filter",
+    "locate": "Show my location",
+    "loading": "Loading map…"
+  },
+  "vehicle": {
+    "towards": "towards {{destination}}",
+    "speed": "Speed",
+    "speedValue": "{{value}} km/h",
+    "delay": "Delay",
+    "onTime": "On time",
+    "late": "{{min}} min late",
+    "early": "{{min}} min early",
+    "updated": "Updated",
+    "secondsAgo": "{{count}} s ago",
+    "lowFloor": "Low floor",
+    "trip": "Trip {{trip}}",
+    "close": "Close",
+    "gone": "This vehicle is no longer reporting."
+  },
+  "home": {
+    "title": "My lines",
+    "empty": "Saved lines with live countdowns arrive in a later update. Until then, the live map shows every vehicle.",
+    "openMap": "Open live map"
+  },
+  "search": {
+    "title": "Search",
+    "soon": "Search by line number or stop name is coming next."
+  },
+  "settings": {
+    "title": "Settings",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "about": "About",
+    "version": "Version {{version}}",
+    "feeds": "Data feeds",
+    "feedOk": "OK",
+    "feedStale": "Delayed"
+  }
+}

@@ -11,15 +11,35 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
+	"github.com/unmaykr-a/transit-tracker/internal/ingest"
+	"github.com/unmaykr-a/transit-tracker/internal/state"
 )
 
 type Server struct {
 	log     *slog.Logger
 	started time.Time
+	store   *state.Store
+	health  *ingest.Health
+	// originPatterns are extra hosts allowed to open /ws cross-origin
+	// (same-origin is always allowed).
+	originPatterns []string
 }
 
-func NewServer(log *slog.Logger) *Server {
-	return &Server{log: log, started: time.Now()}
+// Deps are the server's collaborators.
+type Deps struct {
+	Store          *state.Store
+	Health         *ingest.Health
+	OriginPatterns []string
+}
+
+func NewServer(log *slog.Logger, d Deps) *Server {
+	if d.Store == nil {
+		d.Store = state.NewStore()
+	}
+	if d.Health == nil {
+		d.Health = ingest.NewHealth()
+	}
+	return &Server{log: log, started: time.Now(), store: d.Store, health: d.Health, originPatterns: d.OriginPatterns}
 }
 
 // Handler returns the root handler. web is the built UI (see Dist).
@@ -28,9 +48,14 @@ func (s *Server) Handler(web http.Handler) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(s.requestLog)
 
-	r.Get("/healthz", s.health)
+	r.Get("/healthz", s.healthz)
+	r.Get("/ws", s.websocket)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/version", s.version)
+		r.Get("/status", s.status)
+		r.Get("/vehicles", s.vehicles)
+		r.Get("/vehicles/stream", s.vehicleStream)
+		r.Get("/vehicles/{id}", func(w http.ResponseWriter, r *http.Request) { s.vehicle(w, r, chi.URLParam(r, "id")) })
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		})
@@ -49,7 +74,7 @@ func (s *Server) info() versionInfo {
 	return versionInfo{buildinfo.Version, buildinfo.Commit, int64(time.Since(s.started).Seconds())}
 }
 
-func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, struct {
 		Status string `json:"status"`
 		versionInfo

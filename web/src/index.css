@@ -13,10 +13,10 @@
   --primary-foreground: oklch(0.985 0 0);
   --card: oklch(1 0 0);
 
-  --mode-tram: oklch(0.56 0.2 27);
-  --mode-bus: oklch(0.6 0.11 185);
-  --mode-trolley: oklch(0.55 0.16 255);
-  --mode-train: oklch(0.7 0.17 55);
+  --mode-tram: #d02f2a;
+  --mode-bus: #0e8f86;
+  --mode-trolley: #2d66c3;
+  --mode-train: #e8751a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -71,5 +71,27 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* MapLibre controls follow the app theme. */
+.maplibregl-ctrl-group,
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--card) !important;
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--border) !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--muted-foreground) !important;
+}
+:root[data-theme="dark"] .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .maplibregl-ctrl-icon {
+    filter: invert(1);
   }
 }

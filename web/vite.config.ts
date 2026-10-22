@@ -15,8 +15,11 @@ export default defineConfig({
       "/ws": { target: "ws://127.0.0.1:8080", ws: true },
     },
   },
-  build: { outDir: "dist", emptyOutDir: true },
+  // MapLibre alone is ~1 MB and lazy-loaded with the map route.
+  build: { outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 1200 },
+  worker: { format: "es" },
   test: {
+    include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     setupFiles: ["./src/test-setup.ts"],
   },

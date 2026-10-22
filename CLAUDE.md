@@ -10,9 +10,22 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - `cmd/tram` — entrypoint: `tram` (serve), `tram healthcheck`, `tram version`.
 - `internal/api` — chi router, `/healthz`, `/api/v1/*`, SPA serving of the embedded web build (`dist/`).
 - `internal/config` — `TRAM_*` env config. `internal/buildinfo` — version vars set via ldflags.
-- `internal/feeds` — pure parsers for upstream feeds; fixtures in `internal/feeds/testdata/`.
-- `web/` — Vite + React 19 + TS + Tailwind v4 + shadcn/ui. Builds to `web/dist`, copied into
-  `internal/api/dist` (gitignored except `.gitkeep`) and embedded via `go:embed`.
+- `internal/feeds` — pure parsers for upstream feeds, the polite conditional-GET `Fetcher`, and
+  `FakeTransport` (TRAM_FAKE_FEEDS=1 replays fixtures with moving vehicles). Fixtures in `testdata/`.
+- `internal/ingest` — one polling loop per feed with backoff + jitter; `Health` tracks last success/error,
+  latency, count, and marks a feed stale after 60 s without fresh data. GPS/Elron pollers live here.
+- `internal/state` — in-memory live vehicle store (last 5 fixes per vehicle → speed/bearing), versioned,
+  with coalescing change notifications. `internal/geo` — haversine/bearing.
+- Live API: `GET /api/v1/vehicles?mode=&line=`, `GET /api/v1/vehicles/{id}`, `GET /api/v1/status`,
+  `WS /ws` (messages `snapshot`, `diff` with `upsert`/`move`/`remove`, `stale`; client sends
+  `{"filter":{"modes":[],"lines":[]}}`), SSE fallback `GET /api/v1/vehicles/stream`. Diffs are computed per
+  client against what it last received, so slow clients self-heal. `move` tuples are
+  `[id, lat, lon, bearing, speed_mps, updated_at_ms]`.
+- `web/` — Vite + React 19 + TS + Tailwind v4 + shadcn/ui, TanStack Router (code-based routes in
+  `src/router.tsx`) + Query, i18next (`src/locales/{en,et}.json` — every UI string goes in both), MapLibre.
+  `src/lib/liveClient.ts` is the single shared WS/SSE connection; `src/map/VehicleMap.tsx` animates markers
+  outside React (tweens in `src/lib/tween.ts`). Builds to `web/dist`, copied into `internal/api/dist`
+  (gitignored except `.gitkeep`) and embedded via `go:embed`.
 - `deploy/` — production compose + `.env.example`. Root `compose.yaml` is the local dev build.
 
 ## Commands
@@ -23,6 +36,9 @@ make build        # static binary → bin/tram (CGO_ENABLED=0)
 make test         # go test -race ./... and vitest
 make lint         # gofmt, go vet, eslint, tsc
 make run          # go run ./cmd/tram  (UI: cd web && npm run dev → proxies /api, /ws to :8080)
+TRAM_FAKE_FEEDS=1 make run       # offline / night-time development with replayed fixtures
+cd web && npm run e2e            # Playwright vs ../bin/tram with fake feeds (run `make web build` first;
+                                 # set PW_CHROMIUM_PATH to use a preinstalled Chromium)
 docker compose up --build        # local image on http://localhost:8095
 make docker       # buildx linux/amd64 + linux/arm64
 ```
@@ -36,6 +52,9 @@ Go toolchain is pinned by `go.mod` (`go 1.27`); older local Go auto-downloads it
   the snapshot, and get table-driven tests plus a test against a real fixture.
 - Join keys between sources (see docs/feeds.md): Tallinn `ID` = OTP `code` = Elron GTFS `stop_code`;
   Tallinn `SiriID` = OTP gtfs id number. Trams are `T1`..`T6` everywhere. Vehicle ids are `<mode>-<number>`.
+- Frontend: no `Date.now()`/random in render (React compiler lint); use `useNow()`. Live data in React goes
+  through throttled `useLiveState()`; per-frame work stays out of React. `globalThis.__tramMap` exposes the
+  MapLibre instance for e2e tests.
 - `time/tzdata` is linked into the binary; always use `Europe/Tallinn` explicitly for feed times.
 - Polite upstream use: one shared poller per feed, descriptive User-Agent, never poll faster than the feed updates.
 - Ask before adding dependencies not named in PLAN.md. npm installs use `--save-exact`; prefer releases ≥ 2 weeks old.

@@ -13,7 +13,7 @@ import (
 
 func newTestServer(t *testing.T, web fstest.MapFS) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler)).Handler(SPA(web)))
+	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler), Deps{}).Handler(SPA(web)))
 	t.Cleanup(srv.Close)
 	return srv
 }
