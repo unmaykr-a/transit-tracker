@@ -18,7 +18,7 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   latency, count, and marks a feed stale after 60 s without fresh data. GPS/Elron pollers live here.
 - `internal/state` — in-memory live vehicle store (last 5 fixes per vehicle → speed/bearing), versioned,
   with coalescing change notifications. `internal/geo` — haversine/bearing.
-- `internal/store` — SQLite (modernc, pure Go) with goose migrations (`store/migrations`) and sqlc queries
+- `internal/store` — SQLite (modernc, pure Go; transactions `BEGIN IMMEDIATE` via `_txlock`) with goose migrations (`store/migrations`) and sqlc queries
   (`store/queries` → generated `store/db`, do not edit). Regenerate with `sqlc generate` (sqlc v1.31+).
 - `internal/staticdata` — nightly import (03:30 Tallinn, on start if missing/older than 20 h or built by another
   `BuildVersion`): OTP city routes + Tallinn stops.txt (names, SIRI ids) + Elron GTFS (rail) + Harju county bus
@@ -50,7 +50,11 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   Saved trips (`saved_lines.kind = 'trip'`, `from_area_id` → `to_area_id`): `Index.Connections` finds every
   (route, boarding platform) whose pattern visits a platform of From before one of To; the card merges departures of
   all those platforms (filtered to those routes/headsigns), each judged with its own platform's walk (`walks`).
-  `GET /trips?from=&to=` previews the lines; the web page is `/trips/new?from=`.
+  `GET /trips?from=&to=` previews the lines; the web page is `/trips/new?from=` (`?edit=<id>` edits a trip: PATCH
+  `from_area_id`/`to_area_id`). Any saved line can have `origin_place_id` (a saved place, `ON DELETE SET NULL`): when
+  the request carries no location, `Builder.Build` walks from it and sets the entry's `walk_from`.
+- Map sheets (`components/MapSheet.tsx`) open compact on phones (header + one-line summary), full on md+. Places can be
+  picked on a map (`map/PointPicker.tsx`, centre pin).
 - PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell, SWR for
   `/api/v1/stops`), icons rendered from `icon.svg`. Registered only in production builds.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
@@ -93,7 +97,11 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `sensor.bus_<label>_next|_leave_in` and `binary_sensor.bus_<label>_catchable`, diagnostics redact the token) with
   pytest (`pytest-homeassistant-custom-component`, run from `ha/`, `pythonpath = [".."]`); `ha/card/` — `bus-card` (Lit + TS + Rollup, editor
   built on `<ha-form>`; `src/model.ts` mirrors the verdict table — keep it identical to `dashboard.Judge`).
-  Releases attach `bus.zip` and `bus-card.js` (`hacs.json` uses `zip_release`).
+  Releases attach `bus.zip` and `bus-card.js` (`hacs.json` uses `zip_release`). The zip carries the built card in
+  `custom_components/bus/www/` (gitignored); `async_setup` serves it at `/bus_card/bus-card.js` and loads it with
+  `add_extra_js_url`, so users add no resource. That module can run before HA swaps in its scoped custom-element
+  registry, so the card re-defines itself for 30 s if its definition disappears. Brand icon: `custom_components/bus/brand/`.
+  Origin: Walk-from entity's GPS → the zone it is in → each line's own place (server side).
 - Metrics: `internal/metrics` (tiny Prometheus text-format registry, no client library); `internal/api/metrics.go`
   registers families — counters/histograms on the request path, everything else collected at scrape time. Request
   metrics are labelled by chi route pattern, never raw paths. `/metrics` access: `BUS_METRICS` (private | public |

@@ -53,20 +53,45 @@ afterEach(() => {
 });
 
 describe("bus-card", () => {
-  it("rejects a config without entities", () => {
+  it("shows every saved line, in Bus order, when no entities are listed", async () => {
+    const h = hass([9], [4]);
+    h.states["sensor.bus_gym_next"] = {
+      entity_id: "sensor.bus_gym_next",
+      state: "unknown",
+      attributes: { ...h.states["sensor.bus_work_next"]!.attributes, line: "T1", order: 0 },
+    };
+    h.states["sensor.bus_work_next"]!.attributes.order = 1;
+    const root = await mount({}, h);
+    expect([...root.querySelectorAll(".pill")].map((e) => e.textContent)).toEqual(["T1", "T4"]);
     const card = document.createElement("bus-card") as BusCard;
-    expect(() => card.setConfig({ type: "custom:bus-card", entities: [] })).toThrow(/entities/);
+    expect(() => card.setConfig({ type: "custom:bus-card", entities: "sensor.x" as never })).toThrow(/entities/);
+  });
+
+  it("renders a trip with its lines, the departure's own line and where the walk starts", async () => {
+    const h = hass([9, 12], [4, 7]);
+    const a = h.states["sensor.bus_work_next"]!.attributes as Record<string, unknown>;
+    Object.assign(a, { kind: "trip", lines: ["T4", "3"], stop_name: "Viru", headsign: "Kopli", destination: "Balti jaam", walk_from: "Home", label: "Work" });
+    (a.next_departures as Record<string, unknown>[])[0]!.line = "3";
+    (a.next_departures as Record<string, unknown>[])[0]!.mode = "bus";
+    (a.next_departures as Record<string, unknown>[])[1]!.line = "T4";
+    const root = await mount({ entities: ["sensor.bus_work_next"] }, h);
+    const s = text(root);
+    expect(s).toContain("Work · Viru → Balti jaam");
+    expect(s).toContain("5 min walk from Home");
+    expect(root.querySelector(".countdown .pill")!.textContent).toBe("3");
+    expect(root.querySelector(".later")!.textContent).toContain("T4");
   });
 
   it("renders the line, countdown, verdict, walk and later departures", async () => {
     const root = await mount({ entities: ["sensor.bus_work_next"], departures: 3 }, hass([9, 17, 25, 33], [4, 12, 20, 28]));
     const s = text(root);
     expect(root.querySelector(".pill")!.textContent).toBe("T4");
-    expect(s).toContain("Kopli");
-    expect(s).toContain("Hobujaama · A · 5 min walk");
-    expect(root.querySelector(".countdown")!.textContent).toContain("9 min");
+    expect(s).toContain("→ Kopli");
+    expect(s).toContain("from Hobujaama · A · 5 min walk");
+    expect(root.querySelector(".countdown .big")!.textContent).toBe("9 min");
+    expect(root.querySelector(".clock")!.textContent).toMatch(/^\d{2}:\d{2}$/);
     expect(root.querySelector(".chip.green")!.textContent).toBe("Leave in 4 min");
-    expect([...root.querySelectorAll(".later span")].map((e) => e.textContent)).toEqual(["17 min", "25 min"]);
+    expect([...root.querySelectorAll(".later span")].map((e) => e.textContent)).toEqual(["17 min", "25 min*"]);
   });
 
   it("follows the toggles, the compact layout and Estonian", async () => {
@@ -81,6 +106,7 @@ describe("bus-card", () => {
 
     const compact = await mount({ entities: ["sensor.bus_work_next"], layout: "compact" }, hass([2], [0], "et"));
     expect(compact.querySelector(".second")).toBeNull();
+    expect(compact.querySelector(".big")!.textContent).toBe("2 min");
     expect(compact.querySelector(".lines.compact")).not.toBeNull();
   });
 
@@ -92,8 +118,8 @@ describe("bus-card", () => {
     expect(open).toHaveBeenCalledWith("https://bus.example.com/lines/tram/T4?stop=1", "_blank", "noopener");
   });
 
-  it("offers a stub config with the first Bus entity and registers in the card picker", () => {
-    expect(BusCard.getStubConfig(hass([9], [4]))).toMatchObject({ entities: ["sensor.bus_work_next"] });
+  it("offers a stub config (all lines) and registers in the card picker", () => {
+    expect(BusCard.getStubConfig()).not.toHaveProperty("entities");
     expect(window.customCards?.some((c) => c.type === "bus-card")).toBe(true);
   });
 });

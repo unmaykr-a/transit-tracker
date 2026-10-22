@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import CONF_TOKEN, CONF_URL, CONF_VERIFY_SSL, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
 from .api import BusClient
 from .const import DOMAIN
@@ -13,6 +19,22 @@ from .coordinator import BusConfigEntry, BusCoordinator
 from .entity import selected_lines
 
 PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+# The Lovelace card ships inside the integration (release zips include it) and
+# is loaded on every dashboard, so it never has to be added as a resource.
+CARD_FILE = Path(__file__).parent / "www" / "bus-card.js"
+CARD_URL = "/bus_card/bus-card.js"
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the bundled bus-card and load it in the frontend."""
+    if hass.http is not None and await hass.async_add_executor_job(CARD_FILE.is_file):
+        version = (await async_get_integration(hass, DOMAIN)).version
+        await hass.http.async_register_static_paths([StaticPathConfig(CARD_URL, str(CARD_FILE), cache_headers=False)])
+        add_extra_js_url(hass, f"{CARD_URL}?v={version}")  # the version busts browser caches on upgrade
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BusConfigEntry) -> bool:

@@ -26,6 +26,15 @@ export interface Departure {
 
 /** Attributes of a sensor.bus_*_next entity. */
 export interface NextAttributes {
+  kind?: "line" | "trip";
+  /** A trip's connecting lines. */
+  lines?: string[];
+  /** Position in the user's saved-line order. */
+  order?: number;
+  /** The line's own starting place, when walks start there. */
+  walk_from?: string;
+  /** A trip's destination stop (headsign is the next departure's). */
+  destination?: string;
   line?: string;
   mode?: Mode;
   label?: string;
@@ -72,11 +81,17 @@ export interface View {
   mode: Mode;
   label: string;
   headsign: string;
+  /** "→ Kopli" for a line, "Viru → Kopli" for a trip. */
+  title: string;
+  trip: boolean;
+  /** A trip's lines (up to four), coloured by a departure's mode when one is listed. */
+  pills: { line: string; mode: Mode }[];
+  walkFrom: string;
   stop: string;
   walkMin: number | null;
   walkApprox: boolean;
   /** Upcoming departures that have not left yet, soonest first. */
-  departures: { minutes: number; delayS: number; realtime: boolean; slack: number | null; level: Level; line?: string }[];
+  departures: { time: string; minutes: number; delayS: number; realtime: boolean; slack: number | null; level: Level; line?: string; mode?: Mode }[];
   url: string;
 }
 
@@ -86,6 +101,7 @@ export function view(attrs: NextAttributes, now: Date, count: number): View {
     .map((d) => {
       const slack = slackNow(d, now);
       return {
+        time: d.time,
         minutes: minutesUntil(d.time, now),
         delayS: d.delay_s,
         realtime: d.realtime,
@@ -103,15 +119,35 @@ export function view(attrs: NextAttributes, now: Date, count: number): View {
   const shown = deps.slice(from, from + count);
   // A trip's departures carry their own line: the pill follows the first one shown.
   const head = shown[0];
+  const trip = attrs.kind === "trip";
+  const mode = head?.mode ?? attrs.mode ?? "bus";
+  const modeOf = (line: string) => (attrs.next_departures ?? []).find((d) => d.line === line)?.mode ?? mode;
   return {
     line: head?.line ?? attrs.line ?? "?",
-    mode: head?.mode ?? attrs.mode ?? "bus",
+    mode,
     label: attrs.label ?? attrs.line ?? "",
     headsign: attrs.headsign ?? "",
+    title: trip ? `${attrs.stop_name ?? "?"} → ${attrs.destination ?? attrs.headsign ?? "?"}` : `→ ${attrs.headsign ?? ""}`,
+    trip,
+    pills: trip ? (attrs.lines ?? []).slice(0, 4).map((line) => ({ line, mode: modeOf(line) })) : [],
+    walkFrom: attrs.walk_from ?? "",
     stop,
     walkMin: attrs.walk_min ?? null,
     walkApprox: Boolean(attrs.walk_approx),
     departures: shown,
     url: attrs.url ?? "",
   };
+}
+
+/** 24-hour clock time in Tallinn, as the web app shows it. */
+export function clock(t: string, lang: string | undefined): string {
+  return new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/Tallinn" }).format(new Date(t));
+}
+
+/** Every Bus "next" sensor, in the user's saved-line order. */
+export function allBusEntities(states: Record<string, { entity_id: string; attributes: Record<string, unknown> }>): string[] {
+  return Object.values(states)
+    .filter((e) => e.entity_id.startsWith("sensor.") && e.entity_id.endsWith("_next") && Array.isArray(e.attributes.next_departures))
+    .sort((a, b) => Number(a.attributes.order ?? 99) - Number(b.attributes.order ?? 99) || a.entity_id.localeCompare(b.entity_id))
+    .map((e) => e.entity_id);
 }
