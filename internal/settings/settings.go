@@ -43,6 +43,8 @@ type Settings struct {
 	// estimate is always the last resort.
 	WalkProviders []string `json:"walk_providers"`
 	TransitousURL string   `json:"transitous_url"`
+	// GeocoderURL is the In-ADS address search used when adding saved places.
+	GeocoderURL string `json:"geocoder_url"`
 }
 
 // Public is what any visitor may read (login page, map defaults).
@@ -111,7 +113,7 @@ func (s Settings) Validate() error {
 		}
 	}
 	for field, v := range map[string]string{
-		"transitous_url":  s.TransitousURL,
+		"transitous_url": s.TransitousURL, "geocoder_url": s.GeocoderURL,
 		"map_style_light": s.MapStyleLight, "map_style_dark": s.MapStyleDark, "gps_url": s.GPSURL, "elron_url": s.ElronURL,
 		"siri_url": s.SiriURL, "otp_url": s.OTPURL, "stops_url": s.StopsURL, "elron_gtfs_url": s.ElronGTFSURL, "user_agent_contact": s.UserAgentContact,
 	} {

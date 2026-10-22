@@ -2,11 +2,15 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -25,6 +29,9 @@ import (
 )
 
 // fullServer runs everything against the fake upstream: import, departures, accounts, dashboard.
+// geocodeCalls counts the test geocoder's upstream calls (the server caches them).
+var geocodeCalls atomic.Int64
+
 func fullServer(t *testing.T) (*client, *staticdata.Importer) {
 	c, im, _, _ := fullServerWithLive(t)
 	return c, im
@@ -68,6 +75,13 @@ func fullServerWithLive(t *testing.T) (*client, *staticdata.Importer, *state.Sto
 		Store: vehicles, Health: ingest.NewHealth(), Static: im.Index, StaticStatus: im.Status, Departures: deps,
 		Auth: accounts, Settings: set, DB: st, DataDir: dir, Tracker: tracker,
 		Dashboard: &dashboard.Builder{Index: im.Index, Departures: deps, Walk: walker},
+		Geocode: func(_ context.Context, q string) ([]feeds.Address, error) {
+			geocodeCalls.Add(1)
+			if strings.Contains(strings.ToLower(q), "fail") {
+				return nil, errors.New("upstream down")
+			}
+			return []feeds.Address{{Label: "Pärnu mnt 20", Detail: "Kesklinna linnaosa, Tallinn", Lat: 59.4319, Lon: 24.7451}}, nil
+		},
 	}).Handler(SPA(fstest.MapFS{})))
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
@@ -260,5 +274,30 @@ func TestTripAndPatterns(t *testing.T) {
 	}
 	if code, _ := c.do("GET", "/api/v1/vehicles/nope/trip", nil); code != 404 {
 		t.Errorf("trip of unknown vehicle = %d", code)
+	}
+}
+
+func TestGeocode(t *testing.T) {
+	c, _ := fullServer(t)
+	before := geocodeCalls.Load()
+	for range 2 {
+		code, out := c.do("GET", "/api/v1/geocode?q=P%C3%A4rnu+mnt++20", nil)
+		a := out["addresses"].([]any)
+		if code != 200 || len(a) != 1 || a[0].(map[string]any)["label"] != "Pärnu mnt 20" {
+			t.Fatalf("geocode = %d %v", code, out)
+		}
+	}
+	if n := geocodeCalls.Load() - before; n != 1 {
+		t.Errorf("upstream calls = %d, want 1 (cached)", n)
+	}
+	for q, want := range map[string]int{"ab": 400, "fail here": 502} {
+		if code, _ := c.do("GET", "/api/v1/geocode?q="+url.QueryEscape(q), nil); code != want {
+			t.Errorf("q=%q: %d, want %d", q, code, want)
+		}
+	}
+	// Signed-in users only: it proxies an upstream service.
+	anon := &client{t: t, base: c.base, http: &http.Client{}}
+	if code, _ := anon.do("GET", "/api/v1/geocode?q=narva", nil); code != 401 {
+		t.Errorf("anonymous geocode = %d", code)
 	}
 }

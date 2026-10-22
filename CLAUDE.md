@@ -53,6 +53,15 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `GET /trips?from=&to=` previews the lines; the web page is `/trips/new?from=` (`?edit=<id>` edits a trip: PATCH
   `from_area_id`/`to_area_id`). Any saved line can have `origin_place_id` (a saved place, `ON DELETE SET NULL`): when
   the request carries no location, `Builder.Build` walks from it and sets the entry's `walk_from`.
+- Wide screens (`lib/useWide.ts`, ≥1024 px): `components/SplitLayout.tsx` puts line and stop details beside
+  `map/LiveMapPane.tsx` (the live `VehicleMap` with `fit`, line filter, highlighted pattern, places); phones keep the
+  small `LineMap`. `VehicleMap` also draws saved places and railway lines (train patterns; `/patterns` includes rail
+  even though the tracker does not match trains).
+- Address search: `GET /api/v1/geocode?q=` (signed-in, 1 h cache) → In-ADS gazetteer (`feeds.ParseInADS`, setting
+  `geocoder_url`; fake feeds answer it from `testdata/inads_parnu_mnt_20.json`).
+- Security headers (`internal/api/headers.go`): CSP with `script-src 'self'` (keep the web build free of inline
+  scripts), frame-ancestors none, nosniff, HSTS behind HTTPS. Go toolchain pinned in `go.mod` (`toolchain`); run
+  `govulncheck ./...` after bumping.
 - Map sheets (`components/MapSheet.tsx`) open compact on phones (header + one-line summary), full on md+. Places can be
   picked on a map (`map/PointPicker.tsx`, centre pin).
 - PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell, SWR for

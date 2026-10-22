@@ -19,7 +19,7 @@ import (
 )
 
 //go:embed testdata/tallinn_gps.txt testdata/elron_map_data.json testdata/elron_stops_data.json testdata/tallinn_siri_1300.txt
-//go:embed testdata/tallinn_stops.txt testdata/otp_agency_routes.json testdata/elron_gtfs
+//go:embed testdata/tallinn_stops.txt testdata/otp_agency_routes.json testdata/elron_gtfs testdata/inads_parnu_mnt_20.json
 var fakeFS embed.FS
 
 // FakeLine is a line calling at a stop, used to synthesise departures.
@@ -70,6 +70,12 @@ func (f FakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		body, err = zipFS("testdata/elron_gtfs")
 	case "graphql":
 		return f.fakeOTP(req)
+	case "gazetteer": // In-ADS address search: one fixed answer
+		body, err = fakeFS.ReadFile("testdata/inads_parnu_mnt_20.json")
+		if err != nil {
+			return nil, err
+		}
+		return respond(req, http.StatusOK, body, time.Time{}), nil
 	default:
 		return respond(req, http.StatusNotFound, []byte("no fixture for "+req.URL.Path), time.Time{}), nil
 	}

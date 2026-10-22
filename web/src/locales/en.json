@@ -306,7 +306,8 @@
     "dataDir": "Data directory",
     "backup": "Download backup",
     "backupHint": "A consistent copy of the SQLite database (users, saved lines, settings).",
-    "tokens": "API tokens"
+    "tokens": "API tokens",
+    "geocoderUrl": "Address search (In-ADS)"
   },
   "verdict": {
     "leaveIn": "Leave in {{min}} min",
@@ -339,11 +340,15 @@
     "placeLabel": "Name",
     "placeLabelPlaceholder": "Home, Work…",
     "hereNow": "Use my current location",
-    "orStop": "or near a stop",
     "noPlaces": "No saved places.",
     "pickOnMap": "Pick on map",
     "mapHint": "Move the map so the pin sits on the place, then confirm.",
-    "useThisSpot": "Use this spot"
+    "useThisSpot": "Use this spot",
+    "orAddress": "or search an address or stop",
+    "addressPlaceholder": "e.g. Pärnu mnt 20 or Viru",
+    "addressResults": "Addresses and stops",
+    "stop": "stop",
+    "nameFirst": "Give the place a name first."
   },
   "tokens": {
     "title": "API tokens",
