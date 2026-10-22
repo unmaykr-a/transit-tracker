@@ -422,3 +422,21 @@ export const prefs = {
   get: (signal?: AbortSignal) => getJSON<Prefs>("/api/v1/me/prefs", signal),
   update: (p: Partial<Prefs>) => send<Prefs>("PATCH", "/api/v1/me/prefs", p),
 };
+
+export interface TripStop {
+  stop_id: string;
+  index: number;
+  distance_m: number;
+  eta: string;
+  name: string;
+  platform: string;
+  area_id: string;
+}
+
+export interface VehicleTrip {
+  vehicle: Vehicle;
+  headsign?: string;
+  trip: { pattern_id: string; along_m: number; next_stop_index: number; speed_mps: number; ahead: TripStop[] } | null;
+}
+
+export const fetchTrip = (id: string, signal?: AbortSignal) => getJSON<VehicleTrip>(`/api/v1/vehicles/${encodeURIComponent(id)}/trip?limit=6`, signal);

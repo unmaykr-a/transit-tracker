@@ -16,6 +16,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
+	"github.com/unmaykr-a/transit-tracker/internal/eta"
 	"github.com/unmaykr-a/transit-tracker/internal/ingest"
 	"github.com/unmaykr-a/transit-tracker/internal/settings"
 	"github.com/unmaykr-a/transit-tracker/internal/state"
@@ -41,6 +42,7 @@ type Server struct {
 	trustedProxies []netip.Prefix
 	refreshStatic  func(context.Context) error
 	dashboard      *dashboard.Builder
+	tracker        *eta.Tracker
 }
 
 // Deps are the server's collaborators.
@@ -59,6 +61,7 @@ type Deps struct {
 	TrustedProxies []netip.Prefix
 	RefreshStatic  func(context.Context) error
 	Dashboard      *dashboard.Builder
+	Tracker        *eta.Tracker
 }
 
 func NewServer(log *slog.Logger, d Deps) *Server {
@@ -71,7 +74,7 @@ func NewServer(log *slog.Logger, d Deps) *Server {
 	return &Server{log: log, started: time.Now(), store: d.Store, health: d.Health, originPatterns: d.OriginPatterns,
 		static: d.Static, staticStatus: d.StaticStatus, departures: d.Departures,
 		auth: d.Auth, settings: d.Settings, db: d.DB, dataDir: d.DataDir, trustedProxies: d.TrustedProxies, refreshStatic: d.RefreshStatic,
-		dashboard: d.Dashboard}
+		dashboard: d.Dashboard, tracker: d.Tracker}
 }
 
 // Handler returns the root handler. web is the built UI (see Dist).

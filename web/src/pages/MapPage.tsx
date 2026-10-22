@@ -70,7 +70,15 @@ export default function MapPage() {
   return (
     <div className="absolute inset-0">
       <Suspense fallback={<p className="p-4 text-muted-foreground">{t("map.loading")}</p>}>
-        <VehicleMap modes={modes} lineTokens={tokens} stops={stops.data?.stops ?? NO_STOPS} selected={selected} onSelect={onSelect} focus={focus} />
+        <VehicleMap
+          modes={modes}
+          lineTokens={tokens}
+          stops={stops.data?.stops ?? NO_STOPS}
+          selected={selected}
+          onSelect={onSelect}
+          focus={focus}
+          highlightPattern={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.pattern_id : undefined}
+        />
       </Suspense>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3 pr-14">

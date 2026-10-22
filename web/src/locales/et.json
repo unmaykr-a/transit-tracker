@@ -53,7 +53,9 @@
     "lowFloor": "Madala põrandaga",
     "trip": "Reis {{trip}}",
     "close": "Sulge",
-    "gone": "See sõiduk ei edasta enam asukohta."
+    "gone": "See sõiduk ei edasta enam asukohta.",
+    "nextStops": "Järgmised peatused",
+    "openLine": "Ava liin"
   },
   "home": {
     "title": "Minu liinid",

@@ -10,7 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
+	"github.com/unmaykr-a/transit-tracker/internal/eta"
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
+	"github.com/unmaykr-a/transit-tracker/internal/geo"
 	"github.com/unmaykr-a/transit-tracker/internal/state"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 )
@@ -261,7 +263,117 @@ func (s *Server) handleLine(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"route": route, "patterns": pats, "vehicles": vehicles})
 }
 
+// handleVehicleTrip returns where a vehicle is on its route and when it reaches the stops ahead.
+func (s *Server) handleVehicleTrip(w http.ResponseWriter, r *http.Request) {
+	v, ok := s.store.Get(chi.URLParam(r, "id"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "vehicle not found", "")
+		return
+	}
+	out := map[string]any{"vehicle": v, "trip": nil}
+	if s.tracker != nil {
+		if trip, ok := s.tracker.Trip(v, time.Now(), limitParam(r, 8, 100)); ok {
+			ix := s.index()
+			type aheadJSON struct {
+				eta.StopETA
+				Name     string `json:"name"`
+				Platform string `json:"platform"`
+				AreaID   string `json:"area_id"`
+			}
+			ahead := make([]aheadJSON, 0, len(trip.Ahead))
+			for _, a := range trip.Ahead {
+				aj := aheadJSON{StopETA: a}
+				if st, ok := ix.Stop(a.StopID); ok {
+					aj.Name, aj.Platform, aj.AreaID = st.Name, st.Platform, st.AreaID
+				}
+				ahead = append(ahead, aj)
+			}
+			out["trip"] = map[string]any{"pattern_id": trip.PatternID, "along_m": trip.Along, "next_stop_index": trip.NextStop, "speed_mps": trip.SpeedMps, "ahead": ahead}
+			if p := s.patternHeadsign(trip.PatternID); p != "" {
+				out["headsign"] = p
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) patternHeadsign(id string) string {
+	if s.tracker == nil {
+		return ""
+	}
+	if g := s.tracker.Geometry(); g != nil {
+		if pg, ok := g.Pattern(id); ok {
+			return pg.Pattern.Headsign
+		}
+	}
+	return ""
+}
+
+// handlePattern serves one pattern's shape with each stop's distance along it,
+// so clients can animate vehicles along the street instead of in straight lines.
+func (s *Server) handlePattern(w http.ResponseWriter, r *http.Request) {
+	if s.tracker == nil || s.tracker.Geometry() == nil {
+		writeError(w, http.StatusNotFound, "pattern not found", "")
+		return
+	}
+	pg, ok := s.tracker.Geometry().Pattern(chi.URLParam(r, "id"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "pattern not found", "")
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONBody(w, http.StatusOK, map[string]any{
+		"id": pg.Pattern.ID, "route_id": pg.Pattern.RouteID, "headsign": pg.Pattern.Headsign,
+		"shape": pg.Pattern.Shape, "stop_ids": pg.Pattern.StopIDs, "stop_along_m": pg.StopAlong,
+	})
+}
+
+// handleAllPatterns serves every pattern's shape as an encoded polyline (compact:
+// ~200 KB for the whole city), cached until the next import.
+func (s *Server) handleAllPatterns(w http.ResponseWriter, r *http.Request) {
+	if s.tracker == nil || s.tracker.Geometry() == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"patterns": []any{}})
+		return
+	}
+	ix := s.index()
+	etag := `"p` + strconv.FormatInt(ix.ImportedAt.Unix(), 36) + `"`
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	type patternJSON struct {
+		ID       string    `json:"id"`
+		RouteID  string    `json:"route_id"`
+		Polyline string    `json:"polyline"`
+		StopIDs  []string  `json:"stop_ids"`
+		Along    []float64 `json:"stop_along_m"`
+	}
+	g := s.tracker.Geometry()
+	var out []patternJSON
+	for _, rt := range ix.Routes() {
+		for _, p := range ix.Patterns(rt.ID) {
+			pg, ok := g.Pattern(p.ID)
+			if !ok {
+				continue
+			}
+			along := make([]float64, len(pg.StopAlong))
+			for i, a := range pg.StopAlong {
+				along[i] = float64(int(a))
+			}
+			out = append(out, patternJSON{p.ID, p.RouteID, geo.EncodePolyline(p.Shape), p.StopIDs, along})
+		}
+	}
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Content-Type", "application/json")
+	writeJSONBody(w, http.StatusOK, map[string]any{"patterns": out})
+}
+
 func (s *Server) mountStatic(r chi.Router) {
+	r.Get("/patterns", s.handleAllPatterns)
+	r.Get("/vehicles/{id}/trip", s.handleVehicleTrip)
+	r.Get("/patterns/{id}", s.handlePattern)
 	r.Get("/search", s.handleSearch)
 	r.Get("/stops", s.handleAllStops)
 	r.Get("/stops/search", s.handleStopSearch)

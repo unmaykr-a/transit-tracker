@@ -43,10 +43,10 @@ export function applyMessage(prev: LiveState, msg: LiveMessage, now = Date.now()
         vehicles.set(v.id, v);
         changed.push(v);
       }
-      for (const [id, lat, lon, bearing, speed_mps, t] of msg.move ?? []) {
+      for (const [id, lat, lon, bearing, speed_mps, t, along] of msg.move ?? []) {
         const old = vehicles.get(id);
         if (!old) continue; // move for a vehicle we never saw; the next snapshot fixes it
-        const v = { ...old, lat, lon, bearing, speed_mps, updated_at: new Date(t).toISOString() };
+        const v = { ...old, lat, lon, bearing, speed_mps, updated_at: new Date(t).toISOString(), dist_along_m: along || undefined };
         vehicles.set(id, v);
         changed.push(v);
       }

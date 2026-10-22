@@ -1,18 +1,23 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { fetchTrip } from "@/api";
 import { Button } from "@/components/ui/button";
+import { countdown } from "@/lib/format";
 import { pillText } from "@/lib/lines";
 import { useLiveState, useNow } from "@/lib/useLive";
 
 import { ModePill } from "./ModePill";
 
 export function VehicleSheet({ id, onClose }: { id: string; onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const state = useLiveState(1000);
   const now = useNow(1000);
   const v = state.vehicles.get(id);
   const ageS = v ? Math.max(0, Math.round((now + state.clockSkewMs - Date.parse(v.updated_at)) / 1000)) : 0;
+  const trip = useQuery({ queryKey: ["trip", id], queryFn: ({ signal }) => fetchTrip(id, signal), refetchInterval: 10_000, enabled: !!v?.pattern_id });
 
   return (
     <section
@@ -61,6 +66,25 @@ export function VehicleSheet({ id, onClose }: { id: string; onClose: () => void 
           </div>
           {v.low_floor && <div className="col-span-3 text-muted-foreground">{t("vehicle.lowFloor")}</div>}
         </dl>
+      )}
+      {v && trip.data?.trip && trip.data.trip.ahead.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-medium">{t("vehicle.nextStops")}</h3>
+          <ol className="mt-1 divide-y text-sm">
+            {trip.data.trip.ahead.map((a) => (
+              <li key={`${a.stop_id}-${a.index}`} className="flex items-center justify-between gap-3 py-1.5">
+                <Link to="/stops/$id" params={{ id: a.stop_id }} className="min-w-0 truncate hover:underline">
+                  {a.name}
+                  {a.platform && <span className="text-muted-foreground"> · {a.platform}</span>}
+                </Link>
+                <span className="font-medium tabular-nums whitespace-nowrap">{countdown(a.eta, now, t, i18n.resolvedLanguage)}</span>
+              </li>
+            ))}
+          </ol>
+          <Link to="/lines/$mode/$line" params={{ mode: v.mode, line: v.line }} className="mt-2 inline-block text-sm text-muted-foreground underline">
+            {t("vehicle.openLine")}
+          </Link>
+        </div>
       )}
     </section>
   );

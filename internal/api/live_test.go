@@ -100,7 +100,7 @@ func TestWebSocketSnapshotDiffFilter(t *testing.T) {
 		t.Fatalf("diff = %+v", m)
 	}
 	mv := m.Move[0]
-	if len(mv) != 6 || mv[1].(float64) != 59.411 || mv[4].(float64) == 0 || int64(mv[5].(float64)) != moved.UpdatedAt.UnixMilli() {
+	if len(mv) != 7 || mv[1].(float64) != 59.411 || mv[4].(float64) == 0 || int64(mv[5].(float64)) != moved.UpdatedAt.UnixMilli() {
 		t.Errorf("move tuple = %v (speed must be derived)", mv)
 	}
 

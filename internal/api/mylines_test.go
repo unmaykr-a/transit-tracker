@@ -14,6 +14,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
+	"github.com/unmaykr-a/transit-tracker/internal/eta"
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 	"github.com/unmaykr-a/transit-tracker/internal/ingest"
 	"github.com/unmaykr-a/transit-tracker/internal/settings"
@@ -25,6 +26,11 @@ import (
 
 // fullServer runs everything against the fake upstream: import, departures, accounts, dashboard.
 func fullServer(t *testing.T) (*client, *staticdata.Importer) {
+	c, im, _, _ := fullServerWithLive(t)
+	return c, im
+}
+
+func fullServerWithLive(t *testing.T) (*client, *staticdata.Importer, *state.Store, *eta.Tracker) {
 	t.Helper()
 	ctx := context.Background()
 	loc, _ := time.LoadLocation("Europe/Tallinn")
@@ -55,9 +61,12 @@ func fullServer(t *testing.T) (*client, *staticdata.Importer) {
 	accounts := auth.NewService(st)
 	deps := &departures.Service{Fetcher: f, OTP: otp, SiriURL: feeds.Const(departures.DefaultSiriURL), Index: im.Index, Location: loc}
 	walker := walk.NewService([]walk.Provider{walk.Haversine{}}, func() []string { return []string{walk.ProviderHaversine} })
+	tracker := eta.NewTracker()
+	tracker.SetGeometry(eta.BuildGeometry(im.Index()))
+	vehicles := state.NewStore()
 	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler), Deps{
-		Store: state.NewStore(), Health: ingest.NewHealth(), Static: im.Index, StaticStatus: im.Status, Departures: deps,
-		Auth: accounts, Settings: set, DB: st, DataDir: dir,
+		Store: vehicles, Health: ingest.NewHealth(), Static: im.Index, StaticStatus: im.Status, Departures: deps,
+		Auth: accounts, Settings: set, DB: st, DataDir: dir, Tracker: tracker,
 		Dashboard: &dashboard.Builder{Index: im.Index, Departures: deps, Walk: walker},
 	}).Handler(SPA(fstest.MapFS{})))
 	t.Cleanup(srv.Close)
@@ -66,7 +75,7 @@ func fullServer(t *testing.T) (*client, *staticdata.Importer) {
 	if code, _ := c.do("POST", "/api/v1/auth/setup", map[string]string{"username": "andri", "password": "hunter2hunter2"}); code != 200 {
 		t.Fatal("setup failed")
 	}
-	return c, im
+	return c, im, vehicles, tracker
 }
 
 func TestSavedLinesAndDashboard(t *testing.T) {
@@ -209,4 +218,47 @@ func TestSavedLinesAndDashboard(t *testing.T) {
 func toInt(s string) int64 {
 	n, _ := strconv.ParseInt(s, 10, 64)
 	return n
+}
+
+func TestTripAndPatterns(t *testing.T) {
+	c, im, vehicles, tracker := fullServerWithLive(t)
+	code, out := c.do("GET", "/api/v1/patterns", nil)
+	pats := out["patterns"].([]any)
+	if code != 200 || len(pats) < 150 {
+		t.Fatalf("patterns: %d, %d patterns", code, len(pats))
+	}
+	p0 := pats[0].(map[string]any)
+	if p0["polyline"] == "" || len(p0["stop_ids"].([]any)) != len(p0["stop_along_m"].([]any)) {
+		t.Errorf("pattern = %v", p0)
+	}
+
+	// A T4 tram halfway along its outbound pattern.
+	var out4 *staticdata.Pattern
+	for _, p := range im.Index().Patterns("tram:T4") {
+		if p.Direction == 0 {
+			out4 = p
+			break
+		}
+	}
+	pg, _ := tracker.Geometry().Pattern(out4.ID)
+	pt := pg.Shape.PointAt(pg.Shape.Length() / 2)
+	v := []state.Vehicle{{ID: "tram-9", Mode: feeds.ModeTram, Line: "T4", Lat: pt[1], Lon: pt[0], Bearing: -1, Destination: out4.Headsign, UpdatedAt: time.Now()}}
+	tracker.Annotate(v)
+	vehicles.Replace("gps", v)
+
+	code, trip := c.do("GET", "/api/v1/vehicles/tram-9/trip?limit=3", nil)
+	if code != 200 || trip["trip"] == nil {
+		t.Fatalf("trip: %d %v", code, trip)
+	}
+	tj := trip["trip"].(map[string]any)
+	ahead := tj["ahead"].([]any)
+	if tj["pattern_id"] != out4.ID || len(ahead) != 3 || ahead[0].(map[string]any)["name"] == "" || trip["headsign"] != out4.Headsign {
+		t.Errorf("trip = %v", trip)
+	}
+	if code, one := c.do("GET", "/api/v1/patterns/"+out4.ID, nil); code != 200 || one["headsign"] != out4.Headsign {
+		t.Errorf("pattern: %d %v", code, one)
+	}
+	if code, _ := c.do("GET", "/api/v1/vehicles/nope/trip", nil); code != 404 {
+		t.Errorf("trip of unknown vehicle = %d", code)
+	}
 }
