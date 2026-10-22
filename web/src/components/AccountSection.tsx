@@ -84,16 +84,20 @@ export function AccountSection({ user }: { user: User }) {
           password.mutate();
         }}
       >
-        <h3 className="text-sm font-medium">{t("account.password")}</h3>
-        <Field label={t("auth.currentPassword")} error={pwErr("current_password")}>
-          <Input type="password" autoComplete="current-password" required value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
-        </Field>
+        <h3 className="text-sm font-medium">{user.has_password ? t("account.password") : t("account.setPassword")}</h3>
+        {user.has_password ? (
+          <Field label={t("auth.currentPassword")} error={pwErr("current_password")}>
+            <Input type="password" autoComplete="current-password" required value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
+          </Field>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("account.setPasswordHint")}</p>
+        )}
         <Field label={t("auth.newPassword")} hint={t("auth.passwordHint")} error={pwErr("password")}>
           <Input type="password" autoComplete="new-password" required value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
         </Field>
         <div className="flex items-center gap-3">
           <Button type="submit" size="sm" disabled={password.isPending}>
-            {t("account.password")}
+            {user.has_password ? t("account.password") : t("account.setPassword")}
           </Button>
           {password.isSuccess && <span className="text-sm text-muted-foreground">{t("account.passwordChanged")}</span>}
         </div>

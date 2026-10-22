@@ -40,7 +40,7 @@ const routeTree = rootRoute.addChildren([
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/login",
-    validateSearch: (s: Record<string, unknown>): { next?: string } => ({ next: str(s.next) }),
+    validateSearch: (s: Record<string, unknown>): { next?: string; error?: string } => ({ next: str(s.next), error: str(s.error) }),
     component: lazyRouteComponent(() => import("@/pages/AuthPages"), "LoginPage"),
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: lazyRouteComponent(() => import("@/pages/AuthPages"), "SetupPage") }),

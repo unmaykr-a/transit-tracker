@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -32,7 +33,25 @@ type Config struct {
 	// only; the default), "public" or "off". MetricsToken, when set, is required
 	// as a bearer token instead of the network check.
 	Metrics, MetricsToken string
+	// OIDC enables single sign-on when Issuer is set (BUS_OIDC_*). Needs BaseURL
+	// for the redirect URL: <BaseURL>/api/v1/auth/oidc/callback.
+	OIDC OIDCConfig
 }
+
+// OIDCConfig is a generic OpenID Connect provider (tested with Authentik).
+type OIDCConfig struct {
+	Issuer, ClientID, ClientSecret string
+	// AdminGroup, if set, makes members of this group (the "groups" claim) admins
+	// and removes admin from users who leave it.
+	AdminGroup string
+	// Name labels the login button ("Sign in with <Name>").
+	Name string
+	// AutoCreate creates a local user on first sign-in (default true).
+	AutoCreate bool
+}
+
+// Enabled reports whether single sign-on is configured.
+func (o OIDCConfig) Enabled() bool { return o.Issuer != "" }
 
 // FeedConfig holds upstream URLs and poll intervals. Admin-editable overrides arrive with settings (M3).
 type FeedConfig struct {
@@ -93,6 +112,22 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	c.AdminUser, c.AdminPassword = getenv("BUS_ADMIN_USER"), getenv("BUS_ADMIN_PASSWORD")
 	c.Metrics, c.MetricsToken = strings.ToLower(strings.TrimSpace(getenv("BUS_METRICS"))), getenv("BUS_METRICS_TOKEN")
+	c.OIDC = OIDCConfig{
+		Issuer: strings.TrimRight(getenv("BUS_OIDC_ISSUER"), "/"), ClientID: getenv("BUS_OIDC_CLIENT_ID"),
+		ClientSecret: getenv("BUS_OIDC_CLIENT_SECRET"), AdminGroup: getenv("BUS_OIDC_ADMIN_GROUP"),
+		Name: or(getenv("BUS_OIDC_NAME"), "single sign-on"), AutoCreate: true,
+	}
+	if c.OIDC.AutoCreate, err = parseBoolDefault(getenv("BUS_OIDC_AUTO_CREATE"), true); err != nil {
+		return c, fmt.Errorf("BUS_OIDC_AUTO_CREATE: %w", err)
+	}
+	if c.OIDC.Enabled() {
+		switch {
+		case c.OIDC.ClientID == "":
+			return c, errors.New("BUS_OIDC_CLIENT_ID is required with BUS_OIDC_ISSUER")
+		case c.BaseURL == "":
+			return c, errors.New("BUS_BASE_URL is required with BUS_OIDC_ISSUER (it forms the redirect URL)")
+		}
+	}
 	switch c.Metrics {
 	case "":
 		c.Metrics = "private"
@@ -120,6 +155,13 @@ func (c Config) HealthURL() string {
 // UserAgent identifies us to upstream feeds.
 func (c Config) UserAgent(version string) string {
 	return "Bus/" + version + " (+" + c.Contact + ")"
+}
+
+func parseBoolDefault(s string, def bool) (bool, error) {
+	if s == "" {
+		return def, nil
+	}
+	return strconv.ParseBool(s)
 }
 
 func parseBool(s string) (bool, error) {

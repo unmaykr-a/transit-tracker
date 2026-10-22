@@ -168,6 +168,16 @@
     "roles": {
       "admin": "admin",
       "user": "user"
+    },
+    "sso": {
+      "button": "Sign in with {{name}}",
+      "or": "or with a password",
+      "sso_unavailable": "Single sign-on is not reachable right now. Try again shortly or use your password.",
+      "sso_denied": "Sign-in was cancelled at the provider.",
+      "sso_expired": "The sign-in took too long or was started elsewhere. Try again.",
+      "sso_failed": "Single sign-on failed. Try again.",
+      "sso_no_account": "There is no account for this sign-in. Ask an administrator for an invite.",
+      "sso_disabled": "This account is disabled."
     }
   },
   "account": {
@@ -183,7 +193,9 @@
     "revoke": "Sign out",
     "lastSeen": "last seen {{when}}",
     "admin": "Administration",
-    "signedOut": "You are not logged in."
+    "signedOut": "You are not logged in.",
+    "setPassword": "Set a password",
+    "setPasswordHint": "You sign in with single sign-on. A password also lets you log in without it."
   },
   "admin": {
     "title": "Administration",

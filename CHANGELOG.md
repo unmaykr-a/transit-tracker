@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Single sign-on with any OpenID Connect provider (tested with Authentik): `BUS_OIDC_*`. Code flow with PKCE,
+  accounts created on first sign-in (optional), admin role from a group claim, "Sign in with …" on the login page;
+  SSO users can add a local password.
+
 ## 1.0.0 — 2026-10-22
 
 First release, published as **Bus** (developed as "Tram"). MIT licensed. Multi-arch image
