@@ -47,6 +47,10 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   green, 0 amber, <0 red). The web mirrors `Judge` in `src/lib/verdict.ts` — keep them identical. Saved boarding
   stops are SIRI-pre-warmed every 20 s. API: `/me/lines` (+ `/reorder`), `/me/places`, `/me/prefs`,
   `/me/dashboard?lat=&lon=|place=` (location is never stored).
+  Saved trips (`saved_lines.kind = 'trip'`, `from_area_id` → `to_area_id`): `Index.Connections` finds every
+  (route, boarding platform) whose pattern visits a platform of From before one of To; the card merges departures of
+  all those platforms (filtered to those routes/headsigns), each judged with its own platform's walk (`walks`).
+  `GET /trips?from=&to=` previews the lines; the web page is `/trips/new?from=`.
 - PWA: `web/public/manifest.webmanifest`, `sw.js` (cache-first hashed assets, network-first shell, SWR for
   `/api/v1/stops`), icons rendered from `icon.svg`. Registered only in production builds.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
@@ -79,10 +83,11 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   Token requests are **read-only** (unsafe methods → 403), never admin, and cannot see/manage tokens or sessions
   (`requireSession`). `/me/tokens` (session only), `/admin/tokens`. `GET /api/v1/ha/lines?origin=lat,lon&departures=1..5`
   is the Home Assistant feed: every saved line flattened, `next` = first departure still catchable from the origin.
-- `ha/` — Home Assistant: `custom_components/bus` (config flow URL+token validated via `/me`, reauth on 401/403,
+- Home Assistant: `custom_components/bus` lives at the repository root (HACS requires it there; CI runs `hacs/action`
+  and `hassfest`), its tests and the card under `ha/`. The integration (config flow URL+token validated via `/me`, reauth on 401/403,
   options: lines/interval/origin entity, one coordinator request per interval, one device per line with
   `sensor.bus_<label>_next|_leave_in` and `binary_sensor.bus_<label>_catchable`, diagnostics redact the token) with
-  pytest (`pytest-homeassistant-custom-component`, run from `ha/`); `card/` — `bus-card` (Lit + TS + Rollup, editor
+  pytest (`pytest-homeassistant-custom-component`, run from `ha/`, `pythonpath = [".."]`); `ha/card/` — `bus-card` (Lit + TS + Rollup, editor
   built on `<ha-form>`; `src/model.ts` mirrors the verdict table — keep it identical to `dashboard.Judge`).
   Releases attach `bus.zip` and `bus-card.js` (`hacs.json` uses `zip_release`).
 - Metrics: `internal/metrics` (tiny Prometheus text-format registry, no client library); `internal/api/metrics.go`

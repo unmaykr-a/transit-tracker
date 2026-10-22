@@ -164,6 +164,13 @@ export const fetchHealth = (signal?: AbortSignal) => getJSON<Health>("/healthz",
 export const fetchSearch = (q: string, signal?: AbortSignal) =>
   getJSON<SearchResult>(`/api/v1/search?q=${encodeURIComponent(q)}&limit=8`, signal);
 
+/** The lines that ride from one stop area to another without changing. */
+export const fetchTripLines = (from: string, to: string, signal?: AbortSignal) =>
+  getJSON<{ from?: AreaRef; to?: AreaRef; lines: TripLine[] }>(
+    `/api/v1/trips?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    signal,
+  );
+
 export const fetchStop = (id: string, signal?: AbortSignal) =>
   getJSON<StopArea>(`/api/v1/stops/${encodeURIComponent(id)}`, signal);
 
@@ -388,6 +395,36 @@ export interface SavedLine {
   alight_stop?: StopRef | null;
   notify_threshold_min: number;
   unavailable?: boolean;
+  /** "line": one route from one platform; "trip": any line from one stop to another. */
+  kind: "line" | "trip";
+  from?: AreaRef;
+  to?: AreaRef;
+  lines?: TripLine[];
+}
+
+export interface Walk {
+  minutes: number;
+  distance_m: number;
+  provider: string;
+  approx: boolean;
+}
+
+export interface AreaRef {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+/** A route that makes a trip, from one platform. */
+export interface TripLine {
+  route_id: string;
+  mode: Mode;
+  short_name: string;
+  board_stop: StopRef;
+  alight_stop: StopRef;
+  stops: number;
+  headsigns: string[];
 }
 
 export type VerdictLevel = "neutral" | "green" | "amber" | "red" | "none";
@@ -399,7 +436,9 @@ export interface DashboardDeparture extends Departure {
 export interface DashboardEntry {
   line: SavedLine;
   departures: DashboardDeparture[];
-  walk?: { minutes: number; distance_m: number; provider: string; approx: boolean };
+  /** A trip's walk per boarding platform (its departures leave from several). */
+  walks?: Record<string, Walk>;
+  walk?: Walk;
   next_catchable: number;
   error?: string;
 }
@@ -432,6 +471,8 @@ export const myLines = {
   list: (signal?: AbortSignal) => getJSON<{ lines: SavedLine[] }>("/api/v1/me/lines", signal),
   create: (l: { route_id: string; direction: number; board_stop_id: string; alight_stop_id?: string; label?: string }) =>
     send<{ line: SavedLine }>("POST", "/api/v1/me/lines", l),
+  createTrip: (t: { from_area_id: string; to_area_id: string; label?: string }) =>
+    send<{ line: SavedLine }>("POST", "/api/v1/me/lines", { kind: "trip", ...t }),
   update: (id: number, p: { label?: string; alight_stop_id?: string }) => send<{ line: SavedLine }>("PATCH", `/api/v1/me/lines/${id}`, p),
   remove: (id: number) => send("DELETE", `/api/v1/me/lines/${id}`),
   reorder: (ids: number[]) => send<{ lines: SavedLine[] }>("POST", "/api/v1/me/lines/reorder", { ids }),

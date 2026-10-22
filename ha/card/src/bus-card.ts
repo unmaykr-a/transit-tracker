@@ -119,7 +119,7 @@ export class BusCard extends LitElement {
         ${c.layout === "full" && !unavailable && first
           ? html`<div class="row second">
               ${c.show_verdict && first.slack !== null ? this.chip(first.level, first.slack) : html`<span></span>`}
-              <span class="later">${rest.map((d) => html`<span>${this.minutes(d.minutes)}</span>`)}</span>
+              <span class="later">${rest.map((d) => html`<span>${d.line && d.line !== v.line ? `${d.line} ` : ""}${this.minutes(d.minutes)}</span>`)}</span>
             </div>`
           : nothing}
       </div>

@@ -74,6 +74,9 @@ type SavedLine struct {
 	Sort               int64
 	NotifyThresholdMin int64
 	CreatedAt          int64
+	Kind               string
+	FromAreaID         string
+	ToAreaID           string
 }
 
 type SavedPlace struct {

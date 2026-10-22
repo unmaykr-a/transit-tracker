@@ -339,5 +339,23 @@
     "revokeNamed": "Revoke {{name}}",
     "confirmRevoke": "Revoke {{name}} of {{user}}?",
     "none": "No API tokens."
+  },
+  "trip": {
+    "title": "Trip between two stops",
+    "intro": "Pick where you get on and where you get off: every line that rides directly between them counts, whichever comes first.",
+    "add": "Add a trip",
+    "fromHere": "Trip from here",
+    "from": "From",
+    "to": "To",
+    "swap": "Swap",
+    "lines": "Lines that ride this trip",
+    "none": "No line rides directly between these stops.",
+    "stops_one": "{{count}} stop",
+    "stops_other": "{{count}} stops",
+    "save": "Save trip",
+    "searchStop": "Search for a stop",
+    "change": "Change {{what}}",
+    "results": "{{what}}: results",
+    "linesLabel": "Lines"
   }
 }

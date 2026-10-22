@@ -62,9 +62,14 @@ function Dashboard() {
     return (
       <section className="flex flex-col items-start gap-4 rounded-xl border bg-card p-4">
         <p className="text-muted-foreground">{t("home.noLines")}</p>
-        <Button asChild>
-          <Link to="/search">{t("home.findLine")}</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link to="/search">{t("home.findLine")}</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/trips/new">{t("trip.add")}</Link>
+          </Button>
+        </div>
       </section>
     );
   }
@@ -102,7 +107,10 @@ function Dashboard() {
             {p.label}
           </button>
         ))}
-        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setEditing((e) => !e)}>
+        <Button variant="ghost" size="sm" className="ml-auto" asChild>
+          <Link to="/trips/new">{t("trip.add")}</Link>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => setEditing((e) => !e)}>
           {editing ? t("home.done") : t("home.edit")}
         </Button>
       </div>

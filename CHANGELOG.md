@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 — 2026-10-22
+
+- **Trips between two stops**: in My lines, *Add a trip* (or *Trip from here* on a stop page) picks a start and an
+  end stop and shows every line that rides directly between them. The saved trip's card counts down to the next
+  departure of any of them, with walking time and the verdict per boarding platform. Home Assistant sensors work for
+  trips too (`kind`, `lines`, and each departure's `line`/`mode`); the card shows the line of each departure.
+  Upgrading: just pull the new image; the first start adds three columns to `saved_lines`.
+- HACS: the integration moved to `custom_components/bus` at the repository root, so adding
+  `https://github.com/unmaykr-a/transit-tracker` as a custom repository (type *Integration*) works. CI now runs HACS's
+  own validation and `hassfest`.
+- Single sign-on: an issuer URL entered without the provider's trailing slash (or with an extra one) no longer fails
+  discovery with "issuer URL … did not match"; Authentik's issuer ends in `/`.
+
 ## 1.1.0 — 2026-10-22
 
 Upgrading from 1.0.0: just pull the new image. The first start adds one table (`user_identities`) and re-imports the

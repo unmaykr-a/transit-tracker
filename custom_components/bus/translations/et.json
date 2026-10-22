@@ -10,7 +10,7 @@
           "verify_ssl": "Kontrolli SSL-sertifikaati"
         },
         "data_description": {
-          "url": "Näiteks https://bus.example.com",
+          "url": "Näiteks {example_url}",
           "token": "Algab bus_"
         }
       },

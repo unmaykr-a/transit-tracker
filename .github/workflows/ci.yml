@@ -53,8 +53,20 @@ jobs:
           cache: pip
           cache-dependency-path: ha/requirements_test.txt
       - run: pip install -r requirements_test.txt ruff==0.14.0
-      - run: ruff check . && ruff format --check .
+      - run: ruff check --config pyproject.toml . ../custom_components && ruff format --config pyproject.toml --check . ../custom_components
       - run: python -m pytest -q
+
+  hacs:
+    # The checks HACS runs when the repository is added as a custom repository.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # brands: only for the default HACS store; description/topics: GitHub repository settings.
+          ignore: brands description topics
+      - uses: home-assistant/actions/hassfest@master
 
   card:
     runs-on: ubuntu-latest

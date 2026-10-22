@@ -60,6 +60,42 @@ func validateLine(ix *staticdata.Index, routeID string, direction int, board, al
 	return "", invalid("board_stop_id", "the line does not depart from this stop in this direction")
 }
 
+// validateTrip checks that both stop areas exist and some line connects them.
+func validateTrip(ix *staticdata.Index, from, to string) error {
+	if _, ok := ix.Area(from); !ok {
+		return invalid("from_area_id", "unknown stop")
+	}
+	if _, ok := ix.Area(to); !ok {
+		return invalid("to_area_id", "unknown stop")
+	}
+	if from == to {
+		return invalid("to_area_id", "choose a different stop")
+	}
+	if len(ix.Connections(from, to)) == 0 {
+		return invalid("to_area_id", "no line goes from the first stop to this one without changing")
+	}
+	return nil
+}
+
+// handleTripPreview lists the lines that connect two stop areas, for the trip form.
+func (s *Server) handleTripPreview(w http.ResponseWriter, r *http.Request) {
+	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
+	ix := s.index()
+	if err := validateTrip(ix, from, to); err != nil {
+		var ve *auth.ValidationError
+		if errors.As(err, &ve) && ve.Field == "to_area_id" && from != to {
+			if _, ok := ix.Area(to); ok {
+				writeJSON(w, http.StatusOK, map[string]any{"lines": []dashboard.TripLine{}}) // valid stops, nothing direct
+				return
+			}
+		}
+		s.writeErr(w, err)
+		return
+	}
+	trip := dashboard.ResolveLine(ix, db.SavedLine{Kind: dashboard.KindTrip, FromAreaID: from, ToAreaID: to})
+	writeJSON(w, http.StatusOK, map[string]any{"from": trip.From, "to": trip.To, "lines": trip.Lines})
+}
+
 func (s *Server) handleListLines(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.Q.ListSavedLines(r.Context(), principal(r).User.ID)
 	if err != nil {
@@ -76,10 +112,13 @@ func (s *Server) handleListLines(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 	var in struct {
+		Kind         string `json:"kind"` // "line" (default) or "trip"
 		RouteID      string `json:"route_id"`
 		Direction    int    `json:"direction"`
 		BoardStopID  string `json:"board_stop_id"`
 		AlightStopID string `json:"alight_stop_id"`
+		FromAreaID   string `json:"from_area_id"`
+		ToAreaID     string `json:"to_area_id"`
 		Label        string `json:"label"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
@@ -92,6 +131,24 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if n >= MaxSavedLines {
 		s.writeErr(w, invalid("route_id", "you can save up to 20 lines"))
+		return
+	}
+	if in.Kind == dashboard.KindTrip {
+		if err := validateTrip(s.index(), in.FromAreaID, in.ToAreaID); err != nil {
+			s.writeErr(w, err)
+			return
+		}
+		sl, err := s.db.Q.CreateSavedTrip(r.Context(), db.CreateSavedTripParams{
+			UserID: p.User.ID, FromAreaID: in.FromAreaID, ToAreaID: in.ToAreaID, Label: strings.TrimSpace(in.Label), CreatedAt: time.Now().Unix(),
+		})
+		if err != nil {
+			s.writeErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"line": dashboard.ResolveLine(s.index(), sl)})
+		return
+	} else if in.Kind != "" && in.Kind != dashboard.KindLine {
+		s.writeErr(w, invalid("kind", "must be line or trip"))
 		return
 	}
 	headsign, err := validateLine(s.index(), in.RouteID, in.Direction, in.BoardStopID, in.AlightStopID)
@@ -138,6 +195,10 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Label != nil {
 		sl.Label = strings.TrimSpace(*in.Label)
+	}
+	if in.AlightStopID != nil && sl.Kind == dashboard.KindTrip {
+		s.writeErr(w, invalid("alight_stop_id", "a trip already ends at its destination"))
+		return
 	}
 	if in.AlightStopID != nil {
 		if _, err := validateLine(s.index(), sl.RouteID, int(sl.Direction), sl.BoardStopID, *in.AlightStopID); err != nil {

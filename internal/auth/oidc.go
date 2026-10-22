@@ -50,7 +50,16 @@ func (o *OIDC) load(ctx context.Context) (*oidc.Provider, *oidc.IDTokenVerifier,
 	if o.provider == nil {
 		p, err := oidc.NewProvider(ctx, o.cfg.Issuer)
 		if err != nil {
-			return nil, nil, fmt.Errorf("oidc discovery: %w", err)
+			// The issuer must match the provider's exactly, and providers differ on the
+			// trailing slash (Authentik has one): retry with it toggled before giving up.
+			alt := strings.TrimSuffix(o.cfg.Issuer, "/")
+			if alt == o.cfg.Issuer {
+				alt += "/"
+			}
+			var altErr error
+			if p, altErr = oidc.NewProvider(ctx, alt); altErr != nil {
+				return nil, nil, fmt.Errorf("oidc discovery: %w", err)
+			}
 		}
 		o.provider = p
 		o.verifier = p.Verifier(&oidc.Config{ClientID: o.cfg.ClientID})

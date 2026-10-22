@@ -54,6 +54,8 @@ class BusNextSensor(BusLineEntity, SensorEntity):
             "line": line.get("line"),
             "mode": line.get("mode"),
             "label": line.get("label"),
+            "kind": line.get("kind", "line"),
+            "lines": line.get("lines", []),
             "headsign": nxt.get("headsign") or line.get("headsign"),
             "stop_name": line.get("stop_name"),
             "platform": line.get("platform"),

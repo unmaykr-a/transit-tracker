@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
-import { Map as MapIcon } from "lucide-react";
+import { Map as MapIcon, Route } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -49,12 +49,20 @@ export default function StopPage() {
             )}
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/map" search={{ stop: s.platforms[0]?.id }}>
-            <MapIcon className="size-4" aria-hidden />
-            {t("stop.showOnMap")}
-          </Link>
-        </Button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/map" search={{ stop: s.platforms[0]?.id }}>
+              <MapIcon className="size-4" aria-hidden />
+              {t("stop.showOnMap")}
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/trips/new" search={{ from: s.id }}>
+              <Route className="size-4" aria-hidden />
+              {t("trip.fromHere")}
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {multi && (

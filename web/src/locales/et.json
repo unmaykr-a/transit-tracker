@@ -339,5 +339,23 @@
     "revokeNamed": "Tühista {{name}}",
     "confirmRevoke": "Tühistada kasutaja {{user}} võti {{name}}?",
     "none": "API-võtmeid pole."
+  },
+  "trip": {
+    "title": "Sõit kahe peatuse vahel",
+    "intro": "Vali, kus sisened ja kus väljud: arvesse lähevad kõik liinid, mis sõidavad nende vahel otse, ükskõik milline tuleb esimesena.",
+    "add": "Lisa sõit",
+    "fromHere": "Sõit siit",
+    "from": "Kust",
+    "to": "Kuhu",
+    "swap": "Vaheta",
+    "lines": "Liinid, mis seda sõitu teevad",
+    "none": "Ükski liin ei sõida nende peatuste vahel otse.",
+    "stops_one": "{{count}} peatus",
+    "stops_other": "{{count}} peatust",
+    "save": "Salvesta sõit",
+    "searchStop": "Otsi peatust",
+    "change": "Muuda: {{what}}",
+    "results": "{{what}}: tulemused",
+    "linesLabel": "Liinid"
   }
 }

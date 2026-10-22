@@ -46,11 +46,39 @@ type Line struct {
 	Alight      *StopRef   `json:"alight_stop,omitempty"`
 	NotifyMin   int        `json:"notify_threshold_min"`
 	Unavailable bool       `json:"unavailable,omitempty"` // route or stop missing after a static import
+	// Kind is "line" (one route from one platform) or "trip" (any line from one
+	// stop area to another; From, To and Lines are set, RouteID and Board are not).
+	Kind  string     `json:"kind"`
+	From  *AreaRef   `json:"from,omitempty"`
+	To    *AreaRef   `json:"to,omitempty"`
+	Lines []TripLine `json:"lines,omitempty"`
 }
 
-// ResolveLine attaches static data to a stored saved line.
+// AreaRef is a stop area as trips show it.
+type AreaRef struct {
+	ID   string  `json:"id"`
+	Name string  `json:"name"`
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+}
+
+// TripLine is one route that makes a saved trip, from one platform.
+type TripLine struct {
+	RouteID   string     `json:"route_id"`
+	Mode      feeds.Mode `json:"mode"`
+	ShortName string     `json:"short_name"`
+	Board     *StopRef   `json:"board_stop"`
+	Alight    *StopRef   `json:"alight_stop"`
+	Stops     int        `json:"stops"`
+	Headsigns []string   `json:"headsigns"`
+}
+
+// ResolveLine attaches static data to a stored saved line or trip.
 func ResolveLine(ix *staticdata.Index, sl db.SavedLine) Line {
-	l := Line{ID: sl.ID, RouteID: sl.RouteID, Direction: int(sl.Direction), Headsign: sl.Headsign, Label: sl.Label, NotifyMin: int(sl.NotifyThresholdMin)}
+	if sl.Kind == KindTrip {
+		return resolveTrip(ix, sl)
+	}
+	l := Line{ID: sl.ID, Kind: KindLine, RouteID: sl.RouteID, Direction: int(sl.Direction), Headsign: sl.Headsign, Label: sl.Label, NotifyMin: int(sl.NotifyThresholdMin)}
 	r, ok := ix.Route(sl.RouteID)
 	if ok {
 		l.Mode, l.ShortName = r.Mode, r.ShortName
@@ -62,6 +90,39 @@ func ResolveLine(ix *staticdata.Index, sl db.SavedLine) Line {
 		l.Alight = stopRef(alight)
 	}
 	l.Unavailable = !ok || !okB
+	return l
+}
+
+// Saved line kinds.
+const (
+	KindLine = "line"
+	KindTrip = "trip"
+)
+
+func areaRef(ix *staticdata.Index, id string) *AreaRef {
+	a, ok := ix.Area(id)
+	if !ok {
+		return nil
+	}
+	return &AreaRef{a.ID, a.Name, a.Lat, a.Lon}
+}
+
+func resolveTrip(ix *staticdata.Index, sl db.SavedLine) Line {
+	l := Line{ID: sl.ID, Kind: KindTrip, Label: sl.Label, NotifyMin: int(sl.NotifyThresholdMin),
+		From: areaRef(ix, sl.FromAreaID), To: areaRef(ix, sl.ToAreaID), Lines: []TripLine{}}
+	for _, c := range ix.Connections(sl.FromAreaID, sl.ToAreaID) {
+		r, ok := ix.Route(c.RouteID)
+		if !ok {
+			continue
+		}
+		board, _ := ix.Stop(c.BoardStopID)
+		alight, _ := ix.Stop(c.AlightStopID)
+		l.Lines = append(l.Lines, TripLine{RouteID: r.ID, Mode: r.Mode, ShortName: r.ShortName, Board: stopRef(board), Alight: stopRef(alight), Stops: c.Stops, Headsigns: c.Headsigns})
+	}
+	if l.To != nil {
+		l.Headsign = l.To.Name
+	}
+	l.Unavailable = l.From == nil || l.To == nil || len(l.Lines) == 0
 	return l
 }
 
@@ -88,6 +149,9 @@ type Entry struct {
 	// still be made, or -1. When the first is red, the UI highlights this one.
 	NextCatchable int    `json:"next_catchable"`
 	Error         string `json:"error,omitempty"`
+	// Walks is the walk to each boarding platform of a trip (its departures
+	// leave from several), so clients can judge every departure on its own.
+	Walks map[string]*Walk `json:"walks,omitempty"`
 }
 
 // Prefs are the user's walking settings.
@@ -155,10 +219,52 @@ func pick(all []departures.Departure, routeID, headsign string) []departures.Dep
 	return other
 }
 
+// pickTrip keeps departures of the trip's connecting routes from their
+// boarding platforms, in the direction that reaches the destination.
+func pickTrip(all []departures.Departure, conns []staticdata.Connection) []departures.Departure {
+	var out []departures.Departure
+	for _, d := range all {
+		i := slices.IndexFunc(conns, func(c staticdata.Connection) bool { return c.RouteID == d.RouteID && c.BoardStopID == d.StopID })
+		if i < 0 {
+			continue
+		}
+		c := conns[i]
+		if c.AnyHeadsign || slices.ContainsFunc(c.Headsigns, func(h string) bool { return staticdata.Fold(h) == staticdata.Fold(d.Headsign) }) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+func nearestWalk(walks map[string]*Walk) *Walk {
+	var best *Walk
+	for _, w := range walks {
+		if best == nil || w.Minutes < best.Minutes {
+			best = w
+		}
+	}
+	return best
+}
+
 func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLine, origin *walk.Point, prefs Prefs, shown int) Entry {
 	e := Entry{Line: ResolveLine(ix, sl), NextCatchable: -1, Departures: []DepartureVerdict{}}
-	board, ok := ix.Stop(sl.BoardStopID)
-	if e.Line.Unavailable || !ok {
+	if e.Line.Unavailable {
+		return e
+	}
+	// The platforms to board at: one for a line, one per connecting route and
+	// platform for a trip.
+	var boards []*staticdata.Stop
+	if sl.Kind == KindTrip {
+		for _, tl := range e.Line.Lines {
+			if st, ok := ix.Stop(tl.Board.ID); ok && !slices.Contains(boards, st) {
+				boards = append(boards, st)
+			}
+		}
+	} else if st, ok := ix.Stop(sl.BoardStopID); ok {
+		boards = append(boards, st)
+	}
+	if len(boards) == 0 {
+		e.Line.Unavailable = true
 		return e
 	}
 	var wg sync.WaitGroup
@@ -167,29 +273,54 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// The whole board: at a busy platform the saved line may be far down the list.
-		deps, depErr = b.Departures.ForStops(ctx, []*staticdata.Stop{board}, 0, 3*time.Hour)
+		// Whole boards: at a busy platform the saved line may be far down the list.
+		deps, depErr = b.Departures.ForStops(ctx, boards, 0, 3*time.Hour)
 	}()
+	walks := map[string]*Walk{} // by boarding platform
 	if origin != nil && b.Walk != nil {
-		r, err := b.Walk.Route(ctx, *origin, board.ID, walk.Point{Lat: board.Lat, Lon: board.Lon})
-		if err == nil {
-			e.Walk = &Walk{Minutes: walk.Minutes(r.DistanceM, prefs.WalkSpeedKmh), DistanceM: r.DistanceM, Provider: r.Provider, Approx: r.Approx}
+		var mu sync.Mutex
+		var ww sync.WaitGroup
+		for _, st := range boards {
+			ww.Add(1)
+			go func() {
+				defer ww.Done()
+				r, err := b.Walk.Route(ctx, *origin, st.ID, walk.Point{Lat: st.Lat, Lon: st.Lon})
+				if err == nil {
+					mu.Lock()
+					walks[st.ID] = &Walk{Minutes: walk.Minutes(r.DistanceM, prefs.WalkSpeedKmh), DistanceM: r.DistanceM, Provider: r.Provider, Approx: r.Approx}
+					mu.Unlock()
+				}
+			}()
 		}
+		ww.Wait()
 	}
 	wg.Wait()
 	if depErr != nil {
 		e.Error = "departures unavailable"
 		return e
 	}
-	mine := pick(deps, sl.RouteID, sl.Headsign)
+	var mine []departures.Departure
+	if sl.Kind == KindTrip {
+		mine = pickTrip(deps, ix.Connections(sl.FromAreaID, sl.ToAreaID))
+		e.Walk = nearestWalk(walks)
+		if len(walks) > 0 {
+			e.Walks = walks
+		}
+	} else {
+		mine = pick(deps, sl.RouteID, sl.Headsign)
+		e.Walk = walks[sl.BoardStopID]
+	}
 	now := b.now()
 	for i, d := range mine {
 		v := Verdict{Level: LevelNone, SlackMin: MinutesUntil(d.ExpectedAt, now)}
-		if e.Walk != nil {
-			v = Judge(d.ExpectedAt, now, e.Walk.Minutes, prefs.BufferMin)
+		if w := walks[d.StopID]; w != nil {
+			v = Judge(d.ExpectedAt, now, w.Minutes, prefs.BufferMin)
 		}
 		if e.NextCatchable < 0 && v.Level != LevelRed {
 			e.NextCatchable = i
+			if w := walks[d.StopID]; w != nil && sl.Kind == KindTrip {
+				e.Walk = w // the walk that matters is to the platform of the next catchable departure
+			}
 		}
 		if i < shown || i == e.NextCatchable {
 			e.Departures = append(e.Departures, DepartureVerdict{d, v})

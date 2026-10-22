@@ -19,6 +19,9 @@ export interface Departure {
   headsign: string;
   verdict: string;
   leave_in_min: number | null;
+  /** Set for trips, where departures can be of different lines. */
+  line?: string;
+  mode?: Mode;
 }
 
 /** Attributes of a sensor.bus_*_next entity. */
@@ -73,7 +76,7 @@ export interface View {
   walkMin: number | null;
   walkApprox: boolean;
   /** Upcoming departures that have not left yet, soonest first. */
-  departures: { minutes: number; delayS: number; realtime: boolean; slack: number | null; level: Level }[];
+  departures: { minutes: number; delayS: number; realtime: boolean; slack: number | null; level: Level; line?: string }[];
   url: string;
 }
 
@@ -88,6 +91,8 @@ export function view(attrs: NextAttributes, now: Date, count: number): View {
         realtime: d.realtime,
         slack,
         level: slack === null ? ("none" as const) : level(slack),
+        line: d.line,
+        mode: d.mode,
       };
     })
     .filter((d) => d.minutes >= 0);
@@ -95,15 +100,18 @@ export function view(attrs: NextAttributes, now: Date, count: number): View {
   const firstOk = deps.findIndex((d) => d.level !== "red");
   const from = firstOk > 0 ? firstOk : 0;
   const stop = [attrs.stop_name, attrs.platform].filter(Boolean).join(" · ");
+  const shown = deps.slice(from, from + count);
+  // A trip's departures carry their own line: the pill follows the first one shown.
+  const head = shown[0];
   return {
-    line: attrs.line ?? "?",
-    mode: attrs.mode ?? "bus",
+    line: head?.line ?? attrs.line ?? "?",
+    mode: head?.mode ?? attrs.mode ?? "bus",
     label: attrs.label ?? attrs.line ?? "",
     headsign: attrs.headsign ?? "",
     stop,
     walkMin: attrs.walk_min ?? null,
     walkApprox: Boolean(attrs.walk_approx),
-    departures: deps.slice(from, from + count),
+    departures: shown,
     url: attrs.url ?? "",
   };
 }
