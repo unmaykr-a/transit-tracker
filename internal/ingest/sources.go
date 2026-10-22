@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"strings"
 	"time"
 
@@ -20,7 +21,9 @@ type GPSPoller struct {
 	// Annotate, if set, enriches vehicles (pattern, next stop) before they are stored.
 	Annotate func([]state.Vehicle)
 
-	lastHash [32]byte
+	lastHash  [32]byte
+	lastCount int // vehicles in the last accepted snapshot
+	drops     int // consecutive snapshots refused as a sudden collapse
 }
 
 func (p *GPSPoller) Poll(ctx context.Context) (Result, error) {
@@ -35,10 +38,22 @@ func (p *GPSPoller) Poll(ctx context.Context) (Result, error) {
 	if h == p.lastHash {
 		return Result{Unchanged: true, Latency: res.Latency}, nil
 	}
-	gps, _, err := feeds.ParseGPS(bytes.NewReader(res.Body))
+	gps, skipped, err := feeds.ParseGPS(bytes.NewReader(res.Body))
 	if err != nil {
 		return Result{}, err
 	}
+	// An error page served with 200 parses to nothing: report it rather than wipe the map
+	// (and the ETA tracks) while the feed looks fresh.
+	if len(gps) == 0 && skipped > 0 {
+		return Result{}, fmt.Errorf("gps: no valid rows (%d malformed)", skipped)
+	}
+	// So does a sudden collapse of a busy feed, unless it persists (real service changes are gradual).
+	if p.lastCount >= 100 && len(gps) < p.lastCount/5 && p.drops < 2 {
+		p.drops++
+		return Result{}, fmt.Errorf("gps: %d vehicles after %d; waiting for the next snapshot to confirm", len(gps), p.lastCount)
+	}
+	p.drops = 0
+	p.lastCount = len(gps)
 	at := res.LastModified
 	now := p.now()
 	// A Last-Modified in the future or far past is a clock problem; trust our own clock.
@@ -103,8 +118,10 @@ func (p *ElronPoller) Poll(ctx context.Context) (Result, error) {
 		vs = append(vs, v)
 	}
 	p.Store.Replace("elron", vs)
-	if newest.IsZero() || len(vs) == 0 {
-		newest = time.Now() // no trains running (night) is fresh data, not a stale feed
+	// No trains running (night) is fresh data, not a stale feed; a time ahead of
+	// ours is a clock problem (or the repeated DST hour) and must not look fresher.
+	if now := time.Now(); newest.IsZero() || len(vs) == 0 || newest.After(now) {
+		newest = now
 	}
 	return Result{Count: len(vs), DataAt: newest, Latency: res.Latency}, nil
 }

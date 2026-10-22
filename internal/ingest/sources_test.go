@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,3 +95,38 @@ func TestTrainDestination(t *testing.T) {
 		}
 	}
 }
+
+// An error page served with 200, or a sudden collapse of the feed, must not
+// wipe the map; a collapse that persists is accepted.
+func TestGPSPollerRefusesGarbage(t *testing.T) {
+	full, err := os.ReadFile("../feeds/testdata/tallinn_gps.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := full
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(body) }))
+	t.Cleanup(srv.Close)
+	store := state.NewStore()
+	p := &GPSPoller{URL: feeds.Const(srv.URL), Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: store}
+	if r, err := p.Poll(context.Background()); err != nil || r.Count != 481 {
+		t.Fatalf("first poll %+v %v", r, err)
+	}
+	body = []byte("<html><body>Just a moment...</body></html>\n<p>checking your browser</p>\n")
+	if _, err := p.Poll(context.Background()); err == nil || count(store) != 481 {
+		t.Fatalf("garbage accepted: err=%v vehicles=%d", err, count(store))
+	}
+	// Ten vehicles instead of 481: refused twice, then believed.
+	lines := strings.SplitAfter(string(full), "\n")
+	body = []byte(strings.Join(lines[:10], ""))
+	for i := range 3 {
+		_, err := p.Poll(context.Background())
+		if (err != nil) != (i < 2) {
+			t.Fatalf("collapse poll %d: err=%v", i, err)
+		}
+	}
+	if n := count(store); n != 10 {
+		t.Fatalf("persistent collapse not accepted: %d vehicles", n)
+	}
+}
+
+func count(s *state.Store) int { _, m := s.Snapshot(); return len(m) }
