@@ -68,13 +68,13 @@ test("admin pages: health shows both feeds, settings save and reset", async ({ p
 
   await page.goto("/admin/settings");
   const name = page.getByLabel("Instance name");
-  await name.fill("Tram e2e");
+  await name.fill("Bus e2e");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("default: Tram")).toBeVisible();
-  await expect(page).toHaveTitle("Tram e2e");
+  await expect(page.getByText("default: Bus")).toBeVisible();
+  await expect(page).toHaveTitle("Bus e2e");
   await page.getByRole("button", { name: "Reset to default" }).click();
-  await expect(page.getByText("default: Tram")).toHaveCount(0);
-  await expect(name).toHaveValue("Tram");
+  await expect(page.getByText("default: Bus")).toHaveCount(0);
+  await expect(name).toHaveValue("Bus");
 
   await page.goto("/admin/about");
   await expect(page.getByRole("link", { name: "Download backup" })).toHaveAttribute("href", "/api/v1/admin/backup");

@@ -3,7 +3,7 @@
 // - Page navigations: network-first, falling back to the cached shell.
 // - /api/v1/stops (all platforms, changes nightly): stale-while-revalidate.
 // - Everything else (live data, auth): network only.
-const VERSION = "tram-v1";
+const VERSION = "bus-v1";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {

@@ -1,1 +1,1 @@
-"""Tests for the Tram integration."""
+"""Tests for the Bus integration."""

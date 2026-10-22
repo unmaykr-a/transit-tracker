@@ -8,7 +8,7 @@ export type GeoState =
   | { status: "on"; lat: number; lon: number; accuracy: number }
   | { status: "denied" | "unavailable" };
 
-const KEY = "tram.useLocation";
+const KEY = "bus.useLocation";
 
 /**
  * Watches the device position while the page is visible, once the user has

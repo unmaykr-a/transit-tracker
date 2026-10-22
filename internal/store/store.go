@@ -26,12 +26,12 @@ type Store struct {
 	Q  *db.Queries
 }
 
-// Open opens (creating if needed) dir/tram.db and applies pending migrations.
+// Open opens (creating if needed) dir/bus.db and applies pending migrations.
 func Open(ctx context.Context, dir string, log *slog.Logger) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, fmt.Errorf("data dir: %w", err)
 	}
-	return OpenDSN(ctx, "file:"+filepath.Join(dir, "tram.db"), log)
+	return OpenDSN(ctx, "file:"+filepath.Join(dir, "bus.db"), log)
 }
 
 // OpenDSN opens a database by DSN (tests use "file::memory:?cache=shared" style DSNs).

@@ -5,7 +5,7 @@ import { load, save } from "./storage";
 export type ThemePref = "system" | "light" | "dark";
 export type Theme = "light" | "dark";
 
-const KEY = "tram.theme";
+const KEY = "bus.theme";
 const listeners = new Set<() => void>();
 let pref: ThemePref = load<ThemePref>(KEY, "system");
 

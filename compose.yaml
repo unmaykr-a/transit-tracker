@@ -2,13 +2,13 @@
 #   docker compose up --build   →  http://localhost:8095
 # Production deployment uses deploy/docker-compose.yml (image from GHCR).
 services:
-  tram:
+  bus:
     build:
       context: .
       args:
         VERSION: dev
-    image: tram:dev
-    container_name: tram
+    image: bus:dev
+    container_name: bus
     ports:
       - "8095:8080"
     env_file:
@@ -16,9 +16,9 @@ services:
         required: false
     environment:
       TZ: Europe/Tallinn
-      TRAM_LOG_LEVEL: debug
+      BUS_LOG_LEVEL: debug
     volumes:
-      - tram-data:/data
+      - bus-data:/data
 
 volumes:
-  tram-data:
+  bus-data:

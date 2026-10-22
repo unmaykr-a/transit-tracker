@@ -336,7 +336,7 @@ func (s *Service) SeedAdmin(ctx context.Context, username, password string) (boo
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("seeding admin from TRAM_ADMIN_USER: %w", err)
+		return false, fmt.Errorf("seeding admin from BUS_ADMIN_USER: %w", err)
 	}
 	return true, nil
 }

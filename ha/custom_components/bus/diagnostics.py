@@ -9,12 +9,12 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_TOKEN
 from homeassistant.core import HomeAssistant
 
-from .coordinator import TramConfigEntry
+from .coordinator import BusConfigEntry
 
 TO_REDACT = {CONF_TOKEN}
 
 
-async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: TramConfigEntry) -> dict[str, Any]:
+async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: BusConfigEntry) -> dict[str, Any]:
     coordinator = entry.runtime_data
     return {
         "entry": {"data": async_redact_data(dict(entry.data), TO_REDACT), "options": dict(entry.options)},

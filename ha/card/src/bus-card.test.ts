@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TramCard } from "./tram-card";
+import { BusCard } from "./bus-card";
 import type { HomeAssistant } from "./types";
 
 function hass(minutes: number[], leave: (number | null)[], lang = "en"): HomeAssistant {
@@ -18,8 +18,8 @@ function hass(minutes: number[], leave: (number | null)[], lang = "en"): HomeAss
   return {
     locale: { language: lang },
     states: {
-      "sensor.tram_work_next": {
-        entity_id: "sensor.tram_work_next",
+      "sensor.bus_work_next": {
+        entity_id: "sensor.bus_work_next",
         state: deps[0]?.time ?? "unknown",
         attributes: {
           line: "T4",
@@ -29,7 +29,7 @@ function hass(minutes: number[], leave: (number | null)[], lang = "en"): HomeAss
           platform: "A",
           walk_min: 5,
           next_departures: deps,
-          url: "https://tram.example.com/lines/tram/T4?stop=1",
+          url: "https://bus.example.com/lines/tram/T4?stop=1",
         },
       },
       "sensor.other": { entity_id: "sensor.other", state: "1", attributes: {} },
@@ -38,8 +38,8 @@ function hass(minutes: number[], leave: (number | null)[], lang = "en"): HomeAss
 }
 
 async function mount(config: object, h: HomeAssistant): Promise<ShadowRoot> {
-  const card = document.createElement("tram-card") as TramCard;
-  card.setConfig({ type: "custom:tram-card", ...config } as never);
+  const card = document.createElement("bus-card") as BusCard;
+  card.setConfig({ type: "custom:bus-card", ...config } as never);
   card.hass = h;
   document.body.append(card);
   await card.updateComplete;
@@ -52,14 +52,14 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("tram-card", () => {
+describe("bus-card", () => {
   it("rejects a config without entities", () => {
-    const card = document.createElement("tram-card") as TramCard;
-    expect(() => card.setConfig({ type: "custom:tram-card", entities: [] })).toThrow(/entities/);
+    const card = document.createElement("bus-card") as BusCard;
+    expect(() => card.setConfig({ type: "custom:bus-card", entities: [] })).toThrow(/entities/);
   });
 
   it("renders the line, countdown, verdict, walk and later departures", async () => {
-    const root = await mount({ entities: ["sensor.tram_work_next"], departures: 3 }, hass([9, 17, 25, 33], [4, 12, 20, 28]));
+    const root = await mount({ entities: ["sensor.bus_work_next"], departures: 3 }, hass([9, 17, 25, 33], [4, 12, 20, 28]));
     const s = text(root);
     expect(root.querySelector(".pill")!.textContent).toBe("T4");
     expect(s).toContain("Kopli");
@@ -71,7 +71,7 @@ describe("tram-card", () => {
 
   it("follows the toggles, the compact layout and Estonian", async () => {
     const root = await mount(
-      { entities: ["sensor.tram_work_next"], show_walk: false, show_verdict: false },
+      { entities: ["sensor.bus_work_next"], show_walk: false, show_verdict: false },
       hass([0, 8], [-5, 3], "et"),
     );
     // The first departure cannot be caught any more, so the card starts at the next one.
@@ -79,21 +79,21 @@ describe("tram-card", () => {
     expect(text(root)).not.toContain("jalgsi");
     expect(root.querySelector(".chip")).toBeNull();
 
-    const compact = await mount({ entities: ["sensor.tram_work_next"], layout: "compact" }, hass([2], [0], "et"));
+    const compact = await mount({ entities: ["sensor.bus_work_next"], layout: "compact" }, hass([2], [0], "et"));
     expect(compact.querySelector(".second")).toBeNull();
     expect(compact.querySelector(".lines.compact")).not.toBeNull();
   });
 
   it("warns about missing entities and opens the line page on tap", async () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
-    const root = await mount({ entities: ["sensor.tram_work_next", "sensor.tram_gone_next"] }, hass([9], [4]));
-    expect(text(root)).toContain("Entity not found: sensor.tram_gone_next");
+    const root = await mount({ entities: ["sensor.bus_work_next", "sensor.bus_gone_next"] }, hass([9], [4]));
+    expect(text(root)).toContain("Entity not found: sensor.bus_gone_next");
     (root.querySelector(".line") as HTMLElement).click();
-    expect(open).toHaveBeenCalledWith("https://tram.example.com/lines/tram/T4?stop=1", "_blank", "noopener");
+    expect(open).toHaveBeenCalledWith("https://bus.example.com/lines/tram/T4?stop=1", "_blank", "noopener");
   });
 
-  it("offers a stub config with the first Tram entity and registers in the card picker", () => {
-    expect(TramCard.getStubConfig(hass([9], [4]))).toMatchObject({ entities: ["sensor.tram_work_next"] });
-    expect(window.customCards?.some((c) => c.type === "tram-card")).toBe(true);
+  it("offers a stub config with the first Bus entity and registers in the card picker", () => {
+    expect(BusCard.getStubConfig(hass([9], [4]))).toMatchObject({ entities: ["sensor.bus_work_next"] });
+    expect(window.customCards?.some((c) => c.type === "bus-card")).toBe(true);
   });
 });

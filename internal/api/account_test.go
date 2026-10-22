@@ -23,7 +23,7 @@ import (
 
 func testSettings() settings.Settings {
 	return settings.Settings{
-		InstanceName: "Tram", SignupMode: "invite", PublicMap: true, DefaultTheme: "system",
+		InstanceName: "Bus", SignupMode: "invite", PublicMap: true, DefaultTheme: "system",
 		MapStyleLight: "https://example.com/l", MapStyleDark: "https://example.com/d", MapCenter: [2]float64{24.75, 59.43}, MapZoom: 13,
 		GPSURL: "https://example.com/gps", GPSIntervalS: 5, ElronURL: "https://example.com/elron", ElronIntervalS: 10,
 		SiriURL: "https://example.com/siri", OTPURL: "https://example.com/otp", StopsURL: "https://example.com/stops",

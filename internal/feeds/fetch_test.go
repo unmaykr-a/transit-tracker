@@ -24,13 +24,13 @@ func TestFetcherConditionalGet(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f := NewFetcher(srv.Client(), "Tram/test")
+	f := NewFetcher(srv.Client(), "Bus/test")
 	ctx := context.Background()
 	r1, err := f.Get(ctx, srv.URL, true)
 	if err != nil || string(r1.Body) != "payload" || r1.NotModified || r1.LastModified.IsZero() {
 		t.Fatalf("first get: %+v %v", r1, err)
 	}
-	if gotUA != "Tram/test" || gotINM != "" {
+	if gotUA != "Bus/test" || gotINM != "" {
 		t.Errorf("ua=%q inm=%q", gotUA, gotINM)
 	}
 	r2, err := f.Get(ctx, srv.URL, true)
@@ -56,7 +56,7 @@ func TestFetcherErrors(t *testing.T) {
 		http.Error(w, "nope", http.StatusBadGateway)
 	}))
 	defer srv.Close()
-	f := NewFetcher(srv.Client(), "Tram/test")
+	f := NewFetcher(srv.Client(), "Bus/test")
 	if _, err := f.Get(context.Background(), srv.URL+"/x", true); err == nil || !strings.Contains(err.Error(), "502") {
 		t.Errorf("want 502 error, got %v", err)
 	}

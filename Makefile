@@ -12,7 +12,7 @@ web:
 	cp -R web/dist/. internal/api/dist/
 
 build:
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/tram ./cmd/tram
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/bus ./cmd/bus
 
 test: test-go test-web
 
@@ -28,10 +28,10 @@ lint:
 	cd web && npm run lint && npm run typecheck
 
 run:
-	go run ./cmd/tram
+	go run ./cmd/bus
 
 docker:
-	docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t tram:$(VERSION) .
+	docker buildx build --platform linux/amd64,linux/arm64 --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) -t bus:$(VERSION) .
 
 clean:
 	rm -rf bin web/dist

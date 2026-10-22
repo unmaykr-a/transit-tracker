@@ -12,7 +12,7 @@ export interface HomeAssistant {
   language?: string;
 }
 
-export interface TramCardConfig {
+export interface BusCardConfig {
   type: string;
   entities: string[];
   departures?: number;

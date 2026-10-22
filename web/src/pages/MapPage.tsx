@@ -26,7 +26,7 @@ interface Filters {
   lines: string;
 }
 
-const FILTER_KEY = "tram.map.filters";
+const FILTER_KEY = "bus.map.filters";
 const route = getRouteApi("/map");
 
 export default function MapPage() {

@@ -11,7 +11,7 @@ import (
 )
 
 // TokenPrefix marks API tokens so they are recognisable in configs and logs.
-const TokenPrefix = "tram_"
+const TokenPrefix = "bus_"
 
 // MaxTokensPerUser bounds how many API tokens one user may hold.
 const MaxTokensPerUser = 20

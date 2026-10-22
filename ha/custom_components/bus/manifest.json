@@ -1,6 +1,6 @@
 {
-  "domain": "tram",
-  "name": "Tram (Tallinn transit)",
+  "domain": "bus",
+  "name": "Bus (Tallinn transit)",
   "codeowners": ["@unmaykr-a"],
   "config_flow": true,
   "documentation": "https://github.com/unmaykr-a/transit-tracker/tree/main/ha",

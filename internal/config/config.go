@@ -1,4 +1,4 @@
-// Package config loads runtime configuration from TRAM_* environment variables.
+// Package config loads runtime configuration from BUS_* environment variables.
 package config
 
 import (
@@ -13,18 +13,18 @@ import (
 )
 
 type Config struct {
-	Addr     string // listen address, TRAM_ADDR
-	DataDir  string // SQLite and caches live here, TRAM_DATA_DIR
-	BaseURL  string // public URL behind the reverse proxy, TRAM_BASE_URL
+	Addr     string // listen address, BUS_ADDR
+	DataDir  string // SQLite and caches live here, BUS_DATA_DIR
+	BaseURL  string // public URL behind the reverse proxy, BUS_BASE_URL
 	LogLevel slog.Level
 
-	// FakeFeeds replays recorded fixtures instead of calling upstream, TRAM_FAKE_FEEDS=1.
+	// FakeFeeds replays recorded fixtures instead of calling upstream, BUS_FAKE_FEEDS=1.
 	FakeFeeds bool
-	// Contact goes into the upstream User-Agent so operators can reach us, TRAM_CONTACT.
+	// Contact goes into the upstream User-Agent so operators can reach us, BUS_CONTACT.
 	Contact string
 	Feeds   FeedConfig
 
-	// TrustedProxies may set X-Forwarded-For/-Proto, TRAM_TRUSTED_PROXIES (comma-separated CIDRs).
+	// TrustedProxies may set X-Forwarded-For/-Proto, BUS_TRUSTED_PROXIES (comma-separated CIDRs).
 	TrustedProxies []netip.Prefix
 	// AdminUser/AdminPassword seed the first admin on an empty database.
 	AdminUser, AdminPassword string
@@ -36,14 +36,14 @@ type Config struct {
 
 // FeedConfig holds upstream URLs and poll intervals. Admin-editable overrides arrive with settings (M3).
 type FeedConfig struct {
-	GPSURL        string        // TRAM_GPS_URL
-	GPSInterval   time.Duration // TRAM_GPS_INTERVAL, default 5s (feed updates every ~10 s)
-	ElronURL      string        // TRAM_ELRON_URL
-	ElronInterval time.Duration // TRAM_ELRON_INTERVAL, default 10s
-	SiriURL       string        // TRAM_SIRI_URL, live departures per stop
-	OTPURL        string        // TRAM_OTP_URL, peatus.ee OpenTripPlanner GraphQL
-	StopsURL      string        // TRAM_STOPS_URL, Tallinn stops.txt
-	ElronGTFSURL  string        // TRAM_ELRON_GTFS_URL
+	GPSURL        string        // BUS_GPS_URL
+	GPSInterval   time.Duration // BUS_GPS_INTERVAL, default 5s (feed updates every ~10 s)
+	ElronURL      string        // BUS_ELRON_URL
+	ElronInterval time.Duration // BUS_ELRON_INTERVAL, default 10s
+	SiriURL       string        // BUS_SIRI_URL, live departures per stop
+	OTPURL        string        // BUS_OTP_URL, peatus.ee OpenTripPlanner GraphQL
+	StopsURL      string        // BUS_STOPS_URL, Tallinn stops.txt
+	ElronGTFSURL  string        // BUS_ELRON_GTFS_URL
 }
 
 const repoURL = "https://github.com/unmaykr-a/transit-tracker"
@@ -53,31 +53,31 @@ func Load() (Config, error) { return load(os.Getenv) }
 
 func load(getenv func(string) string) (Config, error) {
 	c := Config{
-		Addr:    or(getenv("TRAM_ADDR"), ":8080"),
-		DataDir: or(getenv("TRAM_DATA_DIR"), "./data"),
-		BaseURL: strings.TrimRight(getenv("TRAM_BASE_URL"), "/"),
+		Addr:    or(getenv("BUS_ADDR"), ":8080"),
+		DataDir: or(getenv("BUS_DATA_DIR"), "./data"),
+		BaseURL: strings.TrimRight(getenv("BUS_BASE_URL"), "/"),
 	}
-	c.Contact = or(getenv("TRAM_CONTACT"), or(c.BaseURL, repoURL))
+	c.Contact = or(getenv("BUS_CONTACT"), or(c.BaseURL, repoURL))
 	c.Feeds = FeedConfig{
-		GPSURL:       or(getenv("TRAM_GPS_URL"), "https://transport.tallinn.ee/gps.txt"),
-		ElronURL:     or(getenv("TRAM_ELRON_URL"), "https://elron.ee/map_data.json"),
-		SiriURL:      or(getenv("TRAM_SIRI_URL"), "https://transport.tallinn.ee/siri-stop-departures.php"),
-		OTPURL:       or(getenv("TRAM_OTP_URL"), "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql"),
-		StopsURL:     or(getenv("TRAM_STOPS_URL"), "https://transport.tallinn.ee/data/stops.txt"),
-		ElronGTFSURL: or(getenv("TRAM_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
+		GPSURL:       or(getenv("BUS_GPS_URL"), "https://transport.tallinn.ee/gps.txt"),
+		ElronURL:     or(getenv("BUS_ELRON_URL"), "https://elron.ee/map_data.json"),
+		SiriURL:      or(getenv("BUS_SIRI_URL"), "https://transport.tallinn.ee/siri-stop-departures.php"),
+		OTPURL:       or(getenv("BUS_OTP_URL"), "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql"),
+		StopsURL:     or(getenv("BUS_STOPS_URL"), "https://transport.tallinn.ee/data/stops.txt"),
+		ElronGTFSURL: or(getenv("BUS_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
 	}
 	var err error
-	if c.FakeFeeds, err = parseBool(getenv("TRAM_FAKE_FEEDS")); err != nil {
-		return c, fmt.Errorf("TRAM_FAKE_FEEDS: %w", err)
+	if c.FakeFeeds, err = parseBool(getenv("BUS_FAKE_FEEDS")); err != nil {
+		return c, fmt.Errorf("BUS_FAKE_FEEDS: %w", err)
 	}
 	// Never poll faster than the upstream updates (PLAN.md, licensing note).
-	if c.Feeds.GPSInterval, err = duration(getenv, "TRAM_GPS_INTERVAL", 5*time.Second, 2*time.Second); err != nil {
+	if c.Feeds.GPSInterval, err = duration(getenv, "BUS_GPS_INTERVAL", 5*time.Second, 2*time.Second); err != nil {
 		return c, err
 	}
-	if c.Feeds.ElronInterval, err = duration(getenv, "TRAM_ELRON_INTERVAL", 10*time.Second, 5*time.Second); err != nil {
+	if c.Feeds.ElronInterval, err = duration(getenv, "BUS_ELRON_INTERVAL", 10*time.Second, 5*time.Second); err != nil {
 		return c, err
 	}
-	for _, p := range strings.Split(getenv("TRAM_TRUSTED_PROXIES"), ",") {
+	for _, p := range strings.Split(getenv("BUS_TRUSTED_PROXIES"), ",") {
 		if p = strings.TrimSpace(p); p == "" {
 			continue
 		}
@@ -85,27 +85,27 @@ func load(getenv func(string) string) (Config, error) {
 		if err != nil {
 			addr, aerr := netip.ParseAddr(p)
 			if aerr != nil {
-				return c, fmt.Errorf("TRAM_TRUSTED_PROXIES %q: %w", p, err)
+				return c, fmt.Errorf("BUS_TRUSTED_PROXIES %q: %w", p, err)
 			}
 			prefix = netip.PrefixFrom(addr, addr.BitLen())
 		}
 		c.TrustedProxies = append(c.TrustedProxies, prefix.Masked())
 	}
-	c.AdminUser, c.AdminPassword = getenv("TRAM_ADMIN_USER"), getenv("TRAM_ADMIN_PASSWORD")
-	c.Metrics, c.MetricsToken = strings.ToLower(strings.TrimSpace(getenv("TRAM_METRICS"))), getenv("TRAM_METRICS_TOKEN")
+	c.AdminUser, c.AdminPassword = getenv("BUS_ADMIN_USER"), getenv("BUS_ADMIN_PASSWORD")
+	c.Metrics, c.MetricsToken = strings.ToLower(strings.TrimSpace(getenv("BUS_METRICS"))), getenv("BUS_METRICS_TOKEN")
 	switch c.Metrics {
 	case "":
 		c.Metrics = "private"
 	case "private", "public", "off":
 	default:
-		return c, fmt.Errorf("TRAM_METRICS %q: use private, public or off", c.Metrics)
+		return c, fmt.Errorf("BUS_METRICS %q: use private, public or off", c.Metrics)
 	}
 	if _, _, err := net.SplitHostPort(c.Addr); err != nil {
-		return c, fmt.Errorf("TRAM_ADDR %q: %w", c.Addr, err)
+		return c, fmt.Errorf("BUS_ADDR %q: %w", c.Addr, err)
 	}
-	if lvl := getenv("TRAM_LOG_LEVEL"); lvl != "" {
+	if lvl := getenv("BUS_LOG_LEVEL"); lvl != "" {
 		if err := c.LogLevel.UnmarshalText([]byte(lvl)); err != nil {
-			return c, fmt.Errorf("TRAM_LOG_LEVEL %q: %w", lvl, err)
+			return c, fmt.Errorf("BUS_LOG_LEVEL %q: %w", lvl, err)
 		}
 	}
 	return c, nil
@@ -119,7 +119,7 @@ func (c Config) HealthURL() string {
 
 // UserAgent identifies us to upstream feeds.
 func (c Config) UserAgent(version string) string {
-	return "Tram/" + version + " (+" + c.Contact + ")"
+	return "Bus/" + version + " (+" + c.Contact + ")"
 }
 
 func parseBool(s string) (bool, error) {

@@ -21,7 +21,7 @@ export interface Departure {
   leave_in_min: number | null;
 }
 
-/** Attributes of a sensor.tram_*_next entity. */
+/** Attributes of a sensor.bus_*_next entity. */
 export interface NextAttributes {
   line?: string;
   mode?: Mode;

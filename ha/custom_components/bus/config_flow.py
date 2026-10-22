@@ -26,7 +26,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import TramAuthError, TramClient, TramError, normalize_url
+from .api import BusAuthError, BusClient, BusError, normalize_url
 from .const import (
     CONF_LINES,
     CONF_ORIGIN,
@@ -36,17 +36,17 @@ from .const import (
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
-from .coordinator import TramConfigEntry
+from .coordinator import BusConfigEntry
 
 
-class TramConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Connect to a Tram server with a personal API token."""
+class BusConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Connect to a Bus server with a personal API token."""
 
     VERSION = 1
 
     async def _validate(self, data: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, str]]:
         """Returns the token's user, or form errors."""
-        client = TramClient(
+        client = BusClient(
             async_get_clientsession(self.hass, verify_ssl=data.get(CONF_VERIFY_SSL, True)),
             data[CONF_URL],
             data[CONF_TOKEN],
@@ -54,13 +54,13 @@ class TramConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         try:
             me = await client.me()
-        except TramAuthError:
+        except BusAuthError:
             return None, {CONF_TOKEN: "invalid_auth"}
-        except TramError:
+        except BusError:
             return None, {"base": "cannot_connect"}
         user = me.get("user") if isinstance(me, dict) else None
         if not isinstance(user, dict) or "username" not in user:
-            return None, {"base": "not_tram"}
+            return None, {"base": "not_bus"}
         return user, {}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -108,11 +108,11 @@ class TramConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: TramConfigEntry) -> OptionsFlow:
-        return TramOptionsFlow()
+    def async_get_options_flow(config_entry: BusConfigEntry) -> OptionsFlow:
+        return BusOptionsFlow()
 
 
-class TramOptionsFlow(OptionsFlow):
+class BusOptionsFlow(OptionsFlow):
     """Pick the saved lines to import, the update interval and the walking origin."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

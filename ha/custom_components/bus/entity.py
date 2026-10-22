@@ -8,12 +8,12 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_LINES, DOMAIN
-from .coordinator import TramConfigEntry, TramCoordinator
+from .coordinator import BusConfigEntry, BusCoordinator
 
 MODE_NAMES = {"tram": "Tram", "bus": "Bus", "trolley": "Trolleybus", "train": "Train"}
 
 
-def selected_lines(entry: TramConfigEntry) -> list[str]:
+def selected_lines(entry: BusConfigEntry) -> list[str]:
     """Line ids to create entities for: the options' selection, else every saved line."""
     data = entry.runtime_data.data
     available = list(data.lines) if data else []
@@ -21,12 +21,12 @@ def selected_lines(entry: TramConfigEntry) -> list[str]:
     return available if chosen is None else [lid for lid in chosen if lid in available]
 
 
-class TramLineEntity(CoordinatorEntity[TramCoordinator]):
+class BusLineEntity(CoordinatorEntity[BusCoordinator]):
     """An entity about one saved line."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: TramCoordinator, line_id: str, key: str) -> None:
+    def __init__(self, coordinator: BusCoordinator, line_id: str, key: str) -> None:
         super().__init__(coordinator)
         self.line_id = line_id
         line = self.line
@@ -36,8 +36,8 @@ class TramLineEntity(CoordinatorEntity[TramCoordinator]):
         label = line.get("label") or line.get("line") or line_id
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.unique_id}_{line_id}")},
-            name=f"Tram {label}",
-            manufacturer="Tram",
+            name=f"Bus {label}",
+            manufacturer="Bus",
             model=f"{MODE_NAMES.get(line.get('mode', ''), 'Line')} {line.get('line', '')} → {line.get('headsign', '')}",
             entry_type=DeviceEntryType.SERVICE,
             configuration_url=coordinator.client.base_url + (line.get("path") or ""),

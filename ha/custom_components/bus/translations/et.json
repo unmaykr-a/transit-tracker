@@ -10,8 +10,8 @@
           "verify_ssl": "Kontrolli SSL-sertifikaati"
         },
         "data_description": {
-          "url": "Näiteks https://tram.example.com",
-          "token": "Algab tram_"
+          "url": "Näiteks https://bus.example.com",
+          "token": "Algab bus_"
         }
       },
       "reauth_confirm": {
@@ -25,7 +25,7 @@
     "error": {
       "cannot_connect": "Serveriga ei saa ühendust",
       "invalid_auth": "Võti lükati tagasi",
-      "not_tram": "See ei paista olevat Trami server"
+      "not_bus": "See ei paista olevat Trami server"
     },
     "abort": {
       "already_configured": "See konto selles serveris on juba seadistatud",

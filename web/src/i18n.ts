@@ -19,7 +19,7 @@ void i18n
     supportedLngs: ["en", "et"],
     nonExplicitSupportedLngs: true,
     interpolation: { escapeValue: false },
-    detection: { order: ["localStorage", "navigator"], lookupLocalStorage: "tram.lang", caches: ["localStorage"] },
+    detection: { order: ["localStorage", "navigator"], lookupLocalStorage: "bus.lang", caches: ["localStorage"] },
   });
 
 i18n.on("languageChanged", (lng) => {

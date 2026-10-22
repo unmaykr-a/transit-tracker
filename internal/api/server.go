@@ -65,7 +65,7 @@ type Deps struct {
 	RefreshStatic  func(context.Context) error
 	Dashboard      *dashboard.Builder
 	Tracker        *eta.Tracker
-	// MetricsMode is TRAM_METRICS ("private" when empty); MetricsToken TRAM_METRICS_TOKEN.
+	// MetricsMode is BUS_METRICS ("private" when empty); MetricsToken BUS_METRICS_TOKEN.
 	MetricsMode, MetricsToken string
 }
 

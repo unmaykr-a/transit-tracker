@@ -1,10 +1,17 @@
 # Changelog
 
-## Unreleased (1.0.0 candidate)
+## 1.0.0 — 2026-10-22
+
+First release, published as **Bus** (developed as "Tram"). MIT licensed. Multi-arch image
+`ghcr.io/unmaykr-a/bus` (linux/amd64, linux/arm64); the Home Assistant integration (`bus.zip`, domain `bus`) and
+`bus-card.js` are attached to the GitHub release.
+
+- Renamed everything user-facing: environment variables are `BUS_*`, the binary is `/bus`, the database
+  `bus.db`, API tokens start with `bus_`, metrics with `bus_`, Home Assistant entities with `sensor.bus_…`.
 
 ### M7 — Polish
 - Prometheus `/metrics` (vehicles, feed health, HTTP by route, live clients, users, memory), restricted to private
-  networks by default (`TRAM_METRICS`, `TRAM_METRICS_TOKEN`); Grafana dashboard in `deploy/`.
+  networks by default (`BUS_METRICS`, `BUS_METRICS_TOKEN`); Grafana dashboard in `deploy/`.
 - Accessibility: axe WCAG 2.1 AA checks on every page in light and dark mode, keyboard-only e2e flow; bus and train
   colours darkened to meet 4.5:1 contrast with white text; readable map attribution and delay text in dark mode.
 - Locale consistency test (en/et keys, interpolation variables).
@@ -13,13 +20,13 @@
 ## M6 — Home Assistant (#7)
 - Personal API tokens (read-only, never admin), created in Settings and listed/revoked by admins.
 - `GET /api/v1/ha/lines` — every saved line with the next catchable departure, walk time and verdict in one request.
-- `custom_components/tram`: config flow, reauth, options (lines, interval, walking origin), next / leave-in /
+- `custom_components/bus`: config flow, reauth, options (lines, interval, walking origin), next / leave-in /
   catchable entities per line, diagnostics.
-- `tram-card` Lovelace card with a visual editor.
+- `bus-card` Lovelace card with a visual editor.
 
 ## M5 — Vehicle matching and ETAs (#6)
 - Vehicles matched to route patterns; next stops with ETAs in the vehicle sheet; markers glide along the route shape.
-- `tram eta-check` with record/replay. Accuracy within ±1 min of SIRI: 92 % for arrivals up to 5 min away, 59 %
+- `bus eta-check` with record/replay. Accuracy within ±1 min of SIRI: 92 % for arrivals up to 5 min away, 59 %
   over 2–20 min (target 80 % not met; see `docs/feeds.md`).
 
 ## M4 — My lines (#5)

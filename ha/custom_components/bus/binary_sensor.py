@@ -6,18 +6,18 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .coordinator import TramConfigEntry
-from .entity import TramLineEntity, selected_lines
+from .coordinator import BusConfigEntry
+from .entity import BusLineEntity, selected_lines
 
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: TramConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: BusConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(TramCatchableSensor(coordinator, lid, "catchable") for lid in selected_lines(entry))
+    async_add_entities(BusCatchableSensor(coordinator, lid, "catchable") for lid in selected_lines(entry))
 
 
-class TramCatchableSensor(TramLineEntity, BinarySensorEntity):
+class BusCatchableSensor(BusLineEntity, BinarySensorEntity):
     """On while a listed departure can still be caught; unknown without an origin."""
 
     @property
