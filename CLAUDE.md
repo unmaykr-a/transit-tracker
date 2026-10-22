@@ -61,7 +61,8 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   disagreement (soft, weaker when stationary) − headsign/stickiness bonuses, sets `pattern_id`, `next_stop_id`,
   `dist_along_m`. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
   dwell per stop; terminus layover is ignored. ETAs sum the paces ahead plus dwell at intermediate stops (route speed
-  until a segment has data). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
+  until a segment has data), scaled by a self-calibrated factor per mode and horizon band learned from the tracker's
+  own probes against later GPS arrivals (`calibrate`, half strength; `bus_eta_scale` metric). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
   `/patterns/{id}` and `/patterns?route=` (encoded polylines, ETag). The map tweens markers along the shape
   (`lib/shapes.ts`, `lib/tween.ts`) using `dist_along_m` (7th `move` tuple field).
 - `web/` — Vite + React 19 + TS + Tailwind v4 + shadcn/ui, TanStack Router (code-based routes in

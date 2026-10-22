@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/netip"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -87,6 +88,20 @@ func (s *Server) initMetrics() {
 		}
 		return float64(at.Unix())
 	}))
+	if s.tracker != nil {
+		r.GaugeFunc("bus_eta_scale", "Self-calibrated factor on predicted travel times, by mode and horizon band (1 = none).", func() []metrics.Sample {
+			var out []metrics.Sample
+			for mode, k := range s.tracker.Calibration() {
+				for i, band := range []string{"lt5m", "5to10m", "ge10m"} {
+					out = append(out, metrics.Sample{Labels: []string{"mode", string(mode), "band", band}, Value: k[i]})
+				}
+			}
+			slices.SortFunc(out, func(a, b metrics.Sample) int {
+				return strings.Compare(strings.Join(a.Labels, ","), strings.Join(b.Labels, ","))
+			})
+			return out
+		})
+	}
 	if s.db != nil {
 		r.GaugeFunc("bus_users", "Registered users.", func() []metrics.Sample {
 			n, err := s.db.Q.CountUsers(context.Background())
