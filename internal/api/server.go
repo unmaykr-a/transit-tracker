@@ -14,10 +14,12 @@ import (
 
 	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
+	"github.com/unmaykr-a/transit-tracker/internal/cache"
 	"github.com/unmaykr-a/transit-tracker/internal/config"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
 	"github.com/unmaykr-a/transit-tracker/internal/eta"
+	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 	"github.com/unmaykr-a/transit-tracker/internal/ingest"
 	"github.com/unmaykr-a/transit-tracker/internal/settings"
 	"github.com/unmaykr-a/transit-tracker/internal/state"
@@ -49,6 +51,8 @@ type Server struct {
 	metricsToken   string
 	oidc           *auth.OIDC
 	oidcConfig     config.OIDCConfig
+	geocode        func(ctx context.Context, q string) ([]feeds.Address, error)
+	geocodeCache   cache.TTL[string, []feeds.Address]
 }
 
 // Deps are the server's collaborators.
@@ -73,6 +77,8 @@ type Deps struct {
 	// OIDC enables single sign-on; nil when not configured.
 	OIDC       *auth.OIDC
 	OIDCConfig config.OIDCConfig
+	// Geocode searches addresses (for saved places); nil disables /geocode.
+	Geocode func(ctx context.Context, q string) ([]feeds.Address, error)
 }
 
 func NewServer(log *slog.Logger, d Deps) *Server {
@@ -89,7 +95,8 @@ func NewServer(log *slog.Logger, d Deps) *Server {
 		static: d.Static, staticStatus: d.StaticStatus, departures: d.Departures,
 		auth: d.Auth, settings: d.Settings, db: d.DB, dataDir: d.DataDir, trustedProxies: d.TrustedProxies, refreshStatic: d.RefreshStatic,
 		dashboard: d.Dashboard, tracker: d.Tracker, metricsMode: d.MetricsMode, metricsToken: d.MetricsToken,
-		oidc: d.OIDC, oidcConfig: d.OIDCConfig}
+		oidc: d.OIDC, oidcConfig: d.OIDCConfig, geocode: d.Geocode}
+	s.geocodeCache.TTL = time.Hour
 	s.initMetrics()
 	return s
 }
@@ -100,6 +107,7 @@ func (s *Server) Handler(web http.Handler) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(s.requestLog)
 	r.Use(s.withSession)
+	r.Use(s.securityHeaders)
 
 	r.Get("/healthz", s.healthz)
 	if s.metricsMode != "off" || s.metricsToken != "" {
