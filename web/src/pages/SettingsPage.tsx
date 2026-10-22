@@ -112,7 +112,7 @@ export default function SettingsPage() {
               <span>{t(`live.feed.${f.name}`, { defaultValue: f.name })}</span>
               <span className="text-muted-foreground tabular-nums">
                 {t("live.vehicles", { count: f.count })} ·{" "}
-                <span className={f.stale ? "text-amber-600 dark:text-amber-400" : undefined}>
+                <span className={f.stale ? "text-amber-700 dark:text-amber-400" : undefined}>
                   {f.stale ? t("settings.feedStale") : t("settings.feedOk")}
                 </span>
               </span>

@@ -57,8 +57,9 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - `internal/eta` — vehicle → pattern matching and ETAs. `Tracker.Annotate` runs inside the GPS poller before the
   store: projects each fix onto the line's pattern shapes (equirectangular, `Shape.Project`), scores offset + heading
   disagreement (soft, weaker when stationary) − headsign/stickiness bonuses, sets `pattern_id`, `next_stop_id`,
-  `dist_along_m`. Progress feeds per-segment paces (stop i → i+1, dwell included, decaying) per pattern; ETAs sum
-  the paces ahead (route speed until a segment has data). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
+  `dist_along_m`. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
+  dwell per stop; terminus layover is ignored. ETAs sum the paces ahead plus dwell at intermediate stops (route speed
+  until a segment has data). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
   `/patterns/{id}` and `/patterns?route=` (encoded polylines, ETag). The map tweens markers along the shape
   (`lib/shapes.ts`, `lib/tween.ts`) using `dist_along_m` (7th `move` tuple field).
 - `web/` — Vite + React 19 + TS + Tailwind v4 + shadcn/ui, TanStack Router (code-based routes in
@@ -76,7 +77,13 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   pytest (`pytest-homeassistant-custom-component`, run from `ha/`); `card/` — `tram-card` (Lit + TS + Rollup, editor
   built on `<ha-form>`; `src/model.ts` mirrors the verdict table — keep it identical to `dashboard.Judge`).
   Releases attach `tram.zip` and `tram-card.js` (`hacs.json` uses `zip_release`).
-- `deploy/` — production compose + `.env.example`. Root `compose.yaml` is the local dev build.
+- Metrics: `internal/metrics` (tiny Prometheus text-format registry, no client library); `internal/api/metrics.go`
+  registers families — counters/histograms on the request path, everything else collected at scrape time. Request
+  metrics are labelled by chi route pattern, never raw paths. `/metrics` access: `TRAM_METRICS` (private | public |
+  off) or `TRAM_METRICS_TOKEN`.
+- Accessibility: `web/e2e/a11y.spec.ts` runs axe (WCAG 2.1 AA) on every page in light and dark plus a keyboard-only
+  flow; new pages go into its lists. Text on mode colours must keep ≥ 4.5:1 contrast with white.
+- `deploy/` — production compose + `.env.example` + `grafana-dashboard.json`. Root `compose.yaml` is the local dev build.
 
 ## Commands
 

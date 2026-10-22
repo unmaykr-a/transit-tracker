@@ -136,6 +136,7 @@ func serve(cfg config.Config) error {
 			Store: vehicles, Health: health, Static: importer.Index, StaticStatus: importer.Status, Departures: deps,
 			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies,
 			RefreshStatic: importer.Import, Dashboard: board, Tracker: tracker,
+			MetricsMode: cfg.Metrics, MetricsToken: cfg.MetricsToken,
 		}).Handler(api.SPA(api.Dist())),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

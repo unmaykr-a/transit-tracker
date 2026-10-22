@@ -175,6 +175,8 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		return // Accept already wrote the HTTP error
 	}
 	defer c.CloseNow()
+	s.metrics.wsClients.Add(1)
+	defer s.metrics.wsClients.Add(-1)
 	c.SetReadLimit(16 << 10)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -242,6 +244,8 @@ func (s *Server) vehicleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Accel-Buffering", "no") // nginx: do not buffer the stream
+	s.metrics.sseClients.Add(1)
+	defer s.metrics.sseClients.Add(-1)
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 

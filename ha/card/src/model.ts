@@ -6,9 +6,9 @@ export type Level = "neutral" | "green" | "amber" | "red" | "none";
 /** Same accents as the web app (web/src/lib/modeColors.ts). */
 export const MODE_COLORS: Record<Mode, string> = {
   tram: "#d02f2a",
-  bus: "#0e8f86",
+  bus: "#0b7d75",
   trolley: "#2d66c3",
-  train: "#e8751a",
+  train: "#b8540a",
 };
 
 export interface Departure {

@@ -19,7 +19,7 @@ export default function HealthPage() {
         <section key={f.name} className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-card p-4" aria-label={f.name}>
           <div className="flex min-w-48 flex-col gap-1 text-sm">
             <h2 className="flex items-center gap-2 font-medium">
-              {f.stale ? <CircleAlert className="size-4 text-amber-600" aria-hidden /> : <CircleCheck className="size-4 text-emerald-600" aria-hidden />}
+              {f.stale ? <CircleAlert className="size-4 text-amber-700" aria-hidden /> : <CircleCheck className="size-4 text-emerald-600" aria-hidden />}
               {t(`live.feed.${f.name}`, { defaultValue: f.name })}
               <span className="font-normal text-muted-foreground">· {f.stale ? t("admin.stale") : t("admin.ok")}</span>
             </h2>

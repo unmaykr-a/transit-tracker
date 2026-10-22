@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/unmaykr-a/transit-tracker/internal/ingest"
 )
 
 func newTestServer(t *testing.T, web fstest.MapFS) *httptest.Server {
@@ -102,5 +104,56 @@ func TestEmbeddedDistCompiles(t *testing.T) {
 	// Dist must work with only .gitkeep present (fresh clone, no web build).
 	if Dist() == nil {
 		t.Fatal("nil dist")
+	}
+}
+
+func TestMetricsEndpoint(t *testing.T) {
+	get := func(srv *Server, remote, auth string) (int, string) {
+		req := httptest.NewRequest("GET", "/metrics", nil)
+		req.RemoteAddr = remote
+		if auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+		w := httptest.NewRecorder()
+		srv.Handler(http.NotFoundHandler()).ServeHTTP(w, req)
+		return w.Code, w.Body.String()
+	}
+	health := ingest.NewHealth()
+	srv := NewServer(slog.New(slog.DiscardHandler), Deps{Health: health})
+	// A request first, so the request counter has a series.
+	h := srv.Handler(http.NotFoundHandler())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/healthz", nil))
+
+	code, body := get(srv, "192.168.1.20:5000", "")
+	if code != 200 {
+		t.Fatalf("private client: %d", code)
+	}
+	for _, want := range []string{
+		`tram_build_info{version="`,
+		`tram_http_requests_total{route="/healthz",method="GET",code="200"} 1`,
+		`tram_http_request_duration_seconds_bucket{route="/healthz",le="+Inf"} 1`,
+		`tram_vehicles{mode="tram",state="all"} 0`,
+		`tram_live_clients{transport="websocket"} 0`,
+		"# TYPE go_goroutines gauge",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("metrics missing %q", want)
+		}
+	}
+	if code, _ := get(srv, "203.0.113.9:5000", ""); code != 403 {
+		t.Errorf("public client on private mode = %d", code)
+	}
+	if code, _ := get(NewServer(slog.New(slog.DiscardHandler), Deps{MetricsMode: "public"}), "203.0.113.9:5000", ""); code != 200 {
+		t.Errorf("public mode = %d", code)
+	}
+	if code, _ := get(NewServer(slog.New(slog.DiscardHandler), Deps{MetricsMode: "off"}), "127.0.0.1:5000", ""); code == 200 {
+		t.Error("off mode served metrics")
+	}
+	tok := NewServer(slog.New(slog.DiscardHandler), Deps{MetricsToken: "s3cret"})
+	if code, _ := get(tok, "127.0.0.1:5000", ""); code != 403 {
+		t.Errorf("token mode without token = %d", code)
+	}
+	if code, _ := get(tok, "203.0.113.9:5000", "Bearer s3cret"); code != 200 {
+		t.Errorf("token mode with token = %d", code)
 	}
 }

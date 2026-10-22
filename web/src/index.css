@@ -14,9 +14,9 @@
   --card: oklch(1 0 0);
 
   --mode-tram: #d02f2a;
-  --mode-bus: #0e8f86;
+  --mode-bus: #0b7d75;
   --mode-trolley: #2d66c3;
-  --mode-train: #e8751a;
+  --mode-train: #b8540a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -76,9 +76,10 @@
 
 /* MapLibre controls follow the app theme. */
 .maplibregl-ctrl-group,
+.maplibregl-ctrl-attrib,
 .maplibregl-ctrl-attrib.maplibregl-compact {
   background: var(--card) !important;
-  color: var(--foreground);
+  color: var(--foreground) !important;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.2) !important;
 }
 .maplibregl-ctrl-group button + button {

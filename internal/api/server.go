@@ -43,6 +43,9 @@ type Server struct {
 	refreshStatic  func(context.Context) error
 	dashboard      *dashboard.Builder
 	tracker        *eta.Tracker
+	metrics        *serverMetrics
+	metricsMode    string
+	metricsToken   string
 }
 
 // Deps are the server's collaborators.
@@ -62,6 +65,8 @@ type Deps struct {
 	RefreshStatic  func(context.Context) error
 	Dashboard      *dashboard.Builder
 	Tracker        *eta.Tracker
+	// MetricsMode is TRAM_METRICS ("private" when empty); MetricsToken TRAM_METRICS_TOKEN.
+	MetricsMode, MetricsToken string
 }
 
 func NewServer(log *slog.Logger, d Deps) *Server {
@@ -71,10 +76,15 @@ func NewServer(log *slog.Logger, d Deps) *Server {
 	if d.Health == nil {
 		d.Health = ingest.NewHealth()
 	}
-	return &Server{log: log, started: time.Now(), store: d.Store, health: d.Health, originPatterns: d.OriginPatterns,
+	if d.MetricsMode == "" {
+		d.MetricsMode = "private"
+	}
+	s := &Server{log: log, started: time.Now(), store: d.Store, health: d.Health, originPatterns: d.OriginPatterns,
 		static: d.Static, staticStatus: d.StaticStatus, departures: d.Departures,
 		auth: d.Auth, settings: d.Settings, db: d.DB, dataDir: d.DataDir, trustedProxies: d.TrustedProxies, refreshStatic: d.RefreshStatic,
-		dashboard: d.Dashboard, tracker: d.Tracker}
+		dashboard: d.Dashboard, tracker: d.Tracker, metricsMode: d.MetricsMode, metricsToken: d.MetricsToken}
+	s.initMetrics()
+	return s
 }
 
 // Handler returns the root handler. web is the built UI (see Dist).
@@ -85,6 +95,9 @@ func (s *Server) Handler(web http.Handler) http.Handler {
 	r.Use(s.withSession)
 
 	r.Get("/healthz", s.healthz)
+	if s.metricsMode != "off" || s.metricsToken != "" {
+		r.Get("/metrics", s.handleMetrics)
+	}
 	r.With(s.publicGate).Get("/ws", s.websocket)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(s.csrfGuard)
@@ -146,6 +159,7 @@ func (s *Server) requestLog(next http.Handler) http.Handler {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		start := time.Now()
 		next.ServeHTTP(ww, r)
+		s.observeRequest(r, ww.Status(), time.Since(start))
 		if r.URL.Path == "/healthz" {
 			return // polled every 30 s by Docker; keep logs readable
 		}

@@ -28,6 +28,10 @@ type Config struct {
 	TrustedProxies []netip.Prefix
 	// AdminUser/AdminPassword seed the first admin on an empty database.
 	AdminUser, AdminPassword string
+	// Metrics controls GET /metrics: "private" (loopback and private networks
+	// only; the default), "public" or "off". MetricsToken, when set, is required
+	// as a bearer token instead of the network check.
+	Metrics, MetricsToken string
 }
 
 // FeedConfig holds upstream URLs and poll intervals. Admin-editable overrides arrive with settings (M3).
@@ -88,6 +92,14 @@ func load(getenv func(string) string) (Config, error) {
 		c.TrustedProxies = append(c.TrustedProxies, prefix.Masked())
 	}
 	c.AdminUser, c.AdminPassword = getenv("TRAM_ADMIN_USER"), getenv("TRAM_ADMIN_PASSWORD")
+	c.Metrics, c.MetricsToken = strings.ToLower(strings.TrimSpace(getenv("TRAM_METRICS"))), getenv("TRAM_METRICS_TOKEN")
+	switch c.Metrics {
+	case "":
+		c.Metrics = "private"
+	case "private", "public", "off":
+	default:
+		return c, fmt.Errorf("TRAM_METRICS %q: use private, public or off", c.Metrics)
+	}
 	if _, _, err := net.SplitHostPort(c.Addr); err != nil {
 		return c, fmt.Errorf("TRAM_ADDR %q: %w", c.Addr, err)
 	}
