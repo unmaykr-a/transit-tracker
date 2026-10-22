@@ -198,10 +198,11 @@ match on route + scheduled start time instead.
   | --- | --- | --- | --- |
   | morning (25 min) | within ±1 min of SIRI | 58.6 % | 66.1 % |
   | morning | within ±1 min of observed arrivals | 78.9 % | 81.5 % (SIRI 88.9 %) |
-  | afternoon (75 min) | within ±1 min of SIRI | 60.0 % | 65.9 % |
-  | afternoon | within ±1 min of observed arrivals | 72.0 % | 73.9 % (SIRI 71.4 %) |
+  | afternoon (75 min, ~12 500 predictions) | within ±1 min of SIRI | 59.4 % | 63.9 % |
+  | afternoon | within ±1 min of observed arrivals | 65.7 % | 67.7 % (SIRI 66.9 %) |
 
-  On the larger afternoon sample our predictions match real arrivals as often as SIRI's do; the gap to the 80 %
+  (The half-strength choice was made on the first 40 minutes of the afternoon recording; the table shows all 75.)
+  On the larger afternoon sample our predictions match real arrivals slightly more often than SIRI's do; the gap to the 80 %
   "vs SIRI" target is mostly the two predictors disagreeing beyond 10 minutes. The learned factors are exported as
   `bus_eta_scale{mode,band}`.
 - Departure boards and My lines use SIRI times, not these ETAs. Tracker ETAs drive the vehicle sheet's
