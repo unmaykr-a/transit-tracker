@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const countSavedLines = `-- name: CountSavedLines :one
@@ -21,10 +22,11 @@ func (q *Queries) CountSavedLines(ctx context.Context, userID int64) (int64, err
 }
 
 const createSavedLine = `-- name: CreateSavedLine :one
-INSERT INTO saved_lines (user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at)
+INSERT INTO saved_lines (user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, origin_place_id)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), ?8, ?9)
-RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id
+        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), ?8, ?9,
+        ?10)
+RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id
 `
 
 type CreateSavedLineParams struct {
@@ -37,6 +39,7 @@ type CreateSavedLineParams struct {
 	Label              string
 	NotifyThresholdMin int64
 	CreatedAt          int64
+	OriginPlaceID      sql.NullInt64
 }
 
 func (q *Queries) CreateSavedLine(ctx context.Context, arg CreateSavedLineParams) (SavedLine, error) {
@@ -50,6 +53,7 @@ func (q *Queries) CreateSavedLine(ctx context.Context, arg CreateSavedLineParams
 		arg.Label,
 		arg.NotifyThresholdMin,
 		arg.CreatedAt,
+		arg.OriginPlaceID,
 	)
 	var i SavedLine
 	err := row.Scan(
@@ -67,6 +71,7 @@ func (q *Queries) CreateSavedLine(ctx context.Context, arg CreateSavedLineParams
 		&i.Kind,
 		&i.FromAreaID,
 		&i.ToAreaID,
+		&i.OriginPlaceID,
 	)
 	return i, err
 }
@@ -105,18 +110,20 @@ func (q *Queries) CreateSavedPlace(ctx context.Context, arg CreateSavedPlacePara
 }
 
 const createSavedTrip = `-- name: CreateSavedTrip :one
-INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, label, sort, notify_threshold_min, created_at)
+INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, label, sort, notify_threshold_min, created_at, origin_place_id)
 VALUES (?1, 'trip', '', 0, '', ?2, ?3, ?4,
-        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), 0, ?5)
-RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id
+        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), 0, ?5,
+        ?6)
+RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id
 `
 
 type CreateSavedTripParams struct {
-	UserID     int64
-	FromAreaID string
-	ToAreaID   string
-	Label      string
-	CreatedAt  int64
+	UserID        int64
+	FromAreaID    string
+	ToAreaID      string
+	Label         string
+	CreatedAt     int64
+	OriginPlaceID sql.NullInt64
 }
 
 func (q *Queries) CreateSavedTrip(ctx context.Context, arg CreateSavedTripParams) (SavedLine, error) {
@@ -126,6 +133,7 @@ func (q *Queries) CreateSavedTrip(ctx context.Context, arg CreateSavedTripParams
 		arg.ToAreaID,
 		arg.Label,
 		arg.CreatedAt,
+		arg.OriginPlaceID,
 	)
 	var i SavedLine
 	err := row.Scan(
@@ -143,6 +151,7 @@ func (q *Queries) CreateSavedTrip(ctx context.Context, arg CreateSavedTripParams
 		&i.Kind,
 		&i.FromAreaID,
 		&i.ToAreaID,
+		&i.OriginPlaceID,
 	)
 	return i, err
 }
@@ -182,7 +191,7 @@ func (q *Queries) DeleteSavedPlace(ctx context.Context, arg DeleteSavedPlacePara
 }
 
 const getSavedLine = `-- name: GetSavedLine :one
-SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id FROM saved_lines WHERE id = ? AND user_id = ?
+SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id FROM saved_lines WHERE id = ? AND user_id = ?
 `
 
 type GetSavedLineParams struct {
@@ -208,6 +217,7 @@ func (q *Queries) GetSavedLine(ctx context.Context, arg GetSavedLineParams) (Sav
 		&i.Kind,
 		&i.FromAreaID,
 		&i.ToAreaID,
+		&i.OriginPlaceID,
 	)
 	return i, err
 }
@@ -274,7 +284,7 @@ func (q *Queries) ListBoardStops(ctx context.Context) ([]string, error) {
 }
 
 const listSavedLines = `-- name: ListSavedLines :many
-SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id FROM saved_lines WHERE user_id = ? ORDER BY sort, id
+SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id FROM saved_lines WHERE user_id = ? ORDER BY sort, id
 `
 
 func (q *Queries) ListSavedLines(ctx context.Context, userID int64) ([]SavedLine, error) {
@@ -301,6 +311,7 @@ func (q *Queries) ListSavedLines(ctx context.Context, userID int64) ([]SavedLine
 			&i.Kind,
 			&i.FromAreaID,
 			&i.ToAreaID,
+			&i.OriginPlaceID,
 		); err != nil {
 			return nil, err
 		}
@@ -392,13 +403,18 @@ func (q *Queries) SetSavedLineSort(ctx context.Context, arg SetSavedLineSortPara
 }
 
 const updateSavedLine = `-- name: UpdateSavedLine :exec
-UPDATE saved_lines SET label = ?, alight_stop_id = ?, notify_threshold_min = ? WHERE id = ? AND user_id = ?
+UPDATE saved_lines
+SET label = ?, alight_stop_id = ?, notify_threshold_min = ?, from_area_id = ?, to_area_id = ?, origin_place_id = ?
+WHERE id = ? AND user_id = ?
 `
 
 type UpdateSavedLineParams struct {
 	Label              string
 	AlightStopID       string
 	NotifyThresholdMin int64
+	FromAreaID         string
+	ToAreaID           string
+	OriginPlaceID      sql.NullInt64
 	ID                 int64
 	UserID             int64
 }
@@ -408,6 +424,9 @@ func (q *Queries) UpdateSavedLine(ctx context.Context, arg UpdateSavedLineParams
 		arg.Label,
 		arg.AlightStopID,
 		arg.NotifyThresholdMin,
+		arg.FromAreaID,
+		arg.ToAreaID,
+		arg.OriginPlaceID,
 		arg.ID,
 		arg.UserID,
 	)

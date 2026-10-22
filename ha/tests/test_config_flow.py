@@ -20,6 +20,7 @@ async def test_user_flow(hass: HomeAssistant, bus_server) -> None:
         result["flow_id"], {CONF_URL: "bus.example.com/", CONF_TOKEN: TOKEN, CONF_VERIFY_SSL: True}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["options"] == {CONF_ORIGIN: "zone.home"}  # walk from home by default
     assert result["title"] == "andri @ bus.example.com"
     assert result["data"][CONF_URL] == URL
     # The token is sent as a bearer header.

@@ -4,7 +4,8 @@ Two pieces:
 
 - **[`custom_components/bus`](../custom_components/bus)** (at the repository root, where HACS expects it) — an
   integration that turns your saved lines into sensors.
-- **[`card/`](card)** — `bus-card`, a Lovelace card that shows them like the web app does.
+- **[`card/`](card)** — `bus-card`, a Lovelace card that shows them like the web app does (bundled with the
+  integration, nothing to install separately).
 
 ## 1. Create an API token
 
@@ -35,8 +36,22 @@ Open the integration's **Configure** dialog:
 - **Saved lines** — which lines become devices. With everything selected, the integration follows your saved
   lines (new ones appear after the next reload).
 - **Update interval** — 30 s by default, 15 s minimum. All lines come from one request per interval.
-- **Walk from** — a zone (`zone.home`), person or device tracker. Its position is sent with each request
-  (and never stored by the server), which enables walking time, the verdict and *leave in*.
+- **Walk from** — where walking time is measured from: `zone.home` by default, or a person or device tracker to
+  follow you around. Its position is sent with each request (and never stored by the server), which enables walking
+  time, the verdict and *leave in*.
+
+### Walking time and "leave in" (location)
+
+*Leave in*, *catchable* and the verdict need a starting point. In order, the integration uses:
+
+1. The **Walk from** entity's GPS position (a person or tracker fed by the Companion app, or a zone).
+2. If that entity has no coordinates — a person tracked only by the router, say — the **zone it is in**
+   (`home` → `zone.home`, `Work` → your Work zone). Away from every zone there is no position.
+3. Otherwise, each line's own **usual starting point**, set in the Bus web app (edit a trip → *Usual starting
+   point*, from the places under **Settings → Walking**).
+
+If walking time stays empty, check under **Developer tools → States** that the Walk-from entity has
+`latitude`/`longitude` attributes, or pick `zone.home`.
 
 ### Entities
 
@@ -48,10 +63,11 @@ One device per saved line, e.g. a line labelled *Work*:
 | `sensor.bus_work_leave_in` | minutes until you must leave | needs *Walk from*; unknown otherwise |
 | `binary_sensor.bus_work_catchable` | on while a listed departure can be caught | needs *Walk from* |
 
-`sensor.bus_*_next` attributes: `line`, `mode`, `label`, `headsign`, `stop_name`, `platform`, `minutes`,
-`delay_s`, `realtime`, `next_departures` (up to 5, each with `time`, `minutes`, `delay_s`, `realtime`,
-`headsign`, `verdict`, `leave_in_min`), `walk_min`, `walk_approx`, `verdict`, `leave_in_min`, `catchable`,
-`url`.
+`sensor.bus_*_next` attributes: `line`, `mode`, `label`, `kind` (`line` or `trip`), `lines` (a trip's lines),
+`headsign`, `destination`, `stop_name`, `platform`, `minutes`, `delay_s`, `realtime`, `next_departures` (up to 5,
+each with `time`, `minutes`, `delay_s`, `realtime`, `headsign`, `line`, `mode`, `verdict`, `leave_in_min`),
+`walk_min`, `walk_approx`, `walk_from` (the line's own starting place, when used), `verdict`, `leave_in_min`,
+`catchable`, `order`, `url`.
 
 If the token is revoked, Home Assistant asks for a new one (re-authentication) instead of failing silently.
 
@@ -77,28 +93,52 @@ actions:
         {{ state_attr('sensor.bus_work_next', 'stop_name') }}
 ```
 
-## 3. Install the card
+## 3. The card
 
-**Manually:** download `bus-card.js` from the latest release into `config/www/`, then
-**Settings → Dashboards → ⋮ → Resources → Add resource**: URL `/local/bus-card.js`, type *JavaScript module*.
-(HACS installs dashboard cards from separate repositories only, so the card is not offered there yet.)
+The integration ships the `bus-card` and loads it on every dashboard: there is nothing to download and no resource
+to add. Edit a dashboard → **Add card** → search **Bus**. With no lines picked it shows all of your saved lines, in
+your Bus order, laid out like the web app: the line and where you board, a big countdown with the clock time, the
+verdict chip and the next departures. Trips show their lines and the line of each departure.
 
-Add the card from the card picker (**Bus**) and choose lines in the visual editor, or in YAML:
+(If you added `bus-card.js` as a resource by hand earlier, remove that resource under **Settings → Dashboards → ⋮ →
+Resources**.)
+
+Options in the visual editor, or in YAML:
 
 ```yaml
 type: custom:bus-card
-entities:
-  - sensor.bus_work_next
-  - sensor.bus_gym_next
+# entities: [sensor.bus_work_next, sensor.bus_gym_next]   # leave out for every saved line
 departures: 3 # 1–5
 show_walk: true
 show_verdict: true
-layout: full # or compact
+layout: full # or compact (one row per line)
 title: Departures # optional
 ```
 
-The card uses your Home Assistant theme, counts down between updates, skips departures you can no longer
-catch, and opens the line in the Bus web app when tapped.
+The card uses your Home Assistant theme, counts down between updates, skips departures you can no longer catch,
+and opens the line in the Bus web app when tapped.
+
+## 4. On the phone's home screen
+
+Home screen widgets in the Companion apps cannot show dashboard cards, only entity states and text templates.
+Two good options:
+
+- **The Bus web app itself** — open your Bus URL in the phone's browser → *Add to Home Screen*. It installs as an
+  app (PWA) with the full My lines view, live countdowns and the map.
+- **A Companion app widget** with this template. On **Android**: long-press the home screen → Widgets → Home
+  Assistant → *Template*. On **iOS**: add the Home Assistant widget → *Details* (three lines; use one line per row).
+
+  ```jinja
+  {%- for s in integration_entities('bus') | select('match', 'sensor\..*_next$') %}
+  {%- set m = ((as_timestamp(states(s), 0) - now().timestamp()) / 60) | round(0) | int %}
+  {%- set leave = state_attr(s, 'leave_in_min') %}
+  <b>{{ state_attr(s, 'line') }}</b> {{ state_attr(s, 'label') }}: <big>{{ m ~ ' min' if m > 0 else 'now' }}</big>
+  {%- if leave is number %} · leave {{ 'now' if leave <= 0 else 'in ' ~ leave ~ ' min' }}{% endif %}<br>
+  {%- endfor %}
+  ```
+
+  On Android you can also open any `sensor.bus_*_next` entity → ⋮ → *Add to* → *Widget* for a one-line widget.
+  Widgets refresh when the sensors change; allow the Companion app's notification access for real-time updates.
 
 ## Develop
 

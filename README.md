@@ -7,6 +7,7 @@ Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 - **My lines** — save your everyday lines and see live countdowns with a *can I make it?* verdict based on real
   walking time from where you are (or a saved place).
   Or save a **trip** between two stops: every line that rides directly between them counts, whichever comes first.
+  Lines and trips can have a usual starting point for when your location is off.
 - **Live map** — every bus, tram, trolleybus and Elron train, gliding along its route, with the next stops and ETAs.
 - **Search, stops and lines** — departure boards per platform (live SIRI times, timetable fallback), route maps.
 - **Harju county buses** — the ~220 county lines (SEBE, GoBus, Hansabuss…) from the national timetable: search,
@@ -77,9 +78,9 @@ demoted); Bus warns you about this when you link.
 
 ## Home Assistant
 
-Create an API token under **Settings → API tokens**, install the integration and card from the release
-(`bus.zip`, `bus-card.js`; or add this repository to HACS as a custom *Integration* repository) and follow
-[ha/README.md](ha/README.md). Each saved line becomes a device with `sensor.bus_<label>_next`,
+Create an API token under **Settings → API tokens**, add this repository to HACS as a custom *Integration*
+repository (or unpack `bus.zip` from the release) and follow [ha/README.md](ha/README.md). The dashboard card comes
+with the integration. Each saved line becomes a device with `sensor.bus_<label>_next`,
 `sensor.bus_<label>_leave_in` and `binary_sensor.bus_<label>_catchable`.
 
 <img src="docs/screenshots/home-assistant.png" alt="bus-card in Home Assistant" width="320">

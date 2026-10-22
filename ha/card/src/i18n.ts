@@ -20,6 +20,11 @@ const en = {
   full: "Full",
   compact: "Compact",
   title: "Title (optional)",
+  from: "from {stop}",
+  walkFrom: "from {place}",
+  then: "then",
+  allLines: "Saved lines (leave empty for all)",
+  noLines: "No saved lines yet. Add lines in Bus, then reload the integration.",
 };
 
 const et: typeof en = {
@@ -43,6 +48,11 @@ const et: typeof en = {
   full: "Täielik",
   compact: "Kompaktne",
   title: "Pealkiri (valikuline)",
+  from: "peatusest {stop}",
+  walkFrom: "kohast {place}",
+  then: "siis",
+  allLines: "Salvestatud liinid (tühi: kõik)",
+  noLines: "Salvestatud liine veel pole. Lisa liine Busis ja laadi integratsioon uuesti.",
 };
 
 export type Key = keyof typeof en;

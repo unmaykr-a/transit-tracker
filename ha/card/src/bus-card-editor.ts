@@ -23,8 +23,7 @@ export class BusCardEditor extends LitElement {
     return [
       {
         name: "entities",
-        label: t("pickEntities"),
-        required: true,
+        label: t("allLines"),
         selector: { entity: { multiple: true, filter: { integration: "bus", domain: "sensor", device_class: "timestamp" } } },
       },
       { name: "title", label: t("title"), selector: { text: {} } },
@@ -75,4 +74,3 @@ export class BusCardEditor extends LitElement {
   }
 }
 
-if (!customElements.get("bus-card-editor")) customElements.define("bus-card-editor", BusCardEditor);

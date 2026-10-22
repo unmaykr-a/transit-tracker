@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowDown, ArrowUp, Footprints, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Footprints, Pencil, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { DashboardEntry } from "@/api";
@@ -77,6 +77,7 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
               <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
                 · <Footprints className="size-3.5" aria-hidden />
                 {walk.approx ? t("home.walkApprox", { min: walk.minutes }) : t("home.walk", { min: walk.minutes })}
+                {entry.walk_from && <> {t("home.walkFromPlace", { place: entry.walk_from })}</>}
               </span>
             )}
           </p>
@@ -89,6 +90,13 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
             <Button variant="ghost" size="icon" disabled={last} onClick={() => onMove?.(1)} aria-label={t("home.moveDown")}>
               <ArrowDown className="size-4" />
             </Button>
+            {trip && (
+              <Button variant="ghost" size="icon" asChild>
+                <Link to="/trips/new" search={{ edit: l.id }} aria-label={t("trip.edit")}>
+                  <Pencil className="size-4" />
+                </Link>
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={onRemove} aria-label={t("home.remove")}>
               <Trash2 className="size-4" />
             </Button>

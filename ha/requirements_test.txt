@@ -1,1 +1,3 @@
 pytest-homeassistant-custom-component==0.13.316
+# The integration depends on frontend (it loads the bundled card); keep in step with that HA's frontend manifest.
+home-assistant-frontend==20260128.6

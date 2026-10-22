@@ -72,7 +72,12 @@ class BusConfigFlow(ConfigFlow, domain=DOMAIN):
                 host = urlparse(user_input[CONF_URL]).netloc
                 await self.async_set_unique_id(f"{host}:{user['username']}".lower())
                 self._abort_if_unique_id_configured(updates={CONF_URL: user_input[CONF_URL], CONF_TOKEN: user_input[CONF_TOKEN]})
-                return self.async_create_entry(title=f"{user['username']} @ {host}", data=user_input)
+                return self.async_create_entry(
+                    title=f"{user['username']} @ {host}",
+                    data=user_input,
+                    # Walk from home until changed under Configure: zone.home always has a position.
+                    options={CONF_ORIGIN: "zone.home"},
+                )
         schema = vol.Schema(
             {
                 vol.Required(CONF_URL, default=(user_input or {}).get(CONF_URL, "")): TextSelector(

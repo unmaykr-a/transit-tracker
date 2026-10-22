@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { expandSheet } from "./helpers";
+
 test.describe("search, stops and lines", () => {
   test("searching Balti jaam shows city platforms and Elron departures", async ({ page }) => {
     await page.goto("/search");
@@ -55,6 +57,7 @@ test.describe("search, stops and lines", () => {
     await page.goto(`/map?stop=${stop.platforms[0].id}`);
     const sheet = page.locator("section[aria-label^='Balti jaam']");
     await expect(sheet).toBeVisible();
+    await expandSheet(sheet);
     await expect(sheet.getByRole("link", { name: "Open stop page" })).toBeVisible();
     await expect(page).toHaveURL(/stop=/);
   });

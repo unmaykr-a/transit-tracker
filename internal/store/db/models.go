@@ -77,6 +77,7 @@ type SavedLine struct {
 	Kind               string
 	FromAreaID         string
 	ToAreaID           string
+	OriginPlaceID      sql.NullInt64
 }
 
 type SavedPlace struct {

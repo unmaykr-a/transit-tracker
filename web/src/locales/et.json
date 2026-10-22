@@ -38,7 +38,9 @@
     "lineFilterPlaceholder": "nt 4, 17A",
     "clearLines": "Tühjenda liinifilter",
     "locate": "Näita minu asukohta",
-    "loading": "Kaart laeb…"
+    "loading": "Kaart laeb…",
+    "sheetMore": "Näita üksikasju",
+    "sheetLess": "Näita vähem"
   },
   "vehicle": {
     "towards": "suunaga {{destination}}",
@@ -55,7 +57,8 @@
     "close": "Sulge",
     "gone": "See sõiduk ei edasta enam asukohta.",
     "nextStops": "Järgmised peatused",
-    "openLine": "Ava liin"
+    "openLine": "Ava liin",
+    "nextStop": "Järgmine:"
   },
   "home": {
     "title": "Minu liinid",
@@ -81,7 +84,8 @@
     "remove": "Eemalda",
     "unavailable": "Seda liini või peatust sõiduplaanis enam pole.",
     "noDepartures": "Lähitundidel väljumisi pole.",
-    "then": "siis"
+    "then": "siis",
+    "walkFromPlace": "kohast {{place}}"
   },
   "search": {
     "title": "Otsing",
@@ -143,7 +147,8 @@
     "loading": "Laen…",
     "retry": "Proovi uuesti",
     "back": "Tagasi",
-    "error": "Midagi läks valesti."
+    "error": "Midagi läks valesti.",
+    "cancel": "Tühista"
   },
   "auth": {
     "username": "Kasutajanimi",
@@ -335,7 +340,10 @@
     "placeLabelPlaceholder": "Kodu, töö…",
     "hereNow": "Kasuta praegust asukohta",
     "orStop": "või peatuse juures",
-    "noPlaces": "Salvestatud kohti pole."
+    "noPlaces": "Salvestatud kohti pole.",
+    "pickOnMap": "Vali kaardil",
+    "mapHint": "Liiguta kaarti nii, et nööpnõel oleks kohal, ja kinnita.",
+    "useThisSpot": "Kasuta seda kohta"
   },
   "tokens": {
     "title": "API-võtmed",
@@ -368,6 +376,14 @@
     "searchStop": "Otsi peatust",
     "change": "Muuda: {{what}}",
     "results": "{{what}}: tulemused",
-    "linesLabel": "Liinid"
+    "linesLabel": "Liinid",
+    "edit": "Muuda sõitu",
+    "editTitle": "Muuda sõitu",
+    "notFound": "Seda sõitu enam pole.",
+    "startPlace": "Tavaline alguskoht",
+    "startPlaceHint": "Kõndimisaeg ja hinnang arvutatakse siit, kui sa oma asukohta ei jaga (ka Home Assistantis ilma „Kust kõnnid“ olemita).",
+    "noStartPlace": "Puudub",
+    "addPlace": "Lisa koht",
+    "update": "Salvesta muudatused"
   }
 }

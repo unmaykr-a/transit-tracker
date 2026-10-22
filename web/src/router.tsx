@@ -39,7 +39,11 @@ const routeTree = rootRoute.addChildren([
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/trips/new",
-    validateSearch: (s: Record<string, unknown>): { from?: string } => ({ from: str(s.from) }),
+    // ?from= presets the start stop; ?edit= opens a saved trip for editing.
+    validateSearch: (s: Record<string, unknown>): { from?: string; edit?: number } => ({
+      from: str(s.from),
+      edit: typeof s.edit === "number" ? s.edit : Number(s.edit) || undefined,
+    }),
     component: lazyRouteComponent(() => import("@/pages/TripPage")),
   }),
   createRoute({

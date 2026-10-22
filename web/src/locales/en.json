@@ -38,7 +38,9 @@
     "lineFilterPlaceholder": "e.g. 4, 17A",
     "clearLines": "Clear line filter",
     "locate": "Show my location",
-    "loading": "Loading map…"
+    "loading": "Loading map…",
+    "sheetMore": "Show details",
+    "sheetLess": "Show less"
   },
   "vehicle": {
     "towards": "towards {{destination}}",
@@ -55,7 +57,8 @@
     "close": "Close",
     "gone": "This vehicle is no longer reporting.",
     "nextStops": "Next stops",
-    "openLine": "Open line"
+    "openLine": "Open line",
+    "nextStop": "Next:"
   },
   "home": {
     "title": "My lines",
@@ -81,7 +84,8 @@
     "remove": "Remove",
     "unavailable": "This line or stop no longer exists in the timetable.",
     "noDepartures": "No departures in the next hours.",
-    "then": "then"
+    "then": "then",
+    "walkFromPlace": "from {{place}}"
   },
   "search": {
     "title": "Search",
@@ -143,7 +147,8 @@
     "loading": "Loading…",
     "retry": "Retry",
     "back": "Back",
-    "error": "Something went wrong."
+    "error": "Something went wrong.",
+    "cancel": "Cancel"
   },
   "auth": {
     "username": "Username",
@@ -335,7 +340,10 @@
     "placeLabelPlaceholder": "Home, Work…",
     "hereNow": "Use my current location",
     "orStop": "or near a stop",
-    "noPlaces": "No saved places."
+    "noPlaces": "No saved places.",
+    "pickOnMap": "Pick on map",
+    "mapHint": "Move the map so the pin sits on the place, then confirm.",
+    "useThisSpot": "Use this spot"
   },
   "tokens": {
     "title": "API tokens",
@@ -368,6 +376,14 @@
     "searchStop": "Search for a stop",
     "change": "Change {{what}}",
     "results": "{{what}}: results",
-    "linesLabel": "Lines"
+    "linesLabel": "Lines",
+    "edit": "Edit trip",
+    "editTitle": "Edit trip",
+    "notFound": "This trip no longer exists.",
+    "startPlace": "Usual starting point",
+    "startPlaceHint": "Walking time and the verdict start here whenever you are not sharing your location (also in Home Assistant without a “Walk from” entity).",
+    "noStartPlace": "None",
+    "addPlace": "Add a place",
+    "update": "Save changes"
   }
 }

@@ -13,3 +13,4 @@ test-results/
 *.db-wal
 __pycache__/
 *.pyc
+custom_components/bus/www/

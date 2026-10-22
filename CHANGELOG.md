@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.4.0 — 2026-10-22
+
+Upgrading: pull the new image; the first start adds one column (`saved_lines.origin_place_id`). In Home Assistant,
+update the integration through HACS and restart; if you added `bus-card.js` as a dashboard resource by hand, remove it.
+
+- **Map**: a selected vehicle's route is drawn in its line colour with an outline that stands out on light and dark
+  maps, with its stops marked at every zoom; vehicles of other lines fade while it is selected. On phones the vehicle
+  and stop sheets open compact (name and next stop) so the map stays visible, and expand on tap.
+- **Trips are editable** (✎ in My lines → Edit): change the stops, label and a new **usual starting point** — a saved
+  place walking time starts from whenever you are not sharing your location (also used by Home Assistant).
+- **Saved places can be picked on a map** (Settings → Walking → Pick on map).
+- **Home Assistant**:
+  - The integration has its own icon.
+  - The card is bundled and loads by itself: no download, no resource. With no lines picked it shows all of your
+    saved lines, and it now looks like the web app (countdown with clock time, verdict chip, "then …", trips with
+    their lines).
+  - Walking time works out of the box: new setups walk from `zone.home`, and a person without GPS coordinates walks
+    from the zone they are in. New attributes: `kind`, `lines`, `destination`, `walk_from`, `order`.
+  - Ready-made template for Android/iOS home-screen widgets in `ha/README.md`.
+- Fixed: concurrent sign-ups and other writes could fail with "database is locked" (transactions now begin
+  `IMMEDIATE`).
+
 ## 1.3.0 — 2026-10-22
 
 - Single sign-on: link an existing account, the admin included, to your provider account under **Settings → Single

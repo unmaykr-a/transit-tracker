@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { renderedPills } from "./helpers";
+import { expandSheet, renderedPills } from "./helpers";
 
 test.describe("live map", () => {
   test("shows vehicles from the feed and opens a vehicle sheet", async ({ page }) => {
@@ -13,6 +13,7 @@ test.describe("live map", () => {
     await page.mouse.click(target.x, target.y);
     const sheet = page.locator("section[aria-label]").filter({ hasText: "towards" });
     await expect(sheet).toBeVisible();
+    await expandSheet(sheet);
     await expect(sheet).toContainText("Updated");
     await sheet.getByRole("button", { name: "Close" }).click();
     await expect(sheet).toBeHidden();
@@ -85,7 +86,19 @@ test("a matched vehicle's sheet lists its next stops", async ({ page, request })
   test.skip(!target, "no matched vehicle on screen");
   await page.mouse.click(target!.x, target!.y);
   const sheet = page.locator("section[aria-label]").filter({ hasText: "towards" });
+  // On phones the sheet opens compact, with the next stop as its summary, so the map stays visible.
+  if (page.viewportSize()!.width < 768) {
+    await expect(sheet.getByRole("button", { name: /^Next: .*(now|\d+ min)$/ })).toBeVisible();
+    const box = await sheet.boundingBox();
+    expect(box!.height).toBeLessThan(page.viewportSize()!.height * 0.3);
+  }
+  await expandSheet(sheet);
   await expect(sheet.getByText("Next stops")).toBeVisible();
   await expect(sheet.getByRole("listitem").first()).toContainText(/(now|\d+ min)$/);
   await expect(sheet.getByRole("link", { name: "Open line" })).toBeVisible();
+  // Its route is drawn with the stops along it.
+  await page.waitForFunction(() => {
+    const m = (globalThis as { __tramMap?: { querySourceFeatures: (s: string) => unknown[] } }).__tramMap;
+    return !!m && m.querySourceFeatures("selected-route").length > 0 && m.querySourceFeatures("selected-route-stops").length > 1;
+  });
 });

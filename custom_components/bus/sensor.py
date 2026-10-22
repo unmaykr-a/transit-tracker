@@ -56,7 +56,11 @@ class BusNextSensor(BusLineEntity, SensorEntity):
             "label": line.get("label"),
             "kind": line.get("kind", "line"),
             "lines": line.get("lines", []),
+            "order": self.coordinator.order(self.line_id),
+            "walk_from": line.get("walk_from"),
             "headsign": nxt.get("headsign") or line.get("headsign"),
+            # The saved line's direction, or a trip's destination stop (headsign is the next departure's).
+            "destination": line.get("headsign"),
             "stop_name": line.get("stop_name"),
             "platform": line.get("platform"),
             "minutes": nxt.get("minutes"),

@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log/slog"
+	"strconv"
 	"testing"
 
 	"github.com/unmaykr-a/transit-tracker/internal/store/db"
@@ -46,4 +49,32 @@ func TestOpenMigratesAndTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	s2.Close()
+}
+
+// Transactions that read and then write must not fail when they overlap: a
+// deferred transaction cannot upgrade to a write lock after another writer
+// commits (SQLITE_BUSY_SNAPSHOT), so they start IMMEDIATE and queue instead.
+func TestConcurrentReadThenWriteTx(t *testing.T) {
+	ctx := context.Background()
+	s, err := Open(ctx, t.TempDir(), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	errs := make(chan error, 16)
+	for i := range 16 {
+		go func() {
+			errs <- s.Tx(ctx, func(q *db.Queries) error {
+				if _, err := q.GetMeta(ctx, "n"); err != nil && !errors.Is(err, sql.ErrNoRows) {
+					return err
+				}
+				return q.SetMeta(ctx, db.SetMetaParams{Key: "n", Value: strconv.Itoa(i)})
+			})
+		}()
+	}
+	for range 16 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
 }

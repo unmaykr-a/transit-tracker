@@ -51,7 +51,8 @@ type haLine struct {
 	LeaveInMin  *int          `json:"leave_in_min"`
 	Catchable   *bool         `json:"catchable"` // nil without an origin
 	Unavailable bool          `json:"unavailable"`
-	Lines       []string      `json:"lines,omitempty"` // a trip's connecting lines
+	Lines       []string      `json:"lines,omitempty"`     // a trip's connecting lines
+	WalkFrom    string        `json:"walk_from,omitempty"` // the line's own starting place, when walks start there
 	Error       string        `json:"error,omitempty"`
 }
 
@@ -82,15 +83,20 @@ func (s *Server) handleHALines(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, err)
 		return
 	}
+	places, err := s.userPlaces(r)
+	if err != nil {
+		s.writeErr(w, err)
+		return
+	}
 	var entries []dashboard.Entry
 	if s.dashboard != nil {
 		// Extra departures so n remain after skipping ones that can no longer be caught.
-		entries = s.dashboard.BuildN(r.Context(), lines, origin, prefs, n+10)
+		entries = s.dashboard.BuildN(r.Context(), lines, origin, places, prefs, n+10)
 	}
 	now := time.Now()
 	out := make([]haLine, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, haView(e, origin != nil, n, now))
+		out = append(out, haView(e, origin != nil || e.WalkFrom != "", n, now))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"lines": out, "has_origin": origin != nil, "server_time": now})
 }
@@ -98,7 +104,7 @@ func (s *Server) handleHALines(w http.ResponseWriter, r *http.Request) {
 func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 	l := e.Line
 	h := haLine{ID: l.ID, Kind: l.Kind, Label: l.Label, Line: l.ShortName, Mode: string(l.Mode), RouteID: l.RouteID, Headsign: l.Headsign,
-		Departures: []haDeparture{}, Verdict: string(dashboard.LevelNone), Unavailable: l.Unavailable, Error: e.Error}
+		Departures: []haDeparture{}, Verdict: string(dashboard.LevelNone), Unavailable: l.Unavailable, Error: e.Error, WalkFrom: e.WalkFrom}
 	if h.Label == "" {
 		h.Label = l.ShortName
 	}

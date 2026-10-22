@@ -1,11 +1,11 @@
 import { css, html, LitElement, nothing, type PropertyValues, type TemplateResult } from "lit";
 
 import { translator, type Key } from "./i18n";
-import { MODE_COLORS, view, type Level, type NextAttributes } from "./model";
+import { allBusEntities, clock, MODE_COLORS, view, type Level, type Mode, type NextAttributes } from "./model";
 import type { HassEntity, HomeAssistant, BusCardConfig } from "./types";
-import "./bus-card-editor";
+import { BusCardEditor } from "./bus-card-editor";
 
-const VERSION = "0.6.0";
+const VERSION = "1.4.0";
 
 const DEFAULTS = { departures: 3, show_walk: true, show_verdict: true, layout: "full" as const };
 
@@ -30,21 +30,28 @@ export class BusCard extends LitElement {
     return document.createElement("bus-card-editor");
   }
 
-  static getStubConfig(hass: HomeAssistant): Partial<BusCardConfig> {
-    const first = Object.values(hass.states).find(isBusNext);
-    return { entities: first ? [first.entity_id] : [], departures: DEFAULTS.departures, show_walk: true, show_verdict: true };
+  /** Added from the card picker: every saved line, nothing to fill in. */
+  static getStubConfig(): Partial<BusCardConfig> {
+    return { departures: DEFAULTS.departures, show_walk: true, show_verdict: true };
   }
 
   setConfig(config: BusCardConfig): void {
-    if (!config || !Array.isArray(config.entities) || config.entities.length === 0) {
-      throw new Error("bus-card: set `entities` to one or more sensor.bus_*_next entities");
+    if (!config) throw new Error("bus-card: missing configuration");
+    if (config.entities !== undefined && !Array.isArray(config.entities)) {
+      throw new Error("bus-card: `entities` must be a list of sensor.bus_*_next entities (or left out for all lines)");
     }
     const departures = Math.min(5, Math.max(1, Math.round(config.departures ?? DEFAULTS.departures)));
     this._config = { ...DEFAULTS, ...config, departures };
   }
 
+  /** The configured lines, or every saved line when none are listed. */
+  private get entities(): string[] {
+    const listed = this._config?.entities ?? [];
+    return listed.length > 0 ? listed : this.hass ? allBusEntities(this.hass.states) : [];
+  }
+
   getCardSize(): number {
-    const n = this._config?.entities.length ?? 1;
+    const n = Math.max(1, this.entities.length);
     return this._config?.layout === "compact" ? n + (this._config.title ? 1 : 0) : 2 * n + (this._config?.title ? 1 : 0);
   }
 
@@ -75,25 +82,56 @@ export class BusCard extends LitElement {
   protected render(): TemplateResult | typeof nothing {
     if (!this._config || !this.hass) return nothing;
     const c = this._config;
+    const ids = this.entities;
     return html`
       <ha-card .header=${c.title || undefined}>
-        <div class="lines ${c.layout}">${c.entities.map((id) => this.renderLine(id))}</div>
+        <div class="lines ${c.layout}">
+          ${ids.length === 0 ? html`<div class="muted empty">${this.t("noLines")}</div>` : ids.map((id) => this.renderLine(id))}
+        </div>
       </ha-card>
     `;
+  }
+
+  private pill(line: string, mode: Mode, small = false): TemplateResult {
+    return html`<span class="pill ${small ? "small" : ""}" style="background:${MODE_COLORS[mode] ?? MODE_COLORS.bus}">${line}</span>`;
   }
 
   private renderLine(entityId: string): TemplateResult {
     const t = this.t;
     const c = this._config!;
+    const lang = this.hass!.locale?.language ?? this.hass!.language;
     const entity = this.hass!.states[entityId];
     if (!entity) return html`<div class="warning">${t("notFound", { id: entityId })}</div>`;
-    const v = view(entity.attributes as NextAttributes, this._now, c.departures!);
+    const attrs = entity.attributes as NextAttributes;
+    const v = view(attrs, this._now, c.departures!);
     const unavailable = entity.state === "unavailable";
     const [first, ...rest] = v.departures;
     const open = () => {
       if (v.url) window.open(v.url, "_blank", "noopener");
     };
-    const meta = [v.stop, c.show_walk && v.walkMin !== null ? t(v.walkApprox ? "walkApprox" : "walk", { n: v.walkMin }) : ""].filter(Boolean).join(" · ");
+    const walk =
+      c.show_walk && v.walkMin !== null
+        ? `${t(v.walkApprox ? "walkApprox" : "walk", { n: v.walkMin })}${v.walkFrom ? " " + t("walkFrom", { place: v.walkFrom }) : ""}`
+        : "";
+    const meta = [v.stop ? t("from", { stop: v.stop }) : "", walk].filter(Boolean).join(" · ");
+    const label = attrs.label && attrs.label !== attrs.line ? attrs.label : "";
+    const countdown = unavailable
+      ? html`<span class="muted">${t("unavailable")}</span>`
+      : first
+        ? html`<span class="big">${this.minutes(first.minutes)}</span>
+            <span class="clock">${clock(first.time, lang)}${first.realtime ? nothing : html` · ${t("scheduled")}`}</span>`
+        : html`<span class="muted">${t("noDepartures")}</span>`;
+
+    if (c.layout === "compact") {
+      return html`<div class="line" role=${v.url ? "link" : nothing} tabindex=${v.url ? "0" : nothing} @click=${open}
+        @keydown=${(e: KeyboardEvent) => (e.key === "Enter" ? open() : undefined)}>
+        <div class="row">
+          ${this.pill(v.line, v.mode)}
+          <div class="what"><div class="title">${label ? html`${label} · ` : nothing}${v.title}</div></div>
+          <div class="countdown" aria-live="polite">${countdown}</div>
+        </div>
+      </div>`;
+    }
     return html`
       <div
         class="line"
@@ -103,23 +141,20 @@ export class BusCard extends LitElement {
         @keydown=${(e: KeyboardEvent) => (e.key === "Enter" ? open() : undefined)}
       >
         <div class="row">
-          <span class="pill" style="background:${MODE_COLORS[v.mode] ?? MODE_COLORS.bus}">${v.line}</span>
+          ${v.trip ? html`<div class="pills">${v.pills.map((p) => this.pill(p.line, p.mode, true))}</div>` : this.pill(v.line, v.mode)}
           <div class="what">
-            <div class="headsign">${v.headsign}</div>
-            ${c.layout === "full" && meta ? html`<div class="meta">${meta}</div>` : nothing}
-          </div>
-          <div class="countdown" aria-live="polite">
-            ${unavailable
-              ? html`<span class="muted">${t("unavailable")}</span>`
-              : first
-                ? html`${this.minutes(first.minutes)}${first.realtime ? nothing : html`<span class="tag">${t("scheduled")}</span>`}`
-                : html`<span class="muted">${t("noDepartures")}</span>`}
+            <div class="title">${label ? html`${label} · ` : nothing}${v.title}</div>
+            ${meta ? html`<div class="meta">${meta}</div>` : nothing}
           </div>
         </div>
-        ${c.layout === "full" && !unavailable && first
-          ? html`<div class="row second">
-              ${c.show_verdict && first.slack !== null ? this.chip(first.level, first.slack) : html`<span></span>`}
-              <span class="later">${rest.map((d) => html`<span>${d.line && d.line !== v.line ? `${d.line} ` : ""}${this.minutes(d.minutes)}</span>`)}</span>
+        <div class="row second">
+          <div class="countdown" aria-live="polite">${v.trip && first ? this.pill(v.line, v.mode, true) : nothing}${countdown}</div>
+          ${c.show_verdict && first && first.slack !== null && !unavailable ? this.chip(first.level, first.slack) : nothing}
+        </div>
+        ${rest.length > 0 && !unavailable
+          ? html`<div class="later">
+              ${t("then")}
+              ${rest.map((d) => html`<span>${v.trip && d.line ? html`<b>${d.line}</b> ` : nothing}${this.minutes(d.minutes)}${d.realtime ? "" : "*"}</span>`)}
             </div>`
           : nothing}
       </div>
@@ -139,10 +174,14 @@ export class BusCard extends LitElement {
     .lines {
       display: flex;
       flex-direction: column;
-      padding: 8px 0;
+      gap: 8px;
+      padding: 12px;
     }
     .line {
-      padding: 10px 16px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+      background: var(--card-background-color, var(--ha-card-background));
       cursor: default;
       outline: none;
     }
@@ -150,11 +189,7 @@ export class BusCard extends LitElement {
       cursor: pointer;
     }
     .line[role="link"]:focus-visible {
-      box-shadow: inset 0 0 0 2px var(--primary-color);
-      border-radius: 8px;
-    }
-    .line + .line {
-      border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+      box-shadow: 0 0 0 2px var(--primary-color);
     }
     .row {
       display: flex;
@@ -162,26 +197,41 @@ export class BusCard extends LitElement {
       gap: 12px;
     }
     .second {
-      margin-top: 8px;
+      margin-top: 10px;
       justify-content: space-between;
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 7.5em;
+      flex: none;
     }
     .pill {
       flex: none;
-      min-width: 2.5em;
+      min-width: 2.4em;
       padding: 4px 10px;
       border-radius: 999px;
       color: #fff;
-      font-weight: 600;
+      font-weight: 700;
       text-align: center;
       font-size: 1.05em;
+      line-height: 1.3;
+    }
+    .pill.small {
+      min-width: 2em;
+      padding: 2px 8px;
+      font-size: 0.85em;
     }
     .what {
       flex: 1;
       min-width: 0;
     }
-    .headsign {
+    .title {
       color: var(--primary-text-color);
-      font-weight: 500;
+      font-weight: 600;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -189,39 +239,47 @@ export class BusCard extends LitElement {
     .meta,
     .muted,
     .later,
-    .tag {
+    .clock {
       color: var(--secondary-text-color);
       font-size: 0.9em;
     }
+    .meta {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .countdown {
-      flex: none;
-      color: var(--primary-text-color);
-      font-size: 1.6em;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      line-height: 1.1;
+      align-items: baseline;
+      gap: 10px;
+      color: var(--primary-text-color);
+      font-variant-numeric: tabular-nums;
     }
-    .countdown .muted {
-      font-size: 0.55em;
-      font-weight: 400;
+    .countdown .pill {
+      align-self: center;
     }
-    .tag {
-      font-size: 0.45em;
-      font-weight: 400;
+    .big {
+      font-size: 2.1em;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
     }
     .later {
+      margin-top: 8px;
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 4px 12px;
       font-variant-numeric: tabular-nums;
+    }
+    .later b {
+      color: var(--primary-text-color);
+      font-weight: 600;
     }
     .chip {
       border-radius: 999px;
-      padding: 3px 10px;
+      padding: 4px 12px;
       font-size: 0.9em;
-      font-weight: 500;
+      font-weight: 600;
       white-space: nowrap;
       background: var(--secondary-background-color, rgba(127, 127, 127, 0.15));
       color: var(--primary-text-color);
@@ -239,19 +297,46 @@ export class BusCard extends LitElement {
       color: var(--error-color, #b91c1c);
     }
     .compact .line {
-      padding: 6px 16px;
+      padding: 10px 14px;
     }
     .compact .countdown {
-      font-size: 1.25em;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0;
     }
+    .compact .big {
+      font-size: 1.4em;
+    }
+    .compact .clock {
+      font-size: 0.8em;
+    }
+    .empty,
     .warning {
       padding: 10px 16px;
+    }
+    .warning {
       color: var(--error-color, #b91c1c);
     }
   `;
 }
 
-if (!customElements.get("bus-card")) customElements.define("bus-card", BusCard);
+/**
+ * Defines the card (and its editor). The integration loads this module early;
+ * while Home Assistant starts it can replace window.customElements with its own
+ * registry, dropping definitions made before that. So define again if they
+ * disappear, for the first half minute (the dashboard rebuilds the card once
+ * it is defined).
+ */
+function register(): void {
+  if (!customElements.get("bus-card-editor")) customElements.define("bus-card-editor", BusCardEditor);
+  if (!customElements.get("bus-card")) customElements.define("bus-card", BusCard);
+}
+register();
+const started = Date.now();
+const watch = setInterval(() => {
+  register();
+  if (Date.now() - started > 30_000) clearInterval(watch);
+}, 250);
 
 declare global {
   interface Window {

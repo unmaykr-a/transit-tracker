@@ -1,7 +1,7 @@
 {
   "name": "bus-card",
   "private": true,
-  "version": "0.6.0",
+  "version": "1.4.0",
   "description": "Lovelace card for the Bus Home Assistant integration",
   "type": "module",
   "scripts": {

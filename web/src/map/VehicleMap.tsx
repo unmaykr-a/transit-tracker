@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { MapStop } from "@/api";
+import { pillText } from "@/lib/lines";
 import { live } from "@/lib/liveClient";
 import { loadShapes, shapes } from "@/lib/shapes";
 import { MODE_COLORS } from "@/lib/modeColors";
@@ -27,14 +28,67 @@ export interface VehicleMapProps {
   onSelect: (sel: Selection | undefined) => void;
   /** When set, the map flies here once (e.g. /map?stop=…). */
   focus?: [number, number];
-  /** Pattern whose route is drawn under the vehicles (the selected vehicle's). */
+  /** Pattern whose route is drawn under the vehicles (the selected vehicle's), in its mode's colour. */
   highlightPattern?: string;
+  highlightMode?: Mode;
 }
 
 const shapeOf = (p: string) => shapes.get(p);
 const NO_FEATURES = { type: "FeatureCollection" as const, features: [] };
 
 const STOPS_MIN_ZOOM = 14.5;
+
+/** Under the selected route: a halo that sets it off from the streets in either theme. */
+const ROUTE_CASING = { light: "#ffffff", dark: "#0b0f19" } as const;
+
+/** Stops along the selected route, placed on its shape (fetched once per pattern). */
+const routeStops = new Map<string, Promise<number[]>>();
+function routeStopsAlong(pattern: string): Promise<number[]> {
+  const cached = routeStops.get(pattern);
+  if (cached) return cached;
+  const p = fetch(`/api/v1/patterns/${pattern}`) // ids are URL-safe; the router does not decode %3A
+    .then(async (r): Promise<number[]> => (r.ok ? (((await r.json()) as { stop_along_m?: number[] }).stop_along_m ?? []) : []))
+    .catch((): number[] => {
+      routeStops.delete(pattern); // retry next time
+      return [];
+    });
+  routeStops.set(pattern, p);
+  return p;
+}
+
+function addRouteLayers(map: MLMap, theme: keyof typeof ROUTE_CASING) {
+  for (const id of ["selected-route", "selected-route-stops"]) {
+    if (!map.getSource(id)) map.addSource(id, { type: "geojson", data: NO_FEATURES });
+  }
+  const width: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 10, 3, 13, 5, 17, 9];
+  const layout = { "line-cap": "round", "line-join": "round" } as const;
+  map.addLayer(
+    {
+      id: "selected-route-casing",
+      type: "line",
+      source: "selected-route",
+      layout,
+      paint: { "line-color": ROUTE_CASING[theme], "line-opacity": 0.9, "line-width": ["+", width, 4] },
+    },
+    "stops",
+  );
+  map.addLayer({ id: "selected-route", type: "line", source: "selected-route", layout, paint: { "line-color": "#111827", "line-width": width } }, "stops");
+  // The route's stops show at every zoom, above the general stop layer.
+  map.addLayer(
+    {
+      id: "selected-route-stops",
+      type: "circle",
+      source: "selected-route-stops",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2, 13, 3.5, 17, 6],
+        "circle-color": "#ffffff",
+        "circle-stroke-color": "#111827",
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 15, 2.5],
+      },
+    },
+    "vehicle-dots",
+  );
+}
 
 function addStopLayers(map: MLMap, before: string) {
   if (!map.getSource("stops")) {
@@ -168,7 +222,7 @@ function addVehicleLayers(map: MLMap) {
   });
 }
 
-export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern }: VehicleMapProps) {
+export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern, highlightMode }: VehicleMapProps) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -227,17 +281,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     map.on("style.load", () => {
       addVehicleLayers(map);
       addStopLayers(map, "vehicle-dots");
-      if (!map.getSource("selected-route")) map.addSource("selected-route", { type: "geojson", data: NO_FEATURES });
-      map.addLayer(
-        {
-          id: "selected-route",
-          type: "line",
-          source: "selected-route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#111827", "line-opacity": 0.45, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3, 16, 7] },
-        },
-        "stops",
-      );
+      addRouteLayers(map, themeRef.current);
       map.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stopsRef.current));
       ready = true;
       dirtyRef.current = true;
@@ -321,27 +365,44 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     // Keep the focused point above the bottom sheet that opens with it.
     if (focus && map) {
       const h = map.getContainer().clientHeight;
-      map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * 0.45 }, essential: true });
+      map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * (globalThis.matchMedia?.("(min-width: 768px)").matches ? 0 : 0.2) }, essential: true });
     }
   }, [focus]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    let stale = false;
     const apply = async () => {
+      const color = MODE_COLORS[highlightMode ?? "bus"];
+      for (const [layer, prop] of [["selected-route", "line-color"], ["selected-route-stops", "circle-stroke-color"]] as const) {
+        if (map.getLayer(layer)) map.setPaintProperty(layer, prop, color);
+      }
       if (highlightPattern) await loadShapes();
       const shape = highlightPattern ? shapes.get(highlightPattern) : undefined;
+      const along = shape && highlightPattern ? await routeStopsAlong(highlightPattern) : [];
+      if (stale) return;
       map.getSource<GeoJSONSource>("selected-route")?.setData(
         shape ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: shape.coords } } : NO_FEATURES,
       );
+      map.getSource<GeoJSONSource>("selected-route-stops")?.setData({
+        type: "FeatureCollection",
+        features: shape
+          ? along.map((m) => {
+              const [lat, lon] = shape.pointAt(m);
+              return { type: "Feature" as const, properties: {}, geometry: { type: "Point" as const, coordinates: [lon, lat] } };
+            })
+          : [],
+      });
     };
     void apply();
     const onStyle = () => void apply();
     map.on("style.load", onStyle);
     return () => {
+      stale = true;
       map.off("style.load", onStyle);
     };
-  }, [highlightPattern]);
+  }, [highlightPattern, highlightMode]);
 
   const selectedVehicle = selected?.kind === "vehicle" ? selected.id : "";
   const selectedStop = selected?.kind === "stop" ? selected.id : "";
@@ -351,6 +412,19 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     const apply = () => {
       for (const l of ["vehicle-selected", "vehicle-pill-selected"]) {
         if (map.getLayer(l)) map.setFilter(l, ["==", ["get", "id"], selectedVehicle]);
+      }
+      // With a vehicle selected, vehicles of other lines fade so its route stands out.
+      const sel = selectedVehicle ? live.getState().vehicles.get(selectedVehicle) : undefined;
+      const opacity: ExpressionSpecification | number = sel
+        ? ["case", ["all", ["==", ["get", "mode"], sel.mode], ["==", ["get", "text"], pillText(sel)]], 1, 0.3]
+        : 1;
+      const faded = [
+        ["vehicle-dots", ["circle-opacity", "circle-stroke-opacity"]],
+        ["vehicle-heading", ["icon-opacity"]],
+        ["vehicle-pills", ["icon-opacity", "text-opacity"]],
+      ] as const;
+      for (const [layer, props] of faded) {
+        if (map.getLayer(layer)) for (const p of props) map.setPaintProperty(layer, p, opacity);
       }
       if (map.getLayer("stops")) {
         map.setPaintProperty("stops", "circle-stroke-width", ["case", ["==", ["get", "id"], selectedStop], 3, 1.5]);

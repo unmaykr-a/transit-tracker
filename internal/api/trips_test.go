@@ -101,4 +101,54 @@ func TestSavedTrips(t *testing.T) {
 	if ls := list["lines"].([]any); len(ls) != 2 || ls[0].(map[string]any)["kind"] != "line" || ls[1].(map[string]any)["kind"] != "trip" {
 		t.Errorf("list after reorder = %v", list)
 	}
+
+	// A usual starting place: used when the request carries no location.
+	_, pl := c.do("POST", "/api/v1/me/places", map[string]any{"label": "Home", "lat": board.Lat + 0.002, "lon": board.Lon})
+	place := toInt(jsonNum(pl["place"].(map[string]any)["id"]))
+	if code, out := c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(id), 10), map[string]any{"origin_place_id": 999999}); code != 400 {
+		t.Errorf("unknown place = %d %v", code, out)
+	}
+	if code, out := c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(id), 10), map[string]any{"origin_place_id": place, "label": "To work"}); code != 200 {
+		t.Fatalf("set start place = %d %v", code, out)
+	}
+	_, dash = c.do("GET", "/api/v1/me/dashboard", nil)
+	var tripEntry map[string]any
+	for _, e := range dash["entries"].([]any) {
+		if e.(map[string]any)["line"].(map[string]any)["kind"] == "trip" {
+			tripEntry = e.(map[string]any)
+		}
+	}
+	if tripEntry["walk_from"] != "Home" || tripEntry["walk"] == nil || tripEntry["line"].(map[string]any)["label"] != "To work" {
+		t.Errorf("trip without a location = walk_from %v walk %v", tripEntry["walk_from"], tripEntry["walk"])
+	}
+	_, ha = c.do("GET", "/api/v1/ha/lines", nil)
+	for _, h := range ha["lines"].([]any) {
+		if h := h.(map[string]any); h["kind"] == "trip" && (h["walk_from"] != "Home" || h["walk_min"] == nil) {
+			t.Errorf("ha trip without a location = %v", h)
+		}
+	}
+
+	// Editing the trip's stops; lines have no from/to; null clears the place.
+	if code, out := c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(id), 10), map[string]any{"from_area_id": to, "to_area_id": from}); code != 200 && code != 400 {
+		t.Errorf("reverse trip = %d %v", code, out)
+	}
+	if code, _ := c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(id), 10), map[string]any{"to_area_id": "nope"}); code != 400 {
+		t.Errorf("bad destination = %d", code)
+	}
+	if code, _ := c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(lid), 10), map[string]any{"from_area_id": from}); code != 400 {
+		t.Errorf("from on a line = %d", code)
+	}
+	_, out = c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(id), 10), map[string]any{"origin_place_id": nil})
+	if l := out["line"].(map[string]any); l["origin_place_id"] != nil {
+		t.Errorf("cleared place = %v", l["origin_place_id"])
+	}
+	// Deleting a place clears it from lines that start there.
+	c.do("PATCH", "/api/v1/me/lines/"+strconv.FormatInt(toInt(lid), 10), map[string]any{"origin_place_id": place})
+	c.do("DELETE", "/api/v1/me/places/"+strconv.FormatInt(place, 10), nil)
+	_, list = c.do("GET", "/api/v1/me/lines", nil)
+	for _, l := range list["lines"].([]any) {
+		if l.(map[string]any)["origin_place_id"] != nil {
+			t.Errorf("deleted place still referenced: %v", l)
+		}
+	}
 }

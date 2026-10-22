@@ -78,6 +78,7 @@ export default function MapPage() {
           onSelect={onSelect}
           focus={focus}
           highlightPattern={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.pattern_id : undefined}
+          highlightMode={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.mode : undefined}
         />
       </Suspense>
 

@@ -56,6 +56,18 @@ async def test_origin_is_sent(hass: HomeAssistant, bus_server) -> None:
     assert "origin=59.440500,24.737500" in url and "departures=5" in url
 
 
+async def test_origin_from_zone_without_gps(hass: HomeAssistant, bus_server) -> None:
+    """A person tracked without coordinates (e.g. by the router) walks from the zone they are in."""
+    await async_setup_component(hass, "zone", {"zone": [{"name": "Work", "latitude": 59.43, "longitude": 24.75, "radius": 100}]})
+    hass.states.async_set("person.andri", "Work", {"source": "device_tracker.router"})
+    await setup_entry(hass, **{CONF_ORIGIN: "person.andri"})
+    assert "origin=59.430000,24.750000" in str(bus_server.mock_calls[-1][1])
+
+    hass.states.async_set("person.andri", "not_home", {})
+    await hass.config_entries.async_entries("bus")[0].runtime_data.async_refresh()
+    assert "origin=" not in str(bus_server.mock_calls[-1][1])
+
+
 async def test_updates_and_unavailable(hass: HomeAssistant, bus_server, freezer: FrozenDateTimeFactory) -> None:
     await setup_entry(hass)
     bus_server.clear_requests()

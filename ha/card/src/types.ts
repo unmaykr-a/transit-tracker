@@ -14,7 +14,8 @@ export interface HomeAssistant {
 
 export interface BusCardConfig {
   type: string;
-  entities: string[];
+  /** Empty or missing: every saved line. */
+  entities?: string[];
   departures?: number;
   show_walk?: boolean;
   show_verdict?: boolean;
