@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-22
+
+Upgrading from 1.0.0: just pull the new image. The first start adds one table (`user_identities`) and re-imports the
+static data with county routes (a few seconds); nothing else to do.
 
 - Vehicle ETAs calibrate themselves: the tracker checks its own predictions against the arrivals it later sees and
   learns a correction per mode and horizon (`bus_eta_scale` metric). On recorded peaks this lifted agreement with
