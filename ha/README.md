@@ -13,6 +13,8 @@ they never have admin rights. Revoke a token there (or as an admin under **Admin
 
 ## 2. Install the integration
 
+Requires Home Assistant 2025.2 or newer.
+
 **HACS:** add this repository as a custom repository (type *Integration*), install **Bus**, restart Home
 Assistant. **Manually:** download `bus.zip` from the latest release and unpack it into
 `config/custom_components/bus/`, then restart.
