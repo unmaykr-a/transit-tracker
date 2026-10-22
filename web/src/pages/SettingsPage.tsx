@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
-import { fetchHealth } from "@/api";
+import { Link } from "@tanstack/react-router";
+
+import { fetchHealth, updateMe } from "@/api";
+import { AccountSection } from "@/components/AccountSection";
+import { Button } from "@/components/ui/button";
 import { LANGUAGES } from "@/i18n";
+import { useSession } from "@/lib/session";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/theme";
 import { useLiveState } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
@@ -39,17 +44,39 @@ export default function SettingsPage() {
   const theme = useThemePref();
   const live = useLiveState(5000);
   const health = useQuery({ queryKey: ["health"], queryFn: ({ signal }) => fetchHealth(signal) });
+  const session = useSession();
+  const user = session.data?.user;
+  // Logged-in users keep their language and theme across devices.
+  const remember = (p: { locale?: string; theme?: string }) => {
+    if (user) void updateMe(p);
+  };
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-8 px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">{t("settings.title")}</h1>
+
+      {user ? (
+        <AccountSection user={user} />
+      ) : (
+        session.data && (
+          <section className="flex items-center justify-between gap-4 rounded-xl border bg-card p-4">
+            <p className="text-sm text-muted-foreground">{t("account.signedOut")}</p>
+            <Button size="sm" asChild>
+              <Link to="/login">{t("auth.login")}</Link>
+            </Button>
+          </section>
+        )
+      )}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">{t("settings.theme")}</h2>
         <Segmented<ThemePref>
           label={t("settings.theme")}
           value={theme}
-          onChange={setThemePref}
+          onChange={(v) => {
+            setThemePref(v);
+            remember({ theme: v });
+          }}
           options={[
             { value: "system", label: t("settings.themeSystem") },
             { value: "light", label: t("settings.themeLight") },
@@ -63,7 +90,10 @@ export default function SettingsPage() {
         <Segmented
           label={t("settings.language")}
           value={i18n.resolvedLanguage ?? "en"}
-          onChange={(lng) => void i18n.changeLanguage(lng)}
+          onChange={(lng) => {
+            void i18n.changeLanguage(lng);
+            remember({ locale: lng });
+          }}
           options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
         />
       </section>

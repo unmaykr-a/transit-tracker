@@ -68,8 +68,8 @@ func TestImporterEndToEnd(t *testing.T) {
 	var swaps atomic.Int32
 	newImporter := func() *Importer {
 		return &Importer{
-			Fetcher: f, OTP: &feeds.OTP{URL: srv.URL + "/otp", Fetcher: f},
-			StopsURL: srv.URL + "/stops.txt", ElronGTFSURL: srv.URL + "/elron.zip", AgencyID: feeds.TallinnAgencyID,
+			Fetcher: f, OTP: &feeds.OTP{URL: feeds.Const(srv.URL + "/otp"), Fetcher: f},
+			StopsURL: feeds.Const(srv.URL + "/stops.txt"), ElronGTFSURL: feeds.Const(srv.URL + "/elron.zip"), AgencyID: feeds.TallinnAgencyID,
 			Store: st, Log: slog.New(slog.DiscardHandler), Location: loc,
 			OnSwap: func(*Index) { swaps.Add(1) },
 		}

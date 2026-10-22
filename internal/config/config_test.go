@@ -30,12 +30,14 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadOverrides(t *testing.T) {
 	c, err := load(env(map[string]string{
-		"TRAM_ADDR":         "0.0.0.0:9000",
-		"TRAM_DATA_DIR":     "/data",
-		"TRAM_BASE_URL":     "https://tram.taali.ee/",
-		"TRAM_LOG_LEVEL":    "debug",
-		"TRAM_FAKE_FEEDS":   "1",
-		"TRAM_GPS_INTERVAL": "10s",
+		"TRAM_ADDR":            "0.0.0.0:9000",
+		"TRAM_DATA_DIR":        "/data",
+		"TRAM_BASE_URL":        "https://tram.taali.ee/",
+		"TRAM_LOG_LEVEL":       "debug",
+		"TRAM_FAKE_FEEDS":      "1",
+		"TRAM_GPS_INTERVAL":    "10s",
+		"TRAM_TRUSTED_PROXIES": "172.16.0.0/12, 192.168.1.10",
+		"TRAM_ADMIN_USER":      "admin",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -45,6 +47,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if !c.FakeFeeds || c.Feeds.GPSInterval != 10*time.Second || c.UserAgent("v1") != "Tram/v1 (+https://tram.taali.ee)" {
 		t.Fatalf("unexpected feed config: %+v", c)
+	}
+	if len(c.TrustedProxies) != 2 || c.TrustedProxies[1].String() != "192.168.1.10/32" || c.AdminUser != "admin" {
+		t.Fatalf("proxies/admin: %v %q", c.TrustedProxies, c.AdminUser)
 	}
 	if got := c.HealthURL(); got != "http://127.0.0.1:9000/healthz" {
 		t.Fatalf("HealthURL = %q", got)
@@ -58,6 +63,7 @@ func TestLoadInvalid(t *testing.T) {
 		{"TRAM_FAKE_FEEDS": "maybe"},
 		{"TRAM_GPS_INTERVAL": "1s"}, // faster than upstream updates
 		{"TRAM_ELRON_INTERVAL": "soon"},
+		{"TRAM_TRUSTED_PROXIES": "not-a-cidr"},
 	} {
 		if _, err := load(env(m)); err == nil {
 			t.Errorf("load(%v) succeeded, want error", m)

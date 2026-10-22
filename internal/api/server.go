@@ -2,19 +2,24 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/buildinfo"
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
 	"github.com/unmaykr-a/transit-tracker/internal/ingest"
+	"github.com/unmaykr-a/transit-tracker/internal/settings"
 	"github.com/unmaykr-a/transit-tracker/internal/state"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
+	"github.com/unmaykr-a/transit-tracker/internal/store"
 )
 
 type Server struct {
@@ -28,6 +33,12 @@ type Server struct {
 	static         func() *staticdata.Index
 	staticStatus   func() staticdata.Status
 	departures     *departures.Service
+	auth           *auth.Service
+	settings       *settings.Service
+	db             *store.Store
+	dataDir        string
+	trustedProxies []netip.Prefix
+	refreshStatic  func(context.Context) error
 }
 
 // Deps are the server's collaborators.
@@ -38,6 +49,13 @@ type Deps struct {
 	Static         func() *staticdata.Index
 	StaticStatus   func() staticdata.Status
 	Departures     *departures.Service
+	// Accounts and admin; when Auth is nil the server runs without login (tests).
+	Auth           *auth.Service
+	Settings       *settings.Service
+	DB             *store.Store
+	DataDir        string
+	TrustedProxies []netip.Prefix
+	RefreshStatic  func(context.Context) error
 }
 
 func NewServer(log *slog.Logger, d Deps) *Server {
@@ -48,7 +66,8 @@ func NewServer(log *slog.Logger, d Deps) *Server {
 		d.Health = ingest.NewHealth()
 	}
 	return &Server{log: log, started: time.Now(), store: d.Store, health: d.Health, originPatterns: d.OriginPatterns,
-		static: d.Static, staticStatus: d.StaticStatus, departures: d.Departures}
+		static: d.Static, staticStatus: d.StaticStatus, departures: d.Departures,
+		auth: d.Auth, settings: d.Settings, db: d.DB, dataDir: d.DataDir, trustedProxies: d.TrustedProxies, refreshStatic: d.RefreshStatic}
 }
 
 // Handler returns the root handler. web is the built UI (see Dist).
@@ -56,16 +75,24 @@ func (s *Server) Handler(web http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(s.requestLog)
+	r.Use(s.withSession)
 
 	r.Get("/healthz", s.healthz)
-	r.Get("/ws", s.websocket)
+	r.With(s.publicGate).Get("/ws", s.websocket)
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(s.csrfGuard)
 		r.Get("/version", s.version)
-		r.Get("/status", s.status)
-		r.Get("/vehicles", s.vehicles)
-		r.Get("/vehicles/stream", s.vehicleStream)
-		r.Get("/vehicles/{id}", func(w http.ResponseWriter, r *http.Request) { s.vehicle(w, r, chi.URLParam(r, "id")) })
-		s.mountStatic(r)
+		s.mountAccount(r)
+		s.mountAdmin(r)
+		r.Group(func(r chi.Router) {
+			// Map, search, stops and lines: public unless the public-map setting is off.
+			r.Use(s.publicGate)
+			r.Get("/status", s.status)
+			r.Get("/vehicles", s.vehicles)
+			r.Get("/vehicles/stream", s.vehicleStream)
+			r.Get("/vehicles/{id}", func(w http.ResponseWriter, r *http.Request) { s.vehicle(w, r, chi.URLParam(r, "id")) })
+			s.mountStatic(r)
+		})
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		})

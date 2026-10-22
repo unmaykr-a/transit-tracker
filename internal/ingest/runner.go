@@ -40,12 +40,31 @@ type PollFunc func(ctx context.Context) (Result, error)
 
 // Health is the registry of feed statuses.
 type Health struct {
-	mu    sync.RWMutex
-	feeds map[string]*Status
-	now   func() time.Time
+	mu      sync.RWMutex
+	feeds   map[string]*Status
+	history map[string][]Point // per feed, one point per minute, oldest first
+	now     func() time.Time
 }
 
-func NewHealth() *Health { return &Health{feeds: map[string]*Status{}, now: time.Now} }
+// Point is the item count a feed reported in one minute.
+type Point struct {
+	T     int64 `json:"t"` // unix seconds, start of the minute
+	Count int   `json:"count"`
+}
+
+// historyLen is one hour of per-minute points for the admin sparkline.
+const historyLen = 60
+
+func NewHealth() *Health {
+	return &Health{feeds: map[string]*Status{}, history: map[string][]Point{}, now: time.Now}
+}
+
+// History returns the last hour of per-minute counts for a feed.
+func (h *Health) History(name string) []Point {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return append([]Point(nil), h.history[name]...)
+}
 
 func (h *Health) register(name string) {
 	h.mu.Lock()
@@ -66,6 +85,17 @@ func (h *Health) success(name string, r Result) {
 	if !r.Unchanged {
 		s.Count = r.Count
 	}
+	minute := now.Truncate(time.Minute).Unix()
+	hist := h.history[name]
+	if n := len(hist); n > 0 && hist[n-1].T == minute {
+		hist[n-1].Count = s.Count
+	} else {
+		hist = append(hist, Point{minute, s.Count})
+		if len(hist) > historyLen {
+			hist = hist[len(hist)-historyLen:]
+		}
+	}
+	h.history[name] = hist
 	switch {
 	case !r.DataAt.IsZero():
 		s.LastData = r.DataAt
@@ -111,7 +141,7 @@ func (h *Health) StaleMap() map[string]bool {
 // Feed describes one polling loop.
 type Feed struct {
 	Name     string
-	Interval time.Duration
+	Interval func() time.Duration // read before every poll so settings apply live
 	Poll     PollFunc
 	// MaxBackoff caps the retry delay after failures; default 5 minutes.
 	MaxBackoff time.Duration
@@ -125,16 +155,17 @@ func (h *Health) Run(ctx context.Context, log *slog.Logger, f Feed) {
 		maxBackoff = 5 * time.Minute
 	}
 	for {
-		pollCtx, cancel := context.WithTimeout(ctx, max(f.Interval*3, 20*time.Second))
+		interval := f.Interval()
+		pollCtx, cancel := context.WithTimeout(ctx, max(interval*3, 20*time.Second))
 		r, err := f.Poll(pollCtx)
 		cancel()
-		delay := f.Interval
+		delay := interval
 		if err != nil {
 			if ctx.Err() != nil {
 				return
 			}
 			n := h.failure(f.Name, err)
-			delay = Backoff(f.Interval, maxBackoff, n)
+			delay = Backoff(interval, maxBackoff, n)
 			log.Warn("feed poll failed", "feed", f.Name, "err", err, "failures", n, "retry_in", delay.Round(time.Second))
 		} else {
 			h.success(f.Name, r)

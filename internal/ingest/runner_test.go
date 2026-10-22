@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 )
 
 func TestBackoff(t *testing.T) {
@@ -45,6 +47,16 @@ func TestHealthStaleness(t *testing.T) {
 	if !h.StaleMap()["gps"] {
 		t.Fatal("feed with 75 s old data must be stale")
 	}
+	if hist := h.History("gps"); len(hist) != 1 || hist[0].Count != 480 { // both polls in the same minute
+		t.Fatalf("history = %+v", hist)
+	}
+	for i := range 70 {
+		now = now.Add(time.Minute)
+		h.success("gps", Result{Count: i})
+	}
+	if hist := h.History("gps"); len(hist) != 60 || hist[59].Count != 69 {
+		t.Fatalf("history not capped: %d points", len(hist))
+	}
 	if n := h.failure("gps", errors.New("boom")); n != 1 {
 		t.Fatalf("failures = %d", n)
 	}
@@ -60,7 +72,7 @@ func TestRunPollsAndBacksOff(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		h.Run(ctx, slog.New(slog.DiscardHandler), Feed{
-			Name: "x", Interval: 10 * time.Millisecond, MaxBackoff: 20 * time.Millisecond,
+			Name: "x", Interval: feeds.Const(10 * time.Millisecond), MaxBackoff: 20 * time.Millisecond,
 			Poll: func(context.Context) (Result, error) {
 				if calls.Add(1)%2 == 0 {
 					return Result{}, errors.New("flaky")

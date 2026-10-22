@@ -92,7 +92,7 @@ func testService(u *upstream) *Service {
 		{ID: "train:R12", Mode: feeds.ModeTrain, ShortName: "R12"},
 	}})
 	return &Service{
-		Fetcher: f, OTP: &feeds.OTP{URL: u.srv.URL + "/otp", Fetcher: f}, SiriURL: u.srv.URL + "/siri",
+		Fetcher: f, OTP: &feeds.OTP{URL: feeds.Const(u.srv.URL + "/otp"), Fetcher: f}, SiriURL: feeds.Const(u.srv.URL + "/siri"),
 		Index: func() *staticdata.Index { return ix }, Location: tallinn, Now: func() time.Time { return now },
 	}
 }

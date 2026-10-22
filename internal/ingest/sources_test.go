@@ -40,7 +40,7 @@ func TestGPSPoller(t *testing.T) {
 	srv, hits := fixtureServer(t, "tallinn_gps.txt", "text/plain", lm)
 	store := state.NewStore()
 	now := time.Date(2026, 10, 22, 6, 23, 10, 0, time.UTC)
-	p := &GPSPoller{URL: srv.URL, Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: store, Now: func() time.Time { return now }}
+	p := &GPSPoller{URL: feeds.Const(srv.URL), Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: store, Now: func() time.Time { return now }}
 
 	r, err := p.Poll(context.Background())
 	if err != nil {
@@ -62,7 +62,7 @@ func TestGPSPoller(t *testing.T) {
 func TestGPSPollerDistrustsBadClock(t *testing.T) {
 	srv, _ := fixtureServer(t, "tallinn_gps.txt", "text/plain", "Thu, 22 Oct 2026 06:23:02 GMT")
 	now := time.Date(2026, 10, 22, 12, 0, 0, 0, time.UTC) // Last-Modified 5½ h old
-	p := &GPSPoller{URL: srv.URL, Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: state.NewStore(), Now: func() time.Time { return now }}
+	p := &GPSPoller{URL: feeds.Const(srv.URL), Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: state.NewStore(), Now: func() time.Time { return now }}
 	r, err := p.Poll(context.Background())
 	if err != nil || !r.DataAt.Equal(now) {
 		t.Fatalf("DataAt = %v err=%v", r.DataAt, err)
@@ -73,7 +73,7 @@ func TestElronPoller(t *testing.T) {
 	srv, _ := fixtureServer(t, "elron_map_data.json", "application/json", "")
 	loc, _ := time.LoadLocation("Europe/Tallinn")
 	store := state.NewStore()
-	p := &ElronPoller{URL: srv.URL, Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: store, Location: loc}
+	p := &ElronPoller{URL: feeds.Const(srv.URL), Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: store, Location: loc}
 	r, err := p.Poll(context.Background())
 	if err != nil || r.Count != 17 {
 		t.Fatalf("result %+v err=%v", r, err)
