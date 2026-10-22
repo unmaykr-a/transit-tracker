@@ -1,0 +1,3 @@
+service_id,start_date,end_date,monday,tuesday,wednesday,thursday,friday,saturday,sunday
+Laane_31.08.-31.12.2026-Mo,20260831,20261231,1,0,0,0,0,0,0
+Laane_31.08.-31.12.2026-Fr,20260831,20261231,0,0,0,0,1,0,0

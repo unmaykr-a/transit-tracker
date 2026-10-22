@@ -1,0 +1,35 @@
+stop_id,stop_code,stop_name,stop_lat,stop_lon,stop_desc,wheelchair_boarding,platform_code,location_type,parent_station,stop_timezone,stop_url,tts_stop_name,zone_id,alias,stop_area,authority,lest_x,lest_y
+10746,23424-1,Saue,59.3248148,24.5474647,Rong Paldiski suunas,,,0,,,,,Harju2,Saue,Saue vald,Harjumaa,6576425.499,531168.437
+10738,05008-1,Kivimäe,59.3776053,24.6576255,Rong Paldiski suunas,,,0,,,,,Harju1,,Nõmme,Tallinna linn,6582362.5,537382.312
+10138,21107-1,Tallinn,59.4402187,24.7372204,Lõpp-peatus,1,,0,,,,,,Tallinn; Balti Jaam,Põhja-Tallinn,Tallinna linn,6589384.499,541829.999
+93454,23373-1,Padula,59.3378753,24.5928411,Rong Tallinna suunas,,,0,,,,,Harju2,,Saue vald,Harjumaa,6577902.349,533738.9
+10409,07410-1,Tondi,59.4109396,24.7334172,Rong Paldiski suunas,,,0,,,,,Harju1,Tondi,Kristiine,Tallinna linn,6586120.499,541649.875
+10741,04105-1,Pääsküla,59.3693575,24.6408671,Rong Paldiski suunas,,,0,,,,,Harju1,Pääsküla,Nõmme,Tallinna linn,6581434.499,536438.5
+10777,21778-1,Klooga aedlinn,59.324469,24.2182681,Rong Tallinna suunas,,,0,,,,,Harju3,Klooga-aedlinn,Lääne-Harju vald,Harjumaa,6576280.0,512426.75
+10414,11206-1,Lilleküla,59.424608,24.7283605,Rong Balti jaama suunas,,,0,,,,,Harju1,Lilleküla,Kristiine,Tallinna linn,6587640.0,541346.187
+10729,06306-1,Rahumäe,59.3889736,24.7045897,Rong Paldiski suunas,,,0,,,,,Harju1,,Nõmme,Tallinna linn,6583656.0,540038.562
+10756,21829-1,Keila,59.3061971,24.4166335,Rong Paldiski suunas,,,0,,,,,Harju3,Keila,Keila linn,Harjumaa,6574297.999,523732.906
+10742,04106-1,Pääsküla,59.369613,24.6418591,Rong Balti jaama suunas,,,0,,,,,Harju1,Pääsküla,Nõmme,Tallinna linn,6581463.499,536494.624
+10137,21106-1,Tallinn,59.4404984,24.7369544,Rong Tallinnast väljuv suund,,,0,,,,,Harju1,Tallinn; Balti Jaam,Põhja-Tallinn,Tallinna linn,6589415.5,541814.562
+10735,04805-1,Hiiu,59.3832144,24.6712389,Rong Balti jaama suunas,,,0,,,,,Harju1,Hiiu,Nõmme,Tallinna linn,6582994.999,538149.875
+10750,23363-1,Valingu,59.3115759,24.4853714,Rong Keila suunas,,,0,,,,,Harju2,Valingu,Saue vald,Harjumaa,6574923.499,527644.062
+10416,06804-1,Järve,59.4012046,24.7252312,Rong Tallinna suunas,,,0,,,,,Harju1,Järve,Kristiine,Tallinna linn,6585030.999,541196.749
+10733,05409-1,Nõmme,59.386045,24.6863309,Rong Tallinna suunas,,,0,,,,,Harju1,,Nõmme,Tallinna linn,6583319.0,539004.375
+34250,23375-1,Urda,59.3435762,24.6125803,Rong Balti jaama suunas,,,0,,,,,Harju2,Urda,Saue vald,Harjumaa,6578547.499,534856.437
+10745,04409-1,Laagri,59.354999,24.627859,Rong Balti jaama suunas,,,0,,,,,Harju1,Laagri,Nõmme,Tallinna linn,6579827.999,535713.875
+10764,21784-1,Niitvälja,59.3139712,24.3207612,Rong Tallinna suunas,,,0,,,,,Harju3,Niitvälja,Lääne-Harju vald,Harjumaa,6575134.0,518267.594
+10410,07411-1,Tondi,59.4111087,24.7336706,Rong Balti jaama suunas,,,0,,,,,Harju1,Tondi,Kristiine,Tallinna linn,6586139.499,541664.062
+10782,21785-1,Põllküla,59.3289871,24.1743289,Rong Tallinna suunas,,,0,,,,,Harju4A,Põllküla,Lääne-Harju vald,Harjumaa,6576776.0,509923.843
+10730,06307-1,Rahumäe,59.3885458,24.7023382,Rong Tallinna suunas,,,0,,,,,Harju1,,Nõmme,Tallinna linn,6583606.999,539911.125
+10757,21828-1,Keila,59.3060964,24.4172494,Rong Tallinna suunas,,,0,,,,,Harju3,Keila,Keila linn,Harjumaa,6574286.999,523768.062
+10768,21777-1,Klooga,59.3203106,24.2589834,Rong Tallinna suunas,,,0,,,,,Harju3,Klooga,Lääne-Harju vald,Harjumaa,6575825.0,514746.593
+10734,04804-1,Hiiu,59.382947,24.66998,Rong Paldiski suunas,,,0,,,,,Harju1,Hiiu,Nõmme,Tallinna linn,6582964.499,538078.625
+10747,23425-1,Saue,59.3250695,24.5488158,Rong Tallinna suunas,,,0,,,,,Harju2,Saue,Saue vald,Harjumaa,6576454.5,531245.125
+10413,11205-1,Lilleküla,59.425655,24.7273246,Rong Paldiski suunas,,,0,,,,,Harju1,Lilleküla,Kristiine,Tallinna linn,6587755.999,541286.125
+10790,22910-1,Paldiski,59.3439314,24.0611411,Rong Tallinna suunas,,,0,,,,,Harju4A,Paldiski,Paldiski linn,Harjumaa,6578429.5,503479.0
+10732,05408-1,Nõmme,59.386339,24.6876093,Rong Paldiski suunas,,,0,,,,,Harju1,,Nõmme,Tallinna linn,6583352.499,539076.687
+10744,04408-1,Laagri,59.3543271,24.6275632,Rong Paldiski suunas,,,0,,,,,Harju1,Laagri,Nõmme,Tallinna linn,6579753.0,535697.75
+10739,05009-1,Kivimäe,59.3767602,24.6560887,Rong Balti jaama suunas,,,0,,,,,Harju1,,Nõmme,Tallinna linn,6582267.499,537295.875
+10751,23364-1,Valingu,59.3114031,24.4835342,Rong Tallinna suunas,,,0,,,,,Harju2,Valingu,Saue vald,Harjumaa,6574903.499,527539.562
+93451,23374-1,Urda,59.3434933,24.612056,Rong Paldiski suunas,,,0,,,,,Harju2,Urda,Saue vald,Harjumaa,6578538.0,534826.687
+10415,06805-1,Järve,59.4006248,24.7245665,Rong Paldiski suunas,,,0,,,,,Harju1,Järve,Kristiine,Tallinna linn,6584965.999,541159.687

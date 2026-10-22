@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_contact_url,feed_contact_email,feed_start_date,feed_end_date,feed_version
+Regionaal- ja Põllumajandusministeerium,https://agri.ee/,et,,,20260831,20261231,"Updated: Oct 1, 2026, 3:09 PM"
