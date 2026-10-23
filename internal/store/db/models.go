@@ -78,6 +78,7 @@ type SavedLine struct {
 	FromAreaID         string
 	ToAreaID           string
 	OriginPlaceID      sql.NullInt64
+	Transfers          string
 }
 
 type SavedPlace struct {

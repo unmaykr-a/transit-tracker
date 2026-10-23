@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 )
 
@@ -152,3 +153,147 @@ func TestSavedTrips(t *testing.T) {
 		}
 	}
 }
+
+// A trip no single line makes: the form offers ways with changes, one is
+// saved, and the dashboard follows each departure through the changes.
+func TestTripsWithChanges(t *testing.T) {
+	c, im := fullServer(t)
+	ix := im.Index()
+	timer := func(p *staticdata.Pattern) []float64 {
+		out := make([]float64, len(p.StopIDs))
+		for i := range out {
+			out[i] = float64(i) * 90
+		}
+		return out
+	}
+	// Find two stops with no direct line but a way with one change.
+	var from, to string
+	var areas []string
+	for _, r := range ix.Routes() {
+		for _, p := range ix.Patterns(r.ID) {
+			for _, sid := range p.StopIDs {
+				if s, ok := ix.Stop(sid); ok && !slices.Contains(areas, s.AreaID) {
+					areas = append(areas, s.AreaID)
+				}
+			}
+		}
+	}
+	slices.Sort(areas)
+search:
+	for i := 0; i < len(areas); i += 11 {
+		for j := len(areas) - 1; j > i; j -= 13 {
+			if len(ix.Connections(areas[i], areas[j])) == 0 {
+				if o := ix.TransferOptions(areas[i], areas[j], timer, 1); len(o) > 0 && len(o[0].Transfers) == 1 {
+					from, to = areas[i], areas[j]
+					break search
+				}
+			}
+		}
+	}
+	if from == "" {
+		t.Fatal("no trip with one change in the fixture")
+	}
+
+	code, prev := c.do("GET", "/api/v1/trips?from="+from+"&to="+to, nil)
+	if code != 200 || len(prev["lines"].([]any)) != 0 {
+		t.Fatalf("preview: %d %v", code, prev)
+	}
+	opts := prev["options"].([]any)
+	if len(opts) == 0 {
+		t.Fatalf("no options: %v", prev)
+	}
+	opt := opts[0].(map[string]any)
+	via := opt["via"].(string)
+	if len(opt["legs"].([]any)) != len(opt["transfers"].([]any))+1 || opt["minutes"].(float64) <= 0 {
+		t.Fatalf("option = %v", opt)
+	}
+	if code, out := c.do("GET", "/api/v1/trips?from="+from+"&to="+to+"&via="+via, nil); code != 200 || len(out["legs"].([]any)) < 2 {
+		t.Fatalf("preview via: %d %v", code, out)
+	}
+
+	// Changes that do not work are refused.
+	for _, bad := range []string{"nope", from, via + "," + via, "a,b,c"} {
+		if code, _ := c.do("GET", "/api/v1/trips?from="+from+"&to="+to+"&via="+bad, nil); code != 400 {
+			t.Errorf("via %q = %d", bad, code)
+		}
+	}
+	if code, out := c.do("POST", "/api/v1/me/lines", map[string]any{"kind": "trip", "from_area_id": from, "to_area_id": to}); code != 400 || out["field"] != "to_area_id" {
+		t.Errorf("no change, no line: %d %v", code, out)
+	}
+	if code, _ := c.do("POST", "/api/v1/me/lines", map[string]any{"kind": "line", "route_id": "tram:T4", "transfers": []any{map[string]string{"alight": from}}}); code != 400 {
+		t.Errorf("transfers on a line = %d", code)
+	}
+
+	var transfers []map[string]string
+	for _, tr := range dashboardTransfers(via) {
+		transfers = append(transfers, map[string]string{"alight": tr.Alight, "board": tr.Board})
+	}
+	code, out := c.do("POST", "/api/v1/me/lines", map[string]any{"kind": "trip", "from_area_id": from, "to_area_id": to, "transfers": transfers})
+	if code != 201 {
+		t.Fatalf("save: %d %v", code, out)
+	}
+	line := out["line"].(map[string]any)
+	if len(line["transfers"].([]any)) != len(transfers) || len(line["legs"].([]any)) != len(transfers)+1 || line["unavailable"] == true {
+		t.Fatalf("saved = %v", line)
+	}
+	id := jsonNum(line["id"])
+	if code, out := c.do("PATCH", "/api/v1/me/lines/"+id, map[string]any{"transfers": []any{}}); code != 400 {
+		t.Errorf("dropping the change leaves no line: %d %v", code, out)
+	}
+
+	// Dashboard: every departure carries its journey; complete ones change
+	// after arriving (plus the walk) and arrive after they leave.
+	_, dash := c.do("GET", "/api/v1/me/dashboard", nil)
+	var entry map[string]any
+	for _, e := range dash["entries"].([]any) {
+		if jsonNum(e.(map[string]any)["line"].(map[string]any)["id"]) == id {
+			entry = e.(map[string]any)
+		}
+	}
+	deps := entry["departures"].([]any)
+	if len(deps) == 0 {
+		t.Fatalf("entry = %v", entry)
+	}
+	complete := 0
+	for _, d := range deps {
+		j, ok := d.(map[string]any)["journey"].(map[string]any)
+		if !ok {
+			t.Fatalf("departure without a journey: %v", d)
+		}
+		legs := j["legs"].([]any)
+		if j["arrive_at"] == nil {
+			continue
+		}
+		complete++
+		if len(legs) != len(transfers)+1 {
+			t.Fatalf("legs = %v", legs)
+		}
+		for k := 1; k < len(legs); k++ {
+			prev, cur := legs[k-1].(map[string]any), legs[k].(map[string]any)
+			if cur["depart_at"].(string) < prev["arrive_at"].(string) {
+				t.Errorf("leg %d leaves %v before the previous arrives %v", k, cur["depart_at"], prev["arrive_at"])
+			}
+		}
+		last := legs[len(legs)-1].(map[string]any)
+		if j["arrive_at"] != last["arrive_at"] || last["arrive_at"].(string) <= legs[0].(map[string]any)["depart_at"].(string) {
+			t.Errorf("journey = %v", j)
+		}
+	}
+	if complete == 0 {
+		t.Fatalf("no complete journey: %v", deps)
+	}
+
+	// Home Assistant sees where it changes and when it arrives.
+	_, ha := c.do("GET", "/api/v1/ha/lines", nil)
+	for _, l := range ha["lines"].([]any) {
+		l := l.(map[string]any)
+		if jsonNum(l["id"]) != id {
+			continue
+		}
+		if len(l["via"].([]any)) != len(transfers) || l["next"].(map[string]any)["arrive_at"] == nil || len(l["next"].(map[string]any)["changes"].([]any)) != len(transfers) {
+			t.Errorf("ha line = %v", l)
+		}
+	}
+}
+
+func dashboardTransfers(via string) []staticdata.Transfer { return dashboard.ParseTransfers(via) }

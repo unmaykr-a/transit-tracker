@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/unmaykr-a/transit-tracker/internal/feeds"
 	"github.com/unmaykr-a/transit-tracker/internal/state"
 )
 
@@ -51,5 +52,37 @@ func TestParkedVehicleDoesNotPoisonPaces(t *testing.T) {
 	}
 	if sp := tr.routeSpeed[out.RouteID]; sp < 2 {
 		t.Errorf("route speed %.2f m/s after parking", sp)
+	}
+}
+
+func TestPatternTimes(t *testing.T) {
+	ix := fixtureIndex(t)
+	tr := NewTracker()
+	tr.SetGeometry(BuildGeometry(ix))
+	check := func(name string, times []float64, n int) {
+		t.Helper()
+		if len(times) != n || times[0] != 0 {
+			t.Fatalf("%s: %v", name, times)
+		}
+		for i := 1; i < n; i++ {
+			if times[i] <= times[i-1] {
+				t.Fatalf("%s: not increasing at %d: %v", name, i, times)
+			}
+		}
+	}
+	tram := mainPattern(ix, "tram:T4", 0)
+	times := tr.PatternTimes(ix, tram)
+	check("tram", times, len(tram.StopIDs))
+	// A whole T4 run takes the better part of an hour, not seconds or days.
+	if total := times[len(times)-1]; total < 15*60 || total > 75*60 {
+		t.Errorf("T4 end to end: %.0f s", total)
+	}
+	// Rail is not tracked: the static estimate.
+	for _, r := range ix.Routes() {
+		if r.Mode == feeds.ModeTrain {
+			p := ix.Patterns(r.ID)[0]
+			check("rail", tr.PatternTimes(ix, p), len(p.StopIDs))
+			break
+		}
 	}
 }

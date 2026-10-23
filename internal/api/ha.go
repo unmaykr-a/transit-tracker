@@ -25,6 +25,20 @@ type haDeparture struct {
 	Platform   string    `json:"platform"`
 	Verdict    string    `json:"verdict"`
 	LeaveInMin *int      `json:"leave_in_min"` // nil without an origin
+	// ArriveAt estimates the arrival at the trip's destination (or the line's
+	// stop to get off at); Changes are a trip's onward rides.
+	ArriveAt *time.Time `json:"arrive_at,omitempty"`
+	Changes  []haChange `json:"changes,omitempty"`
+}
+
+// haChange is one change of a trip: the stop, and the ride caught there.
+type haChange struct {
+	At      string    `json:"at"`
+	Line    string    `json:"line"`
+	Mode    string    `json:"mode"`
+	Time    time.Time `json:"time"`
+	WaitMin int       `json:"wait_min"`
+	WalkMin int       `json:"walk_min"`
 }
 
 // haLine is one saved line, flattened for the integration's sensors. The
@@ -51,7 +65,8 @@ type haLine struct {
 	LeaveInMin  *int          `json:"leave_in_min"`
 	Catchable   *bool         `json:"catchable"` // nil without an origin
 	Unavailable bool          `json:"unavailable"`
-	Lines       []string      `json:"lines,omitempty"`     // a trip's connecting lines
+	Lines       []string      `json:"lines,omitempty"`     // a trip's connecting lines (first ride)
+	Via         []string      `json:"via,omitempty"`       // where a trip changes
 	WalkFrom    string        `json:"walk_from,omitempty"` // the line's own starting place, when walks start there
 	Error       string        `json:"error,omitempty"`
 }
@@ -129,6 +144,12 @@ func haView(e dashboard.Entry, hasOrigin bool, n int, now time.Time) haLine {
 			slack := d.Verdict.SlackMin
 			hd.LeaveInMin = &slack
 		}
+		if j := d.Journey; j != nil {
+			hd.ArriveAt = j.ArriveAt
+			for _, leg := range j.Legs[1:] {
+				hd.Changes = append(hd.Changes, haChange{At: leg.Board.Name, Line: leg.Line, Mode: string(leg.Mode), Time: leg.DepartAt, WaitMin: leg.WaitMin, WalkMin: leg.WalkMin})
+			}
+		}
 		h.Departures = append(h.Departures, hd)
 	}
 	next := 0
@@ -167,6 +188,11 @@ func tripView(h *haLine, l dashboard.Line) {
 	}
 	if l.From != nil {
 		h.StopID, h.StopName, h.Path = l.From.ID, l.From.Name, "/stops/"+url.PathEscape(l.From.ID)
+	}
+	for _, t := range l.Transfers {
+		if t.Alight != nil {
+			h.Via = append(h.Via, t.Alight.Name)
+		}
 	}
 	if h.Label == "" && l.From != nil && l.To != nil {
 		h.Label = l.From.Name + " → " + l.To.Name

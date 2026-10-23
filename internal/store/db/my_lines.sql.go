@@ -26,7 +26,7 @@ INSERT INTO saved_lines (user_id, route_id, direction, headsign, board_stop_id, 
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
         (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), ?8, ?9,
         ?10)
-RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id
+RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id, transfers
 `
 
 type CreateSavedLineParams struct {
@@ -72,6 +72,7 @@ func (q *Queries) CreateSavedLine(ctx context.Context, arg CreateSavedLineParams
 		&i.FromAreaID,
 		&i.ToAreaID,
 		&i.OriginPlaceID,
+		&i.Transfers,
 	)
 	return i, err
 }
@@ -110,17 +111,18 @@ func (q *Queries) CreateSavedPlace(ctx context.Context, arg CreateSavedPlacePara
 }
 
 const createSavedTrip = `-- name: CreateSavedTrip :one
-INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, label, sort, notify_threshold_min, created_at, origin_place_id)
-VALUES (?1, 'trip', '', 0, '', ?2, ?3, ?4,
-        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), 0, ?5,
-        ?6)
-RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id
+INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, transfers, label, sort, notify_threshold_min, created_at, origin_place_id)
+VALUES (?1, 'trip', '', 0, '', ?2, ?3, ?4, ?5,
+        (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = ?1), 0, ?6,
+        ?7)
+RETURNING id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id, transfers
 `
 
 type CreateSavedTripParams struct {
 	UserID        int64
 	FromAreaID    string
 	ToAreaID      string
+	Transfers     string
 	Label         string
 	CreatedAt     int64
 	OriginPlaceID sql.NullInt64
@@ -131,6 +133,7 @@ func (q *Queries) CreateSavedTrip(ctx context.Context, arg CreateSavedTripParams
 		arg.UserID,
 		arg.FromAreaID,
 		arg.ToAreaID,
+		arg.Transfers,
 		arg.Label,
 		arg.CreatedAt,
 		arg.OriginPlaceID,
@@ -152,6 +155,7 @@ func (q *Queries) CreateSavedTrip(ctx context.Context, arg CreateSavedTripParams
 		&i.FromAreaID,
 		&i.ToAreaID,
 		&i.OriginPlaceID,
+		&i.Transfers,
 	)
 	return i, err
 }
@@ -191,7 +195,7 @@ func (q *Queries) DeleteSavedPlace(ctx context.Context, arg DeleteSavedPlacePara
 }
 
 const getSavedLine = `-- name: GetSavedLine :one
-SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id FROM saved_lines WHERE id = ? AND user_id = ?
+SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id, transfers FROM saved_lines WHERE id = ? AND user_id = ?
 `
 
 type GetSavedLineParams struct {
@@ -218,6 +222,7 @@ func (q *Queries) GetSavedLine(ctx context.Context, arg GetSavedLineParams) (Sav
 		&i.FromAreaID,
 		&i.ToAreaID,
 		&i.OriginPlaceID,
+		&i.Transfers,
 	)
 	return i, err
 }
@@ -289,7 +294,7 @@ func (q *Queries) ListBoardStops(ctx context.Context) ([]string, error) {
 }
 
 const listSavedLines = `-- name: ListSavedLines :many
-SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id FROM saved_lines WHERE user_id = ? ORDER BY sort, id
+SELECT id, user_id, route_id, direction, headsign, board_stop_id, alight_stop_id, label, sort, notify_threshold_min, created_at, kind, from_area_id, to_area_id, origin_place_id, transfers FROM saved_lines WHERE user_id = ? ORDER BY sort, id
 `
 
 func (q *Queries) ListSavedLines(ctx context.Context, userID int64) ([]SavedLine, error) {
@@ -317,6 +322,7 @@ func (q *Queries) ListSavedLines(ctx context.Context, userID int64) ([]SavedLine
 			&i.FromAreaID,
 			&i.ToAreaID,
 			&i.OriginPlaceID,
+			&i.Transfers,
 		); err != nil {
 			return nil, err
 		}
@@ -392,6 +398,33 @@ func (q *Queries) ListTripOrigins(ctx context.Context) ([]string, error) {
 	return items, nil
 }
 
+const listTripTransfers = `-- name: ListTripTransfers :many
+SELECT DISTINCT transfers FROM saved_lines WHERE kind = 'trip' AND transfers != ''
+`
+
+func (q *Queries) ListTripTransfers(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listTripTransfers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var transfers string
+		if err := rows.Scan(&transfers); err != nil {
+			return nil, err
+		}
+		items = append(items, transfers)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setSavedLineSort = `-- name: SetSavedLineSort :exec
 UPDATE saved_lines SET sort = ? WHERE id = ? AND user_id = ?
 `
@@ -409,7 +442,7 @@ func (q *Queries) SetSavedLineSort(ctx context.Context, arg SetSavedLineSortPara
 
 const updateSavedLine = `-- name: UpdateSavedLine :exec
 UPDATE saved_lines
-SET label = ?, alight_stop_id = ?, notify_threshold_min = ?, from_area_id = ?, to_area_id = ?, origin_place_id = ?
+SET label = ?, alight_stop_id = ?, notify_threshold_min = ?, from_area_id = ?, to_area_id = ?, transfers = ?, origin_place_id = ?
 WHERE id = ? AND user_id = ?
 `
 
@@ -419,6 +452,7 @@ type UpdateSavedLineParams struct {
 	NotifyThresholdMin int64
 	FromAreaID         string
 	ToAreaID           string
+	Transfers          string
 	OriginPlaceID      sql.NullInt64
 	ID                 int64
 	UserID             int64
@@ -431,6 +465,7 @@ func (q *Queries) UpdateSavedLine(ctx context.Context, arg UpdateSavedLineParams
 		arg.NotifyThresholdMin,
 		arg.FromAreaID,
 		arg.ToAreaID,
+		arg.Transfers,
 		arg.OriginPlaceID,
 		arg.ID,
 		arg.UserID,

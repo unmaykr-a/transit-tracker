@@ -2,12 +2,14 @@ package dashboard
 
 import (
 	"context"
+	"math"
 	"slices"
 	"sync"
 	"time"
 
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
+	"github.com/unmaykr-a/transit-tracker/internal/geo"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 	"github.com/unmaykr-a/transit-tracker/internal/store/db"
 	"github.com/unmaykr-a/transit-tracker/internal/walk"
@@ -54,7 +56,11 @@ type Line struct {
 	Kind  string     `json:"kind"`
 	From  *AreaRef   `json:"from,omitempty"`
 	To    *AreaRef   `json:"to,omitempty"`
-	Lines []TripLine `json:"lines,omitempty"`
+	Lines []TripLine `json:"lines,omitempty"` // a trip's lines (of its first leg when it has changes)
+	// Transfers and Legs describe a trip with changes: where it changes, and
+	// each ride with the lines that make it (Lines repeats the first leg's).
+	Transfers []TransferRef `json:"transfers,omitempty"`
+	Legs      []TripLeg     `json:"legs,omitempty"`
 }
 
 // AreaRef is a stop area as trips show it.
@@ -120,20 +126,31 @@ func areaRef(ix *staticdata.Index, id string) *AreaRef {
 
 func resolveTrip(ix *staticdata.Index, sl db.SavedLine) Line {
 	l := Line{ID: sl.ID, Kind: KindTrip, Label: sl.Label, NotifyMin: int(sl.NotifyThresholdMin),
-		From: areaRef(ix, sl.FromAreaID), To: areaRef(ix, sl.ToAreaID), Lines: []TripLine{}}
-	for _, c := range ix.Connections(sl.FromAreaID, sl.ToAreaID) {
-		r, ok := ix.Route(c.RouteID)
-		if !ok {
-			continue
+		From: areaRef(ix, sl.FromAreaID), To: areaRef(ix, sl.ToAreaID)}
+	transfers := ParseTransfers(sl.Transfers)
+	legs := LegAreas(sl.FromAreaID, sl.ToAreaID, transfers)
+	l.Lines = tripLines(ix, legs[0][0], legs[0][1])
+	l.Unavailable = l.From == nil || l.To == nil || len(l.Lines) == 0
+	if len(transfers) > 0 {
+		for _, t := range transfers {
+			tr := TransferRef{Alight: areaRef(ix, t.Alight), Board: areaRef(ix, t.Board)}
+			a, okA := ix.Area(t.Alight)
+			b, okB := ix.Area(t.Board)
+			if okA && okB {
+				tr.WalkM = math.Round(geo.DistanceM(a.Lat, a.Lon, b.Lat, b.Lon))
+			}
+			l.Unavailable = l.Unavailable || tr.Alight == nil || tr.Board == nil
+			l.Transfers = append(l.Transfers, tr)
 		}
-		board, _ := ix.Stop(c.BoardStopID)
-		alight, _ := ix.Stop(c.AlightStopID)
-		l.Lines = append(l.Lines, TripLine{RouteID: r.ID, Mode: r.Mode, ShortName: r.ShortName, Board: stopRef(board), Alight: stopRef(alight), Stops: c.Stops, Headsigns: c.Headsigns})
+		for _, lg := range legs {
+			leg := TripLeg{From: areaRef(ix, lg[0]), To: areaRef(ix, lg[1]), Lines: tripLines(ix, lg[0], lg[1])}
+			l.Unavailable = l.Unavailable || len(leg.Lines) == 0
+			l.Legs = append(l.Legs, leg)
+		}
 	}
 	if l.To != nil {
 		l.Headsign = l.To.Name
 	}
-	l.Unavailable = l.From == nil || l.To == nil || len(l.Lines) == 0
 	return l
 }
 
@@ -149,6 +166,9 @@ type Walk struct {
 type DepartureVerdict struct {
 	departures.Departure
 	Verdict Verdict `json:"verdict"`
+	// Journey follows the departure to the destination (trips, and lines saved
+	// with a stop to get off at): changes and an estimated arrival.
+	Journey *Journey `json:"journey,omitempty"`
 }
 
 // Entry is one dashboard card.
@@ -190,7 +210,10 @@ type Builder struct {
 	Index      func() *staticdata.Index
 	Departures *departures.Service
 	Walk       *walk.Service
-	Now        func() time.Time
+	// Times estimates riding times along a pattern (eta.Tracker.PatternTimes);
+	// without it a ride takes 90 s per stop.
+	Times staticdata.PatternTimer
+	Now   func() time.Time
 }
 
 func (b *Builder) now() time.Time {
@@ -307,6 +330,20 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 		// Whole boards: at a busy platform the saved line may be far down the list.
 		deps, depErr = b.Departures.ForStops(ctx, boards, 0, 3*time.Hour)
 	}()
+	// A trip with changes also needs the departures at each change.
+	var legs [][2]string
+	var later []laterLeg
+	var laterErr error
+	if sl.Kind == KindTrip {
+		legs = LegAreas(sl.FromAreaID, sl.ToAreaID, ParseTransfers(sl.Transfers))
+		if len(legs) > 1 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				later, laterErr = b.laterLegs(ctx, ix, legs)
+			}()
+		}
+	}
 	walks := map[string]*Walk{} // by boarding platform
 	if origin != nil && b.Walk != nil {
 		var mu sync.Mutex
@@ -331,8 +368,10 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 		return e
 	}
 	var mine []departures.Departure
+	var conns []staticdata.Connection // what each departure rides, for journeys
 	if sl.Kind == KindTrip {
-		mine = pickTrip(deps, ix.Connections(sl.FromAreaID, sl.ToAreaID))
+		conns = ix.Connections(legs[0][0], legs[0][1])
+		mine = pickTrip(deps, conns)
 		e.Walk = nearestWalk(walks)
 		if len(walks) > 0 {
 			e.Walks = walks
@@ -340,6 +379,12 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 	} else {
 		mine = pick(deps, sl.RouteID, sl.Headsign)
 		e.Walk = walks[sl.BoardStopID]
+		if sl.AlightStopID != "" {
+			conns = []staticdata.Connection{{RouteID: sl.RouteID, BoardStopID: sl.BoardStopID, AlightStopID: sl.AlightStopID}}
+		}
+	}
+	if laterErr != nil {
+		later = nil // no onward departures: journeys stop after the first ride
 	}
 	now := b.now()
 	for i, d := range mine {
@@ -355,7 +400,11 @@ func (b *Builder) entry(ctx context.Context, ix *staticdata.Index, sl db.SavedLi
 			}
 		}
 		if i < shown || i == e.NextCatchable {
-			e.Departures = append(e.Departures, DepartureVerdict{d, v})
+			dv := DepartureVerdict{Departure: d, Verdict: v}
+			if c := connectionFor(conns, d); c != nil && (laterErr == nil || len(legs) <= 1) {
+				dv.Journey = b.journey(ix, d, c, later, prefs)
+			}
+			e.Departures = append(e.Departures, dv)
 		}
 		if i >= shown && e.NextCatchable >= 0 {
 			break
