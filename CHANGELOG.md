@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.9.0 — 2026-10-23
+
+- **One map across pages.** The live map is now kept while you move between the map, a line and a stop (and the
+  line or stop pane on wide screens): tapping a bus, opening its line and then a stop glides the camera instead of
+  rebuilding the map, and going back is instant. Line and stop pages load their data before they swap in (and on
+  hover), so pages no longer flash "Loading…".
+- **Follow a vehicle.** The vehicle sheet has a "Follow on the map" button: the map keeps the vehicle centred as it
+  moves; dragging the map stops following.
+- The vehicle sheet refreshes its next stops on every new position of that vehicle (as often as the GPS feed
+  reports, about every 5–10 s) instead of every 15 s.
+- **Line pages show where vehicles are**, live: markers sit between the stops they travel between and move as the
+  vehicles do.
+- **Add a place from Home**: an "Add place" button next to the walking-origin chips opens a small form (current
+  location, a point on the map, or an address or stop); the new place becomes the walking origin.
+- Dark mode: map labels (stops, places) are white with a dark outline, easier to read.
+
 ## 1.8.1 — 2026-10-23
 
 - Fixed: with railway lines switched off, a selected train showed no line. Trains are now matched to their rail

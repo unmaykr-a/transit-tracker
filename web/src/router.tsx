@@ -1,12 +1,21 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router";
 
+import { fetchLine, fetchStop } from "@/api";
 import { AppShell } from "@/components/AppShell";
+import { queryClient } from "@/lib/queryClient";
 import HomePage from "@/pages/HomePage";
 
 const rootRoute = createRootRoute({ component: AppShell });
 
 // The router parses search values as JSON, so ?stop=1234 arrives as a number.
 const str = (v: unknown) => (typeof v === "string" && v !== "" ? v : typeof v === "number" ? String(v) : undefined);
+
+// Line and stop pages: fetch their data while the previous page is still showing
+// (and on hover, with defaultPreload), so the page swaps in whole instead of
+// flashing a loading state. Same keys and staleness as the pages' own queries;
+// a failure is left for the page to show.
+const HOUR = 60 * 60_000;
+const prefetch = (p: Promise<unknown>) => p.then(() => undefined, () => undefined);
 
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -33,9 +42,16 @@ const routeTree = rootRoute.addChildren([
     getParentRoute: () => rootRoute,
     path: "/stops/$id",
     validateSearch: (s: Record<string, unknown>): { p?: string } => ({ p: str(s.p) }),
+    loader: ({ params }) => prefetch(queryClient.ensureQueryData({ queryKey: ["stop", params.id], queryFn: ({ signal }) => fetchStop(params.id, signal), staleTime: HOUR })),
     component: lazyRouteComponent(() => import("@/pages/StopPage")),
   }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/lines/$mode/$line", component: lazyRouteComponent(() => import("@/pages/LinePage")) }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/lines/$mode/$line",
+    loader: ({ params: { mode, line } }) =>
+      prefetch(queryClient.ensureQueryData({ queryKey: ["line", mode, line], queryFn: ({ signal }) => fetchLine(mode, line, signal), staleTime: HOUR })),
+    component: lazyRouteComponent(() => import("@/pages/LinePage")),
+  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/trips/new",
@@ -83,7 +99,7 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 export function makeRouter() {
-  return createRouter({ routeTree, defaultPreload: "intent", scrollRestoration: true, scrollToTopSelectors: ["main"] });
+  return createRouter({ routeTree, defaultPreload: "intent", defaultPendingMs: 1500, scrollRestoration: true, scrollToTopSelectors: ["main"] });
 }
 
 export const router = makeRouter();

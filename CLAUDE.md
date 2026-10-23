@@ -60,6 +60,13 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   last live one (`Departures.Timetable`), waits, estimated `arrive_at`; also for direct trips and
   lines with an alight stop). Any saved line can have `origin_place_id` (a saved place, `ON DELETE SET NULL`): when
   the request carries no location, `Builder.Build` walks from it and sets the entry's `walk_from`.
+- One shared live map (`map/MapHost.tsx` in `AppShell`, behind `<main>`): pages ask for it with
+  `useMapPane("full" | "side", props)` (`map/mapPane.ts` store; the last page's request wins, the map stays mounted
+  hidden 60 s after the last one) and draw their overlays above it — `<main>` is `pointer-events-none` while the map
+  shows, so overlays need `pointer-events-auto`. `VehicleMap` `fit`/`focus` call `map.resize()` first (the pane may
+  have changed width). `VehicleMap` `follow` keeps a vehicle centred (paused while the map is grabbed, ends on drag).
+  Line/stop routes have loaders (`router.tsx`) that `ensureQueryData` with the pages' own keys via the shared
+  `lib/queryClient.ts`. `components/AddPlaceForm.tsx` is used by Settings and the Home "Add place" panel.
 - Wide screens (`lib/useWide.ts`, ≥1024 px): `components/SplitLayout.tsx` puts line and stop details beside
   `map/LiveMapPane.tsx` (the live `VehicleMap` with `fit`, line filter, highlighted pattern, places); phones keep the
   small `LineMap`. `VehicleMap` also draws saved places and railway lines (train patterns; `/patterns` includes rail

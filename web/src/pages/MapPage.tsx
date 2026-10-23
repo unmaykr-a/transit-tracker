@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { X } from "lucide-react";
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchAllStops, places } from "@/api";
 import { StopSheet } from "@/components/StopSheet";
+import { useMapPane } from "@/map/mapPane";
 import type { Selection } from "@/map/VehicleMap";
 
 import { StaleBanner } from "@/components/StaleBanner";
@@ -17,8 +18,6 @@ import { load, save } from "@/lib/storage";
 import { MODES, type Mode } from "@/lib/types";
 import { useLiveState } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
-
-const VehicleMap = lazy(() => import("@/map/VehicleMap"));
 
 const NO_STOPS: never[] = [];
 
@@ -63,30 +62,33 @@ export default function MapPage() {
   }, [state, modes, tokens]);
   const toggle = (m: Mode) =>
     update({ ...filters, modes: modes.has(m) ? filters.modes.filter((x) => x !== m) : [...filters.modes, m] });
+  const [following, setFollowing] = useState(false);
   const onSelect = useCallback(
     (sel: Selection | undefined) => {
       setSelected(sel);
+      setFollowing(false);
       if (search.stop) void navigate({ search: { lines: search.lines }, replace: true });
     },
     [navigate, search.stop, search.lines],
   );
 
+  // The app's shared map fills this page (MapHost); this page draws the filters and sheets over it.
+  useMapPane("full", {
+    modes,
+    lineTokens: tokens,
+    stops: stops.data?.stops ?? NO_STOPS,
+    selected,
+    onSelect,
+    focus,
+    highlightPattern: selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.pattern_id : undefined,
+    highlightMode: selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.mode : undefined,
+    places: myPlaces.data?.places,
+    follow: following && selected?.kind === "vehicle" ? selected.id : undefined,
+    onFollowEnd: () => setFollowing(false),
+  });
+
   return (
     <div className="absolute inset-0">
-      <Suspense fallback={<p className="p-4 text-muted-foreground">{t("map.loading")}</p>}>
-        <VehicleMap
-          modes={modes}
-          lineTokens={tokens}
-          stops={stops.data?.stops ?? NO_STOPS}
-          selected={selected}
-          onSelect={onSelect}
-          focus={focus}
-          highlightPattern={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.pattern_id : undefined}
-          highlightMode={selected?.kind === "vehicle" ? state.vehicles.get(selected.id)?.mode : undefined}
-          places={myPlaces.data?.places}
-        />
-      </Suspense>
-
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3 pr-14">
         <div className="pointer-events-auto flex flex-wrap items-center gap-2" role="group" aria-label={t("map.filters")}>
           {MODES.map((m) => (
@@ -136,7 +138,15 @@ export default function MapPage() {
       {selected && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 md:bottom-4 md:left-4 md:right-auto md:w-96">
           {selected.kind === "vehicle" ? (
-            <VehicleSheet id={selected.id} onClose={() => setSelected(undefined)} />
+            <VehicleSheet
+              id={selected.id}
+              onClose={() => {
+                setSelected(undefined);
+                setFollowing(false);
+              }}
+              following={following}
+              onFollow={setFollowing}
+            />
           ) : (
             <StopSheet id={selected.id} onClose={() => setSelected(undefined)} />
           )}

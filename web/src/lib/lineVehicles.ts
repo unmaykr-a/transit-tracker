@@ -9,6 +9,18 @@ export interface Placement {
   /** Index of the stop the vehicle is at, or the stop it is heading to. */
   stopIndex: number;
   atStop: boolean;
+  /** How far from the previous stop to stopIndex, 0–1 (1 at the stop), for drawing it on the line. */
+  progress: number;
+}
+
+/** The share of the way from stop i-1 to stop i a point at lat, lon has come. */
+function progressTo(p: Pattern, i: number, lat: number, lon: number): number {
+  const prev = p.stops[i - 1];
+  const next = p.stops[i];
+  if (!prev || !next) return 1;
+  const a = approxDistanceM(lat, lon, prev.lat, prev.lon);
+  const b = approxDistanceM(lat, lon, next.lat, next.lon);
+  return a + b > 0 ? Math.min(1, Math.max(0, a / (a + b))) : 1;
 }
 
 const AT_STOP_M = 60;
@@ -34,10 +46,11 @@ function fromMatch(mains: Pattern[], v: Vehicle): Placement | undefined {
     if (i < 0) continue;
     const prev = p.stops[i - 1];
     if (prev && approxDistanceM(v.lat, v.lon, prev.lat, prev.lon) <= AT_STOP_M) {
-      return { vehicle: v, patternId: p.id, stopIndex: i - 1, atStop: true };
+      return { vehicle: v, patternId: p.id, stopIndex: i - 1, atStop: true, progress: 1 };
     }
     const here = p.stops[i]!;
-    return { vehicle: v, patternId: p.id, stopIndex: i, atStop: approxDistanceM(v.lat, v.lon, here.lat, here.lon) <= AT_STOP_M };
+    const atStop = approxDistanceM(v.lat, v.lon, here.lat, here.lon) <= AT_STOP_M;
+    return { vehicle: v, patternId: p.id, stopIndex: i, atStop, progress: atStop ? 1 : progressTo(p, i, v.lat, v.lon) };
   }
   return undefined;
 }
@@ -70,7 +83,7 @@ export function placeVehicles(patterns: Pattern[], vehicles: Vehicle[]): Placeme
     if (!best) continue;
     const { p, i, d } = best;
     if (d <= AT_STOP_M) {
-      out.push({ vehicle: v, patternId: p.id, stopIndex: i, atStop: true });
+      out.push({ vehicle: v, patternId: p.id, stopIndex: i, atStop: true, progress: 1 });
       continue;
     }
     const dist = (j: number) => {
@@ -79,7 +92,7 @@ export function placeVehicles(patterns: Pattern[], vehicles: Vehicle[]): Placeme
     };
     // Closer to the next stop than to the previous one → past stop i, heading to i+1.
     const heading = dist(i + 1) < dist(i - 1) && i + 1 < p.stops.length ? i + 1 : i;
-    out.push({ vehicle: v, patternId: p.id, stopIndex: heading, atStop: false });
+    out.push({ vehicle: v, patternId: p.id, stopIndex: heading, atStop: false, progress: progressTo(p, heading, v.lat, v.lon) });
   }
   return out;
 }

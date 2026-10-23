@@ -59,7 +59,8 @@
     "gone": "This vehicle is no longer reporting.",
     "nextStops": "Next stops",
     "openLine": "Open line",
-    "nextStop": "Next:"
+    "nextStop": "Next:",
+    "follow": "Follow on the map"
   },
   "home": {
     "title": "My lines",
@@ -95,7 +96,9 @@
     "waitMin": "{{min}} min wait",
     "tightChange": "tight change",
     "arrive": "Arrive",
-    "laterUnknown": "Later rides not known yet"
+    "laterUnknown": "Later rides not known yet",
+    "addPlace": "Add place",
+    "addPlaceHint": "Walking times on your lines start from the place you pick."
   },
   "search": {
     "title": "Search",

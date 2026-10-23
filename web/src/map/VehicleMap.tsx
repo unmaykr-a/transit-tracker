@@ -10,7 +10,7 @@ import { useShowRail } from "@/lib/mapPrefs";
 import { loadShapes, patternRoutes, shapes } from "@/lib/shapes";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { prefersReducedMotion, useTheme } from "@/lib/theme";
-import { isMoving, nextTween, type Tween } from "@/lib/tween";
+import { isMoving, nextTween, positionAt, type Tween } from "@/lib/tween";
 import { MODES, type Mode } from "@/lib/types";
 
 import { collapseAttribution, maplibregl, startView, styleUrl } from "./setup";
@@ -32,6 +32,11 @@ export interface VehicleMapProps {
   /** Pattern whose route is drawn under the vehicles (the selected vehicle's), in its mode's colour. */
   highlightPattern?: string;
   highlightMode?: Mode;
+  /** False while the shared map is kept hidden (no page shows it): animation pauses. */
+  active?: boolean;
+  /** A vehicle to keep in the centre of the map as it moves; dragging the map stops it (onFollowEnd). */
+  follow?: string;
+  onFollowEnd?: () => void;
   /** Points ([lon, lat]) to frame when the map opens or they change, e.g. a line's route. */
   fit?: [number, number][];
   /** The user's saved places, marked on the map. */
@@ -100,7 +105,14 @@ function railFeatures() {
   return { type: "FeatureCollection" as const, features };
 }
 
-function addPlaceLayers(map: MLMap) {
+/** Our own labels and markers per theme: dark text with a white halo would be dark-on-dark on the night map. */
+const LABELS = {
+  light: { text: "#111827", muted: "#4b5563", halo: "#ffffff", place: "#111827", placeRing: "#ffffff" },
+  dark: { text: "#ffffff", muted: "#e5e7eb", halo: "#0b0f19", place: "#ffffff", placeRing: "#0b0f19" },
+} as const;
+
+function addPlaceLayers(map: MLMap, theme: keyof typeof LABELS) {
+  const c = LABELS[theme];
   if (!map.getSource("places")) map.addSource("places", { type: "geojson", data: NO_FEATURES });
   map.addLayer(
     {
@@ -109,8 +121,8 @@ function addPlaceLayers(map: MLMap) {
       source: "places",
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 5, 16, 8],
-        "circle-color": "#111827",
-        "circle-stroke-color": "#ffffff",
+        "circle-color": c.place,
+        "circle-stroke-color": c.placeRing,
         "circle-stroke-width": 2.5,
       },
     },
@@ -130,7 +142,7 @@ function addPlaceLayers(map: MLMap) {
         "text-anchor": "top",
         "text-optional": true,
       },
-      paint: { "text-color": "#111827", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+      paint: { "text-color": c.text, "text-halo-color": c.halo, "text-halo-width": 1.5 },
     },
     "vehicle-dots",
   );
@@ -171,7 +183,8 @@ function addRouteLayers(map: MLMap, theme: keyof typeof ROUTE_CASING) {
   );
 }
 
-function addStopLayers(map: MLMap, before: string) {
+function addStopLayers(map: MLMap, before: string, theme: keyof typeof LABELS) {
+  const c = LABELS[theme];
   if (!map.getSource("stops")) {
     map.addSource("stops", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "id" });
   }
@@ -204,7 +217,7 @@ function addStopLayers(map: MLMap, before: string) {
         "text-anchor": "top",
         "text-optional": true,
       },
-      paint: { "text-color": "#6b7280", "text-halo-color": "#ffffff", "text-halo-width": 1.2 },
+      paint: { "text-color": c.muted, "text-halo-color": c.halo, "text-halo-width": 1.2 },
     },
     before,
   );
@@ -314,7 +327,31 @@ function addVehicleLayers(map: MLMap) {
   });
 }
 
-export default function VehicleMap({ modes, lineTokens, stops, selected, onSelect, focus, highlightPattern, highlightMode, places, fit }: VehicleMapProps) {
+export default function VehicleMap({
+  modes,
+  lineTokens,
+  stops,
+  selected,
+  onSelect,
+  focus,
+  highlightPattern,
+  highlightMode,
+  places,
+  fit,
+  follow,
+  onFollowEnd,
+  active = true,
+}: VehicleMapProps) {
+  const activeRef = useRef(active);
+  const followRef = useRef(follow);
+  const onFollowEndRef = useRef(onFollowEnd);
+  const followZoomRef = useRef(false); // zoom in once when following starts
+  useEffect(() => {
+    if (follow && follow !== followRef.current) followZoomRef.current = true;
+    followRef.current = follow;
+    onFollowEndRef.current = onFollowEnd;
+    activeRef.current = active;
+  });
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
@@ -336,6 +373,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     dirtyRef.current = true;
   }, [modes, lineTokens]);
 
+  const readyRef = useRef(false);
   // Create the map once.
   useEffect(() => {
     if (!container.current) return;
@@ -351,6 +389,8 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
       fadeDuration: 0,
     });
     mapRef.current = map;
+    readyRef.current = false;
+    map.once("load", () => (readyRef.current = true));
     collapseAttribution(map);
     // Hook for end-to-end tests (locating a vehicle on screen) and debugging.
     (globalThis as { __tramMap?: MLMap }).__tramMap = map;
@@ -385,12 +425,20 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     map.on("error", () => {
       if (!map.isStyleLoaded()) setFailed(true);
     });
+    // Dragging the map means looking elsewhere: stop following. While a finger or
+    // the mouse is down, following pauses, or re-centring would cancel the drag.
+    let grabbed = false;
+    for (const ev of ["mousedown", "touchstart"] as const) map.on(ev, () => (grabbed = true));
+    for (const ev of ["mouseup", "touchend", "touchcancel"] as const) map.on(ev, () => (grabbed = false));
+    map.on("dragstart", () => {
+      if (followRef.current) onFollowEndRef.current?.();
+    });
     map.on("style.load", () => {
       setFailed(false);
       addVehicleLayers(map);
-      addStopLayers(map, "vehicle-dots");
+      addStopLayers(map, "vehicle-dots", themeRef.current);
       addRailLayers(map);
-      addPlaceLayers(map);
+      addPlaceLayers(map, themeRef.current);
       addRouteLayers(map, themeRef.current);
       if (shapes.size > 0) map.getSource<GeoJSONSource>("rail")?.setData(railFeatures());
       map.getSource<GeoJSONSource>("places")?.setData(placeFeatures(placesRef.current));
@@ -419,7 +467,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     let last = 0;
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
-      if (!ready || now - last < FRAME_MS || document.hidden) return;
+      if (!ready || now - last < FRAME_MS || document.hidden || !activeRef.current) return;
       let moving = false;
       for (const tw of tweens.values()) {
         if (isMoving(tw, now)) {
@@ -428,6 +476,18 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
         }
       }
       last = now; // also when idle, so a still map checks only every FRAME_MS
+      // Following: keep the vehicle's animated position in the centre.
+      const followed = followRef.current && !grabbed ? tweens.get(followRef.current) : undefined;
+      if (followed) {
+        const [lat, lon] = positionAt(followed, now, shapeOf);
+        const c = map.getCenter();
+        if (followZoomRef.current) {
+          followZoomRef.current = false;
+          map.jumpTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 15) });
+        } else if (Math.abs(c.lat - lat) > 1e-6 || Math.abs(c.lng - lon) > 1e-6) {
+          map.jumpTo({ center: [lon, lat] });
+        }
+      }
       if (!moving && !dirtyRef.current) return;
       dirtyRef.current = false;
       const { modes, lineTokens } = filterRef.current;
@@ -479,11 +539,13 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !fit || fit.length === 0) return;
+    map.resize(); // the shared map may have just moved between full page and side pane
     const b = new maplibregl.LngLatBounds(fit[0], fit[0]);
     for (const p of fit) b.extend(p);
-    const go = () => map.fitBounds(b, { padding: 48, maxZoom: 16, animate: false });
-    if (map.loaded()) go();
-    else map.once("load", go);
+    // Moving between pages glides the camera; the first frame of a new map just jumps.
+    // (map.loaded() is false while any tile loads, which is most of the time on a moving map.)
+    if (readyRef.current) map.fitBounds(b, { padding: 48, maxZoom: 16, duration: prefersReducedMotion() ? 0 : 600 });
+    else map.once("load", () => map.fitBounds(b, { padding: 48, maxZoom: 16, animate: false }));
     // fitKey stands for fit: a new array with the same route must not re-frame the map.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
@@ -513,6 +575,7 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     const map = mapRef.current;
     // Keep the focused point above the bottom sheet that opens with it.
     if (focus && map) {
+      map.resize();
       const h = map.getContainer().clientHeight;
       map.flyTo({ center: focus, zoom: Math.max(map.getZoom(), 16), padding: { top: 0, left: 0, right: 0, bottom: h * (globalThis.matchMedia?.("(min-width: 768px)").matches ? 0 : 0.2) }, essential: true });
     }

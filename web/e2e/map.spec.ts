@@ -146,3 +146,60 @@ test("railway lines are off until switched on in settings", async ({ page }) => 
   await page.goto("/map");
   await expect.poll(async () => (await railVisibility()).jsonValue()).toBe("visible");
 });
+
+test("follow a vehicle: the map keeps it in the centre until it is dragged", async ({ page }) => {
+  await page.goto("/map");
+  const pills = await renderedPills(page);
+  const vp = page.viewportSize()!;
+  const target = pills.find((p) => p.y > 200 && p.y < vp.height - 250 && p.x > 120 && p.x < vp.width - 60) ?? pills[0]!;
+  await page.mouse.click(target.x, target.y);
+  const sheet = page.locator("section[aria-label]").filter({ hasText: "towards" });
+  const follow = sheet.getByRole("button", { name: "Follow on the map" });
+  await follow.click();
+  await expect(follow).toHaveAttribute("aria-pressed", "true");
+
+  // Across feed updates the followed vehicle stays at the centre of the map.
+  const offCentre = () =>
+    page.evaluate((id) => {
+      const m = (globalThis as unknown as {
+        __tramMap: { queryRenderedFeatures: (o: object) => { properties: { id: string }; geometry: { coordinates: [number, number] } }[]; project: (c: [number, number]) => { x: number; y: number }; getCanvas: () => HTMLCanvasElement };
+      }).__tramMap;
+      const f = m.queryRenderedFeatures({ layers: ["vehicle-pills", "vehicle-pill-selected", "vehicle-dots"] }).find((x) => x.properties.id === id);
+      if (!f) return Infinity;
+      const p = m.project(f.geometry.coordinates);
+      const c = m.getCanvas();
+      return Math.hypot(p.x - c.clientWidth / 2, p.y - c.clientHeight / 2);
+    }, target.id);
+  await page.waitForTimeout(6000);
+  expect(await offCentre()).toBeLessThan(30);
+
+  // Dragging the map looks elsewhere: following stops.
+  await page.mouse.move(vp.width / 2, vp.height / 3);
+  await page.mouse.down();
+  await page.mouse.move(vp.width / 2 + 150, vp.height / 3 + 80, { steps: 8 });
+  await page.mouse.up();
+  await expect(follow).toHaveAttribute("aria-pressed", "false");
+});
+
+test("wide screens keep one live map from a line to a stop to the map page", async ({ page }) => {
+  test.skip(page.viewportSize()!.width < 1024, "phones show a small line map instead");
+  await page.goto("/lines/tram/T4");
+  await renderedPills(page, 1);
+  await page.evaluate(() => ((globalThis as unknown as { __tramMap: { __mark?: number } }).__tramMap.__mark = 1));
+  const sameMap = () => page.evaluate(() => (globalThis as unknown as { __tramMap?: { __mark?: number } }).__tramMap?.__mark === 1);
+  await page.locator("main a[href^='/stops/']").nth(2).click();
+  await expect(page).toHaveURL(/\/stops\//);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(await sameMap()).toBe(true);
+  await page.getByRole("navigation").getByRole("link", { name: "Map" }).click();
+  await expect(page.getByText(/\d{3} vehicles/)).toBeVisible();
+  expect(await sameMap()).toBe(true);
+  // The full-page map takes clicks again (the page above it lets them through). It
+  // kept the stop page's close-up camera: zoom out to find vehicles of every line.
+  await page.evaluate(() => (globalThis as unknown as { __tramMap: { jumpTo: (o: object) => void } }).__tramMap.jumpTo({ center: [24.75, 59.435], zoom: 13 }));
+  const pills = await renderedPills(page);
+  const vp = page.viewportSize()!;
+  const target = pills.find((p) => p.y > 200 && p.y < vp.height - 250 && p.x > 120 && p.x < vp.width - 60) ?? pills[0]!;
+  await page.mouse.click(target.x, target.y);
+  await expect(page.locator("section[aria-label]").filter({ hasText: "towards" })).toBeVisible();
+});

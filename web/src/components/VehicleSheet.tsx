@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { X } from "lucide-react";
+import { LocateFixed, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { fetchTrip } from "@/api";
@@ -12,16 +12,28 @@ import { useLiveState, useNow } from "@/lib/useLive";
 import { MapSheet } from "./MapSheet";
 import { ModePill } from "./ModePill";
 
-export function VehicleSheet({ id, onClose }: { id: string; onClose: () => void }) {
+export function VehicleSheet({
+  id,
+  onClose,
+  following,
+  onFollow,
+}: {
+  id: string;
+  onClose: () => void;
+  /** Whether the map keeps this vehicle centred; onFollow toggles it (no button without it). */
+  following?: boolean;
+  onFollow?: (on: boolean) => void;
+}) {
   const { t, i18n } = useTranslation();
   const state = useLiveState(1000);
   const now = useNow(1000);
   const v = state.vehicles.get(id);
   const ageS = v ? Math.max(0, Math.round((now + state.clockSkewMs - Date.parse(v.updated_at)) / 1000)) : 0;
+  // A fresh prediction with every new position fix (the previous one stays on screen meanwhile).
   const trip = useQuery({
-    queryKey: ["trip", id],
+    queryKey: ["trip", id, v?.updated_at],
     queryFn: ({ signal }) => fetchTrip(id, signal),
-    refetchInterval: 10_000,
+    placeholderData: keepPreviousData,
     enabled: !!v?.pattern_id,
   });
 
@@ -54,6 +66,18 @@ export function VehicleSheet({ id, onClose }: { id: string; onClose: () => void 
             </div>
           ) : (
             <p className="flex-1 text-muted-foreground">{t("vehicle.gone")}</p>
+          )}
+          {v && onFollow && (
+            <Button
+              variant={following ? "default" : "ghost"}
+              size="icon"
+              onClick={() => onFollow(!following)}
+              aria-pressed={!!following}
+              aria-label={t("vehicle.follow")}
+              title={t("vehicle.follow")}
+            >
+              <LocateFixed className="size-5" />
+            </Button>
           )}
           <Button variant="ghost" size="icon" onClick={onClose} aria-label={t("vehicle.close")}>
             <X className="size-5" />

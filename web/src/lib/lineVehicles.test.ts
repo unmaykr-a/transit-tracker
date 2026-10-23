@@ -53,4 +53,13 @@ describe("placeVehicles", () => {
     const shortTurn = pattern("st", "Lennujaam", [59.5], false);
     expect(placeVehicles([shortTurn], [veh("a", 59.5, "Lennujaam")])).toEqual([]);
   });
+
+  it("tells how far between the stops a vehicle is, for drawing it on the line", () => {
+    const [mid] = placeVehicles([out, back], [veh("a", (59.4027 + 59.4054) / 2, "Lennujaam")]);
+    expect(mid!.atStop).toBe(false);
+    expect(mid!.progress).toBeGreaterThan(0.4);
+    expect(mid!.progress).toBeLessThan(0.6);
+    const [at] = placeVehicles([out, back], [veh("b", 59.4029, "Lennujaam")]);
+    expect(at!.progress).toBe(1);
+  });
 });
