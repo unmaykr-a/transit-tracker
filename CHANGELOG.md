@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.11.0 — 2026-10-23
+
+Upgrading: pull the new image; the first start adds two preference columns and re-imports the timetables (Tartu).
+If Bus runs behind a reverse proxy, set `BUS_TRUSTED_PROXIES` (the log now says so when it is missing).
+
+- **Tartu city buses.** All 18 Tartu city lines with their stops and timetables, and the buses live on the map
+  (from Ridango's realtime service): open a bus for its stops ahead, follow it or ride along; Tartu departures show
+  live times. Tallinn and Tartu buttons on the map jump between the cities; search finds Tartu's lines (shown as
+  "2", tagged Tartu) and stops.
+- **County buses stand out.** County buses are purple on the map with their own filter chip, and county lines are
+  tagged in search and on their line pages.
+- **What the vehicle looks like.** The vehicle sheet shows a drawing of the vehicle: tram, trolleybus, city bus,
+  county bus or train.
+- **Vehicles from above** (Settings → Display): draw vehicles as small top-down tram, bus, trolleybus and train
+  shapes turned the way they drive, with the line number beside them, instead of line-number pills.
+- **Keep markers up to date** (Settings → Display, on by default): turn off to have markers stop at the last
+  reported position instead of moving on along their route.
+- **No false alarms at night.** When no vehicles run (00:45–05:00), feeds that answer but have nothing new are
+  "resting for the night" instead of showing the "Live data delayed" banner; a feed failing at night still shows.
+- Security review: users cannot read or change each other's data (now covered by a test of every route), public
+  status and live data no longer include upstream error messages, and `/metrics` in private mode is refused to
+  visitors coming through a reverse proxy that is not in `BUS_TRUSTED_PROXIES`.
+
 ## 1.10.0 — 2026-10-23
 
 Upgrading: pull the new image. Live county buses are on by default (`BUS_COUNTY`); see `.env.example` to turn them

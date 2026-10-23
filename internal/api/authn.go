@@ -23,9 +23,12 @@ const metaKey ctxKey = 0
 
 // requestMeta is per-request information derived by the middleware.
 type requestMeta struct {
-	IP        string
-	HTTPS     bool
-	Principal *auth.Principal
+	IP    string
+	HTTPS bool
+	// UntrustedProxy: forwarding headers came from a peer not in
+	// BUS_TRUSTED_PROXIES, so IP is that proxy, not the client.
+	UntrustedProxy bool
+	Principal      *auth.Principal
 }
 
 func meta(r *http.Request) *requestMeta {
@@ -57,6 +60,13 @@ func (s *Server) clientMeta(r *http.Request) *requestMeta {
 	m.IP = host
 	remote, err := netip.ParseAddr(host)
 	if err != nil || !s.trusted(remote) {
+		if r.Header.Get("X-Forwarded-For") != "" || r.Header.Get("Forwarded") != "" || r.Header.Get("X-Real-IP") != "" {
+			m.UntrustedProxy = true
+			s.warnProxyOnce.Do(func() {
+				s.log.Warn("requests arrive through a proxy that is not trusted: set BUS_TRUSTED_PROXIES to its network, "+
+					"or every visitor shares the proxy's address (login rate limits, private /metrics)", "proxy", host)
+			})
+		}
 		return m
 	}
 	if strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {

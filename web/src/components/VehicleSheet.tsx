@@ -10,10 +10,12 @@ import { countdown } from "@/lib/format";
 import { pillText } from "@/lib/lines";
 import { buzz, loadRide, ridePhase, saveRide, type Ride, type RidePhase } from "@/lib/ride";
 import { useLiveState, useNow } from "@/lib/useLive";
+import { kindOf } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { MapSheet } from "./MapSheet";
 import { ModePill } from "./ModePill";
+import { VehicleArt } from "./VehicleArt";
 
 export function VehicleSheet({
   id,
@@ -98,11 +100,11 @@ export function VehicleSheet({
         <div className="flex items-start gap-3">
           {v ? (
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <ModePill mode={v.mode}>{pillText(v)}</ModePill>
+              <ModePill mode={kindOf(v)}>{pillText(v)}</ModePill>
               <div className="min-w-0">
                 <p className="truncate font-semibold">{t("vehicle.towards", { destination: v.destination || "—" })}</p>
                 <p className="text-sm text-muted-foreground">
-                  {v.mode === "train" ? `${v.line} · ${t("vehicle.trip", { trip: v.label })}` : v.county ? t("vehicle.county") : t(`mode.${v.mode}`)}
+                  {v.mode === "train" ? `${v.line} · ${t("vehicle.trip", { trip: v.label })}` : v.county ? t("vehicle.county") : v.id.startsWith("bus-tartu-") ? t("vehicle.tartu") : t(`mode.${v.mode}`)}
                 </p>
               </div>
             </div>
@@ -127,6 +129,7 @@ export function VehicleSheet({
         </div>
       }
     >
+      {v && <VehicleArt kind={kindOf(v)} className="mt-3 h-14 w-full text-foreground" />}
       {v && ride && phase && (
         <div
           role="status"

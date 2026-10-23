@@ -2,11 +2,12 @@ import type { FeatureCollection, Point } from "geojson";
 
 import { matchesFilter, pillText } from "@/lib/lines";
 import { positionAt, type ShapeLookup, type Tween } from "@/lib/tween";
-import { MODES, type Mode, type Vehicle } from "@/lib/types";
+import { KINDS, kindOf, type Kind, type Mode, type Vehicle } from "@/lib/types";
 
 export interface VehicleFeatureProps {
   id: string;
   mode: Mode;
+  kind: Kind;
   text: string;
   bearing: number;
   sort: number;
@@ -22,7 +23,7 @@ export function vehicleFeatures(
   vehicles: Iterable<Vehicle>,
   tweens: ReadonlyMap<string, Tween>,
   now: number,
-  modes: ReadonlySet<Mode>,
+  modes: ReadonlySet<Kind>,
   lineTokens: string[],
   shapeOf?: ShapeLookup,
 ): VehicleFeatureCollection {
@@ -35,7 +36,7 @@ export function vehicleFeatures(
       type: "Feature",
       id: v.id,
       geometry: { type: "Point", coordinates: [lon, lat] },
-      properties: { id: v.id, mode: v.mode, text: pillText(v), bearing: v.bearing, sort: SORT[v.mode] },
+      properties: { id: v.id, mode: v.mode, kind: kindOf(v), text: pillText(v), bearing: v.bearing, sort: SORT[v.mode] },
     });
   }
   return { type: "FeatureCollection", features };
@@ -104,4 +105,92 @@ export function wedgeImage(color: string, pixelRatio: number): ImageSpec {
   return { width: s, height: s, data: ctx.getImageData(0, 0, s, s).data, pixelRatio };
 }
 
-export const ALL_MODES: ReadonlySet<Mode> = new Set(MODES);
+export const ALL_MODES: ReadonlySet<Kind> = new Set(KINDS);
+
+/** Body proportions seen from above (width × length in px at 1×) per kind. */
+const TOPDOWN_SIZE: Record<Kind, [number, number]> = {
+  tram: [11, 46],
+  bus: [11, 30],
+  trolley: [11, 30],
+  county: [11, 32],
+  train: [12, 56],
+};
+
+/**
+ * A vehicle seen from above, nose up (north at bearing 0), in its kind's colour:
+ * articulated tram with pantographs, bus with a roof box, trolleybus with its
+ * two poles, coach-like county bus, train with a pointed cab. Rotated by the
+ * map with the vehicle's bearing.
+ */
+export function topdownImage(kind: Kind, color: string, pixelRatio: number): ImageSpec {
+  const [bw, bl] = TOPDOWN_SIZE[kind];
+  const pad = 3;
+  const w = (bw + pad * 2) * pixelRatio;
+  const h = (bl + pad * 2) * pixelRatio;
+  const ctx = canvas(Math.ceil(w), Math.ceil(h));
+  ctx.scale(pixelRatio, pixelRatio);
+  const x = pad;
+  const y = pad;
+  const r = kind === "train" ? 5 : 3;
+  // Body with a white outline so it reads on any basemap.
+  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = "#ffffff";
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if (kind === "train") {
+    // Pointed cab at the front.
+    ctx.moveTo(x + bw / 2, y);
+    ctx.quadraticCurveTo(x + bw, y + 2, x + bw, y + 9);
+    ctx.lineTo(x + bw, y + bl - r);
+    ctx.quadraticCurveTo(x + bw, y + bl, x + bw - r, y + bl);
+    ctx.lineTo(x + r, y + bl);
+    ctx.quadraticCurveTo(x, y + bl, x, y + bl - r);
+    ctx.lineTo(x, y + 9);
+    ctx.quadraticCurveTo(x, y + 2, x + bw / 2, y);
+  } else {
+    ctx.roundRect(x, y, bw, bl, r);
+  }
+  ctx.fill();
+  ctx.stroke();
+  // Windscreen at the front.
+  ctx.fillStyle = "rgba(15, 23, 42, 0.75)";
+  ctx.beginPath();
+  if (kind === "train") ctx.roundRect(x + 2.5, y + 3.5, bw - 5, 4, 1.5);
+  else ctx.roundRect(x + 1.5, y + 1.5, bw - 3, 3.5, 1.5);
+  ctx.fill();
+  // Roof details.
+  ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.45)";
+  ctx.lineWidth = 0.9;
+  if (kind === "tram") {
+    for (const f of [1 / 3, 2 / 3]) {
+      ctx.beginPath(); // articulation joints
+      ctx.moveTo(x + 0.8, y + bl * f);
+      ctx.lineTo(x + bw - 0.8, y + bl * f);
+      ctx.stroke();
+    }
+    ctx.fillRect(x + bw / 2 - 2.5, y + bl / 6 - 1.5, 5, 3); // pantographs
+    ctx.fillRect(x + bw / 2 - 2.5, y + (bl * 5) / 6 - 1.5, 5, 3);
+  } else if (kind === "trolley") {
+    ctx.strokeStyle = "rgba(15, 23, 42, 0.8)";
+    ctx.lineWidth = 1;
+    for (const dx of [-2, 2]) {
+      ctx.beginPath(); // the two poles, from the rear up to the wires
+      ctx.moveTo(x + bw / 2 + dx, y + bl - 4);
+      ctx.lineTo(x + bw / 2 + dx * 1.3, y + 8);
+      ctx.stroke();
+    }
+  } else if (kind === "train") {
+    for (const f of [0.38, 0.68]) {
+      ctx.beginPath(); // car ends
+      ctx.moveTo(x + 0.8, y + bl * f);
+      ctx.lineTo(x + bw - 0.8, y + bl * f);
+      ctx.stroke();
+    }
+    ctx.fillRect(x + bw / 2 - 3, y + 14, 6, 3);
+  } else {
+    ctx.fillRect(x + 2.5, y + bl / 2 - 3, bw - 5, 6); // roof unit
+    if (kind === "county") ctx.fillRect(x + 3, y + bl - 7, bw - 6, 3); // rear hatch
+  }
+  return { width: Math.ceil(w), height: Math.ceil(h), data: ctx.getImageData(0, 0, Math.ceil(w), Math.ceil(h)).data, pixelRatio };
+}

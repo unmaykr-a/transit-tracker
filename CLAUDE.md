@@ -27,13 +27,25 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   `feeds/gtfsrt.go`, region `harjumaa` and lines the index knows; ids `bus-<plate>`, `county: true`; matched by
   `Tracker.AnnotateCounty` — the tracker keeps per-source groups so one poller never drops the other's tracks; county
   buses skip ETA calibration) and `ingest.CountyTrips` (TripUpdates → `departures.Service.CountyLive`, joined to OTP
-  rows by `TripKey`). Builds stops,
+  rows by `TripKey`). Tartu city buses (`BUS_TARTU`): OTP agencies `estonia:tartu_*` imported like county routes with
+  source `tartu` and short names keyed `tartu-<n>` (route `bus:tartu-2`, URL `/lines/bus/tartu-2`; the web shows "2" via
+  `displayLine`; line search finds "2" after Tallinn's); live from `ingest.TartuStream` (one Ridango WebSocket held open,
+  `Poll` hands the latest set to the store, ids `bus-tartu-<plate>`, `TripID` = OTP trip); Tartu departures get live
+  times from the tracker's ETA for the bus running the trip (`departures.Service.Live`, main.go `liveTime`). Builds stops,
   stop areas (platform letters A, B…), routes (`<mode>:<short>`), patterns; saved in one transaction and served
   from an immutable in-memory `Index` (diacritic-insensitive search via `Fold`). Bump `BuildVersion` whenever
   `Build` output changes for the same input.
 - `GET /api/v1/places?q=` (public): In-ADS places/addresses with their nearest served stop areas
   (`Index.NearestAreas`), sharing the 1 h geocode cache; upstream misses capped at 60/min. The search page shows them
   ("Stockmann" → Liivalaia 53 → Lennuki, Tornimäe…), with "Trip here" (`/trips/new?to=`).
+- Feed health: a feed answering at night (00:45–05:00 Tallinn) with nothing new is `quiet`, not stale (no banner);
+  an empty or frozen feed in service hours still warns. Public `/status` and live messages carry no feed error texts
+  (`publicFeeds`; admins see them in `/admin/health`). Requests via a proxy not in `BUS_TRUSTED_PROXIES` are marked
+  `UntrustedProxy` (private `/metrics` refuses them; a warning is logged once).
+- Map kinds (`lib/types.ts` `Kind`/`kindOf`): the modes plus `county` (own colour, chip, pill); map filters saved
+  before county had a chip get it added. Map prefs (`lib/mapPrefs.ts`, user_prefs `vehicle_icons` pill|topdown,
+  `predict_positions`): top-down vehicle icons (`topdownImage`, layer `vehicle-topdown`) and turning dead reckoning
+  off. `components/VehicleArt.tsx` draws the selected vehicle's side view. Map page has Tallinn/Tartu jump buttons.
 - `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail, county-only and
   city platforms without live rows; city platforms county buses also serve get SIRI rows plus the county rows from OTP; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
 - `internal/auth` — argon2id passwords, cookie sessions (`bus_session`, HttpOnly, SameSite=Lax, Secure behind

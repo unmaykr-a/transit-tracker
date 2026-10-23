@@ -20,8 +20,8 @@ export interface Route {
   long_name: string;
   color?: string;
   text_color?: string;
-  /** "tallinn" (city, live), "county" (Harju county, timetable only) or "elron". */
-  source?: "tallinn" | "county" | "elron";
+  /** "tallinn" (city), "county" (Harju county), "tartu" (Tartu city) or "elron". */
+  source?: "tallinn" | "county" | "tartu" | "elron";
 }
 
 export interface AreaHit {
@@ -533,6 +533,8 @@ export interface Prefs {
   walk_speed_kmh: number;
   buffer_min: number;
   show_rail?: boolean;
+  vehicle_icons?: "pill" | "topdown";
+  predict_positions?: boolean;
 }
 
 export interface Place {

@@ -12,21 +12,36 @@ import type { Selection } from "@/map/VehicleMap";
 import { StaleBanner } from "@/components/StaleBanner";
 import { VehicleSheet } from "@/components/VehicleSheet";
 import { matchesFilter, parseLineQuery } from "@/lib/lines";
-import { MODE_BG } from "@/lib/modeColors";
+import { KIND_BG } from "@/lib/modeColors";
 import { useSession } from "@/lib/session";
 import { load, save } from "@/lib/storage";
-import { MODES, type Mode } from "@/lib/types";
+import { KINDS, type Kind } from "@/lib/types";
 import { useLiveState } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
 
 const NO_STOPS: never[] = [];
 
 interface Filters {
-  modes: Mode[];
+  modes: Kind[];
   lines: string;
+  /** 2: county buses have their own chip (older saved filters showed them with buses). */
+  v?: number;
 }
 
 const FILTER_KEY = "bus.map.filters";
+
+/** Cities with live vehicles, for a quick jump: [lon, lat]. */
+const CITIES = [
+  { id: "tallinn", center: [24.7536, 59.437] as [number, number] },
+  { id: "tartu", center: [26.7225, 58.3776] as [number, number] },
+] as const;
+
+function loadFilters(): Filters {
+  const f = load<Filters>(FILTER_KEY, { modes: [...KINDS], lines: "", v: 2 });
+  // Saved before county buses had a chip: they came with "bus".
+  if (!f.v && f.modes.includes("bus") && !f.modes.includes("county")) return { ...f, modes: [...f.modes, "county"], v: 2 };
+  return f;
+}
 const route = getRouteApi("/map");
 
 export default function MapPage() {
@@ -35,8 +50,8 @@ export default function MapPage() {
   const navigate = useNavigate({ from: "/map" });
   // ?lines= (from a line page) overrides the saved line filter for this visit.
   const [filters, setFilters] = useState<Filters>(() => {
-    const saved = load(FILTER_KEY, { modes: [...MODES], lines: "" });
-    return search.lines ? { modes: [...MODES], lines: search.lines } : saved;
+    const saved = loadFilters();
+    return search.lines ? { modes: [...KINDS], lines: search.lines, v: 2 } : saved;
   });
   const [selected, setSelected] = useState<Selection | undefined>(() => (search.stop ? { kind: "stop", id: search.stop } : undefined));
   const state = useLiveState(2000);
@@ -51,7 +66,7 @@ export default function MapPage() {
   const update = (f: Filters) => {
     setFilters(f);
     // A ?lines= visit keeps the saved line filter; mode changes are still remembered.
-    save(FILTER_KEY, search.lines ? { ...load(FILTER_KEY, { modes: [...MODES], lines: "" }), modes: f.modes } : f);
+    save(FILTER_KEY, search.lines ? { ...loadFilters(), modes: f.modes } : f);
   };
   const modes = useMemo(() => new Set(filters.modes), [filters.modes]);
   const tokens = useMemo(() => parseLineQuery(filters.lines), [filters.lines]);
@@ -60,9 +75,11 @@ export default function MapPage() {
     for (const v of state.vehicles.values()) if (matchesFilter(v, modes, tokens)) n++;
     return n;
   }, [state, modes, tokens]);
-  const toggle = (m: Mode) =>
+  const toggle = (m: Kind) =>
     update({ ...filters, modes: modes.has(m) ? filters.modes.filter((x) => x !== m) : [...filters.modes, m] });
   const [following, setFollowing] = useState(false);
+  const [fly, setFly] = useState<{ center: [number, number]; zoom: number; n: number }>();
+  const flyToCity = (center: [number, number]) => setFly((f) => ({ center, zoom: 12.5, n: (f?.n ?? 0) + 1 }));
   const onSelect = useCallback(
     (sel: Selection | undefined) => {
       setSelected(sel);
@@ -85,13 +102,14 @@ export default function MapPage() {
     places: myPlaces.data?.places,
     follow: following && selected?.kind === "vehicle" ? selected.id : undefined,
     onFollowEnd: () => setFollowing(false),
+    flyTo: fly,
   });
 
   return (
     <div className="absolute inset-0">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-3 pr-14">
         <div className="pointer-events-auto flex flex-wrap items-center gap-2" role="group" aria-label={t("map.filters")}>
-          {MODES.map((m) => (
+          {KINDS.map((m) => (
             <button
               key={m}
               type="button"
@@ -99,7 +117,7 @@ export default function MapPage() {
               onClick={() => toggle(m)}
               className={cn(
                 "h-8 rounded-full border px-3 text-sm font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                modes.has(m) ? cn(MODE_BG[m], "border-transparent text-white") : "bg-background text-muted-foreground",
+                modes.has(m) ? cn(KIND_BG[m], "border-transparent text-white") : "bg-background text-muted-foreground",
               )}
             >
               {t(`modeShort.${m}`)}
@@ -130,6 +148,18 @@ export default function MapPage() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-background/90 px-3 py-1 text-xs text-muted-foreground shadow-sm tabular-nums">
             {t("live.vehicles", { count: visible })}
+          </span>
+          <span role="group" aria-label={t("map.cities")} className="pointer-events-auto flex overflow-hidden rounded-full border bg-background/90 text-xs shadow-sm">
+            {CITIES.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => flyToCity(c.center)}
+                className={cn("px-3 py-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", i > 0 && "border-l")}
+              >
+                {t(`map.city.${c.id}`)}
+              </button>
+            ))}
           </span>
           <StaleBanner />
         </div>

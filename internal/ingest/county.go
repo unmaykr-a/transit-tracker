@@ -87,6 +87,7 @@ func (p *CountyPoller) Poll(ctx context.Context) (Result, error) {
 			Bearing:   rv.Bearing,
 			UpdatedAt: at,
 			County:    true,
+			TripID:    rv.TripID,
 		}
 		if rv.HasSpeed {
 			v.SpeedMps, v.SpeedKnown = rv.SpeedMps, true

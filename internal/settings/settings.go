@@ -40,7 +40,9 @@ type Settings struct {
 	// County buses live (GTFS-RT); empty turns that feed off.
 	CountyVehiclesURL string `json:"county_vehicles_url"`
 	CountyTripsURL    string `json:"county_trips_url"`
-	UserAgentContact  string `json:"user_agent_contact"`
+	// Tartu buses live (wss://); empty turns that feed off.
+	TartuLiveURL     string `json:"tartu_live_url"`
+	UserAgentContact string `json:"user_agent_contact"`
 
 	// WalkProviders is the order walking routes are tried in; a straight-line
 	// estimate is always the last resort.
@@ -128,6 +130,11 @@ func (s Settings) Validate() error {
 	} {
 		if err := checkURL(field, v); err != nil {
 			return err
+		}
+	}
+	if v := s.TartuLiveURL; v != "" {
+		if u, err := url.Parse(v); err != nil || (u.Scheme != "wss" && u.Scheme != "ws") || u.Host == "" {
+			return &FieldError{"tartu_live_url", "must be a ws(s) URL"}
 		}
 	}
 	for field, v := range map[string]string{"county_vehicles_url": s.CountyVehiclesURL, "county_trips_url": s.CountyTripsURL} {

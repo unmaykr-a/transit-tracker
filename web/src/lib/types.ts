@@ -2,6 +2,13 @@ export type Mode = "tram" | "bus" | "trolley" | "train";
 
 export const MODES: readonly Mode[] = ["tram", "bus", "trolley", "train"];
 
+/** How a vehicle is shown and filtered on the map: its mode, or "county" for Harju county buses. */
+export type Kind = Mode | "county";
+
+export const KINDS: readonly Kind[] = ["tram", "bus", "trolley", "train", "county"];
+
+export const kindOf = (v: Pick<Vehicle, "mode" | "county">): Kind => (v.county ? "county" : v.mode);
+
 export interface Vehicle {
   id: string;
   mode: Mode;
@@ -33,6 +40,8 @@ export interface FeedStatus {
   count: number;
   consecutive_failures: number;
   stale: boolean;
+  /** Answering but quiet at night (no vehicles running): nothing to warn about. */
+  quiet?: boolean;
 }
 
 /** Position-only update: [id, lat, lon, bearing, speed_mps, updated_at_unix_ms, dist_along_m]. */

@@ -9,11 +9,11 @@ import { DepartureList } from "@/components/DepartureList";
 import { LinePill } from "@/components/LinePill";
 import { SplitLayout } from "@/components/SplitLayout";
 import { Button } from "@/components/ui/button";
-import { MODES } from "@/lib/types";
+import { KINDS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const LiveMapPane = lazy(() => import("@/map/LiveMapPane"));
-const ALL_MODES = new Set(MODES);
+const ALL_MODES = new Set(KINDS);
 const NO_TOKENS: string[] = [];
 
 const route = getRouteApi("/stops/$id");

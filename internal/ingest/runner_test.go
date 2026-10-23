@@ -65,6 +65,38 @@ func TestHealthStaleness(t *testing.T) {
 	}
 }
 
+// At night an answering feed with nothing new is quiet, not stale; by day the
+// same is shown, and a failing feed is stale at any hour.
+func TestHealthQuietAtNight(t *testing.T) {
+	h := NewHealth()
+	night := time.Date(2026, 10, 23, 2, 30, 0, 0, tallinn)
+	now := night
+	h.now = func() time.Time { return now }
+	h.register("gps")
+	h.success("gps", Result{Count: 0, DataAt: now})
+	for range 10 {
+		now = now.Add(30 * time.Second)
+		h.success("gps", Result{Unchanged: true})
+	}
+	if s := h.Snapshot()[0]; s.Stale || !s.Quiet {
+		t.Fatalf("empty feed at 02:35: %+v", s)
+	}
+	h.failure("gps", errors.New("down"))
+	if s := h.Snapshot()[0]; !s.Stale || s.Quiet {
+		t.Fatalf("failing feed at night: %+v", s)
+	}
+	day := time.Date(2026, 10, 23, 14, 0, 0, 0, tallinn)
+	now = day
+	h.success("gps", Result{Count: 0, DataAt: now})
+	for range 10 {
+		now = now.Add(30 * time.Second)
+		h.success("gps", Result{Unchanged: true})
+	}
+	if s := h.Snapshot()[0]; !s.Stale || s.Quiet {
+		t.Fatalf("frozen feed at 14:05: %+v", s)
+	}
+}
+
 func TestRunPollsAndBacksOff(t *testing.T) {
 	h := NewHealth()
 	var calls atomic.Int32

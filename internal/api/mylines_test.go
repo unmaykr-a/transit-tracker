@@ -220,6 +220,16 @@ func TestSavedLinesAndDashboard(t *testing.T) {
 		t.Errorf("silly speed = %d", code)
 	}
 	// Railway lines are off until asked for; turning them on keeps the other prefs.
+	if _, out := c.do("GET", "/api/v1/me/prefs", nil); out["vehicle_icons"] != "pill" || out["predict_positions"] != true {
+		t.Errorf("map prefs defaults = %v", out)
+	}
+	if code, out := c.do("PATCH", "/api/v1/me/prefs", map[string]any{"vehicle_icons": "topdown", "predict_positions": false}); code != 200 || out["vehicle_icons"] != "topdown" || out["predict_positions"] != false {
+		t.Errorf("map prefs: %d %v", code, out)
+	}
+	if code, _ := c.do("PATCH", "/api/v1/me/prefs", map[string]any{"vehicle_icons": "sprites"}); code != 400 {
+		t.Errorf("unknown vehicle_icons = %d", code)
+	}
+	c.do("PATCH", "/api/v1/me/prefs", map[string]any{"vehicle_icons": "pill", "predict_positions": true})
 	if _, out := c.do("GET", "/api/v1/me/prefs", nil); out["show_rail"] != false {
 		t.Errorf("show_rail default = %v", out["show_rail"])
 	}
@@ -367,6 +377,109 @@ func TestInputLimits(t *testing.T) {
 	for email, want := range map[string]int{"andri@example.com": 200, "": 200, "not-an-email": 400, strings.Repeat("a", 250) + "@x.ee": 400} {
 		if code, _ := c.do("PATCH", "/api/v1/me", map[string]any{"email": email}); code != want {
 			t.Errorf("email %.20q = %d, want %d", email, code, want)
+		}
+	}
+}
+
+// Nobody reaches another user's data: not by id, not through a reference, not
+// anonymously, and not with an API token beyond its read-only scope.
+func TestUsersCannotReachEachOthersData(t *testing.T) {
+	andri, im := fullServer(t) // the admin
+	newClient := func() *client {
+		jar, _ := cookiejar.New(nil)
+		return &client{t: t, base: andri.base, http: &http.Client{Jar: jar}}
+	}
+	_, out := andri.do("POST", "/api/v1/admin/invites", map[string]any{"role": "user", "expires_in_hours": 1})
+	bob := newClient()
+	if code, out := bob.do("POST", "/api/v1/auth/signup", map[string]string{"invite": out["token"].(string), "username": "bob", "password": "hunter2hunter2"}); code != 200 {
+		t.Fatalf("signup: %d %v", code, out)
+	}
+
+	// Andri's things.
+	_, out = andri.do("POST", "/api/v1/me/places", map[string]any{"label": "Home", "lat": 59.43, "lon": 24.75})
+	place := int(out["place"].(map[string]any)["id"].(float64))
+	r := im.Index().Routes()[0]
+	pg := im.Index().Patterns(r.ID)[0]
+	_, out = andri.do("POST", "/api/v1/me/lines", map[string]any{"route_id": r.ID, "direction": pg.Direction, "board_stop_id": pg.StopIDs[0]})
+	line := int(out["line"].(map[string]any)["id"].(float64))
+	_, out = andri.do("POST", "/api/v1/me/tokens", map[string]any{"name": "ha"})
+	token := out["token"].(string)
+	tokenID := int(out["info"].(map[string]any)["id"].(float64))
+	_, out = andri.do("GET", "/api/v1/me/sessions", nil)
+	session := out["sessions"].([]any)[0].(map[string]any)["id"].(string)
+
+	id := func(n int) string { return strconv.Itoa(n) }
+	for _, c := range []struct {
+		method, path string
+		body         any
+		want         int
+	}{
+		{"PATCH", "/api/v1/me/places/" + id(place), map[string]any{"label": "Mine", "lat": 59.4, "lon": 24.7}, 404},
+		{"DELETE", "/api/v1/me/places/" + id(place), nil, 404},
+		{"PATCH", "/api/v1/me/lines/" + id(line), map[string]any{"label": "Mine"}, 404},
+		{"DELETE", "/api/v1/me/lines/" + id(line), nil, 404},
+		{"DELETE", "/api/v1/me/tokens/" + id(tokenID), nil, 404},
+		{"DELETE", "/api/v1/me/sessions/" + session, nil, 404},
+		// Referencing andri's place from bob's own line or dashboard.
+		{"POST", "/api/v1/me/lines", map[string]any{"route_id": r.ID, "direction": pg.Direction, "board_stop_id": pg.StopIDs[0], "origin_place_id": place}, 400},
+		{"GET", "/api/v1/me/dashboard?place=" + id(place), nil, 400},
+		{"GET", "/api/v1/ha/lines?place=" + id(place), nil, 400},
+		{"GET", "/api/v1/admin/users", nil, 403},
+		{"GET", "/api/v1/admin/audit", nil, 403},
+		{"GET", "/api/v1/admin/backup", nil, 403},
+	} {
+		if code, out := bob.do(c.method, c.path, c.body); code != c.want {
+			t.Errorf("bob %s %s = %d, want %d (%v)", c.method, c.path, code, c.want, out)
+		}
+	}
+	// Reordering with andri's line ids changes nothing of andri's.
+	bob.do("POST", "/api/v1/me/lines/reorder", map[string]any{"ids": []int{line}})
+	// Bob's lists hold only bob's things.
+	for _, path := range []string{"/api/v1/me/places", "/api/v1/me/lines", "/api/v1/me/tokens"} {
+		_, out := bob.do("GET", path, nil)
+		for k, v := range out {
+			if list, ok := v.([]any); ok && len(list) > 0 {
+				t.Errorf("bob's %s lists %s of someone else: %v", path, k, list)
+			}
+		}
+	}
+	if _, out := bob.do("GET", "/api/v1/me/sessions", nil); len(out["sessions"].([]any)) != 1 {
+		t.Errorf("bob sees %d sessions", len(out["sessions"].([]any)))
+	}
+	// Andri's things are all still there.
+	if _, out := andri.do("GET", "/api/v1/me/places", nil); len(out["places"].([]any)) != 1 {
+		t.Error("andri's place is gone")
+	}
+	if _, out := andri.do("GET", "/api/v1/me/lines", nil); len(out["lines"].([]any)) != 1 {
+		t.Error("andri's line is gone")
+	}
+
+	// Anonymous visitors see no account data at all.
+	anon := newClient()
+	for _, path := range []string{"/api/v1/me", "/api/v1/me/places", "/api/v1/me/lines", "/api/v1/me/prefs", "/api/v1/me/dashboard", "/api/v1/ha/lines", "/api/v1/me/tokens", "/api/v1/me/sessions", "/api/v1/geocode?q=narva"} {
+		if code, _ := anon.do("GET", path, nil); code != 401 {
+			t.Errorf("anonymous %s = %d", path, code)
+		}
+	}
+	if code, _ := anon.do("GET", "/api/v1/admin/users", nil); code != 401 {
+		t.Errorf("anonymous /admin/users = %d", code)
+	}
+
+	// Andri's (admin's) API token reads andri's lines and nothing more.
+	tok := newClient()
+	auth := []string{"Authorization", "Bearer " + token}
+	if code, _ := tok.do("GET", "/api/v1/ha/lines", nil, auth...); code != 200 {
+		t.Errorf("token /ha/lines = %d", code)
+	}
+	for _, c := range []struct{ method, path string }{
+		{"GET", "/api/v1/admin/users"},
+		{"GET", "/api/v1/me/tokens"},
+		{"GET", "/api/v1/me/sessions"},
+		{"DELETE", "/api/v1/me/places/" + id(place)},
+		{"POST", "/api/v1/me/places"},
+	} {
+		if code, _ := tok.do(c.method, c.path, map[string]any{}, auth...); code < 400 {
+			t.Errorf("token %s %s = %d", c.method, c.path, code)
 		}
 	}
 }

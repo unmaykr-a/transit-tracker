@@ -156,7 +156,7 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 		case <-staleTick.C:
 			if st := s.health.StaleMap(); !maps.Equal(st, lastStale) {
 				lastStale = st
-				b, err := json.Marshal(liveMessage{Type: "stale", Version: s.store.Version(), ServerTime: time.Now(), Feeds: s.health.Snapshot()})
+				b, err := json.Marshal(liveMessage{Type: "stale", Version: s.store.Version(), ServerTime: time.Now(), Feeds: s.publicFeeds()})
 				if err != nil {
 					return err
 				}
@@ -294,7 +294,7 @@ func (s *Server) vehicleStream(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) vehicles(w http.ResponseWriter, r *http.Request) {
 	version, cur := s.filtered(filterFromQuery(r))
-	writeJSON(w, http.StatusOK, liveMessage{Type: "snapshot", Version: version, ServerTime: time.Now(), Vehicles: sortedVehicles(cur), Feeds: s.health.Snapshot()})
+	writeJSON(w, http.StatusOK, liveMessage{Type: "snapshot", Version: version, ServerTime: time.Now(), Vehicles: sortedVehicles(cur), Feeds: s.publicFeeds()})
 }
 
 func (s *Server) vehicle(w http.ResponseWriter, r *http.Request, id string) {
@@ -306,10 +306,23 @@ func (s *Server) vehicle(w http.ResponseWriter, r *http.Request, id string) {
 	writeJSON(w, http.StatusOK, v)
 }
 
+// publicFeeds is the feed health anyone may see: whether each feed is fresh,
+// without error texts, which can name upstream hosts or internal addresses
+// (admins see them in /admin/health).
+func (s *Server) publicFeeds() []ingest.Status {
+	fs := s.health.Snapshot()
+	for i := range fs {
+		fs[i].LastError, fs[i].LastErrorAt = "", time.Time{}
+	}
+	return fs
+}
+
 func (s *Server) status(w http.ResponseWriter, _ *http.Request) {
-	out := map[string]any{"feeds": s.health.Snapshot(), "server_time": time.Now()}
+	out := map[string]any{"feeds": s.publicFeeds(), "server_time": time.Now()}
 	if s.staticStatus != nil {
-		out["static"] = s.staticStatus()
+		st := s.staticStatus()
+		st.LastError = "" // upstream details (hosts, addresses) are for admins: /admin/health
+		out["static"] = st
 	}
 	writeJSON(w, http.StatusOK, out)
 }

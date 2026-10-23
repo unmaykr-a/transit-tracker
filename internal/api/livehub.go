@@ -127,7 +127,7 @@ func (f *liveFrame) sharedDiff(filter Filter, from uint64) (b []byte, ok bool) {
 func (f *liveFrame) snapshot(filter Filter, s *Server) []byte {
 	v := f.view(filter)
 	v.snapOnce.Do(func() {
-		v.snap, _ = json.Marshal(liveMessage{Type: "snapshot", Version: f.version, ServerTime: f.at, Vehicles: sortedVehicles(v.vehicles), Feeds: s.health.Snapshot()})
+		v.snap, _ = json.Marshal(liveMessage{Type: "snapshot", Version: f.version, ServerTime: f.at, Vehicles: sortedVehicles(v.vehicles), Feeds: s.publicFeeds()})
 	})
 	return v.snap
 }

@@ -170,6 +170,10 @@ func (s *Server) metricsAllowed(r *http.Request) bool {
 	// private: the real client (after trusted-proxy resolution) must be on a
 	// loopback or private network, e.g. a Prometheus on the LAN, not a visitor
 	// coming in through the reverse proxy.
+	// Through a proxy we do not trust, the address is the proxy's (private), not the visitor's.
+	if meta(r).UntrustedProxy {
+		return false
+	}
 	a, err := netip.ParseAddr(meta(r).IP)
 	if err != nil {
 		return false

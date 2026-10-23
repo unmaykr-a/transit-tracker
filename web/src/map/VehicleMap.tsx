@@ -6,15 +6,15 @@ import { useTranslation } from "react-i18next";
 import type { MapStop } from "@/api";
 import { pillText } from "@/lib/lines";
 import { live } from "@/lib/liveClient";
-import { useShowRail } from "@/lib/mapPrefs";
+import { usePredictPositions, useShowRail, useVehicleIcons } from "@/lib/mapPrefs";
 import { loadShapes, patternRoutes, shapes } from "@/lib/shapes";
-import { MODE_COLORS } from "@/lib/modeColors";
+import { KIND_COLORS, MODE_COLORS } from "@/lib/modeColors";
 import { prefersReducedMotion, useTheme } from "@/lib/theme";
 import { isMoving, nextTween, positionAt, type Tween } from "@/lib/tween";
-import { MODES, type Mode } from "@/lib/types";
+import { KINDS, type Kind, type Mode } from "@/lib/types";
 
 import { collapseAttribution, maplibregl, startView, styleUrl } from "./setup";
-import { pillImage, vehicleFeatures, wedgeImage, type ImageSpec } from "./vehicleFeatures";
+import { pillImage, topdownImage, vehicleFeatures, wedgeImage, type ImageSpec } from "./vehicleFeatures";
 const PILL_MIN_ZOOM = 12.5;
 /** Redraw rate while vehicles glide; 20 fps is smooth at city zoom and cheap on phones. */
 const FRAME_MS = 50;
@@ -22,7 +22,7 @@ const FRAME_MS = 50;
 export type Selection = { kind: "vehicle"; id: string } | { kind: "stop"; id: string };
 
 export interface VehicleMapProps {
-  modes: ReadonlySet<Mode>;
+  modes: ReadonlySet<Kind>;
   lineTokens: string[];
   stops: MapStop[];
   selected?: Selection;
@@ -39,6 +39,8 @@ export interface VehicleMapProps {
   onFollowEnd?: () => void;
   /** Points ([lon, lat]) to frame when the map opens or they change, e.g. a line's route. */
   fit?: [number, number][];
+  /** A view to fly to; a new n flies again (the city buttons). */
+  flyTo?: { center: [number, number]; zoom: number; n: number };
   /** The user's saved places, marked on the map. */
   places?: { id: number; label: string; lat: number; lon: number }[];
 }
@@ -254,16 +256,17 @@ function addImage(map: MLMap, name: string, img: ImageSpec) {
 
 function addVehicleLayers(map: MLMap) {
   const ratio = Math.min(3, Math.max(1, Math.round(globalThis.devicePixelRatio || 1)));
-  for (const m of MODES) {
-    addImage(map, `pill-${m}`, pillImage(MODE_COLORS[m], ratio));
-    addImage(map, `wedge-${m}`, wedgeImage(MODE_COLORS[m], ratio));
+  for (const k of KINDS) {
+    addImage(map, `pill-${k}`, pillImage(KIND_COLORS[k], ratio));
+    addImage(map, `wedge-${k}`, wedgeImage(KIND_COLORS[k], ratio));
+    addImage(map, `top-${k}`, topdownImage(k, KIND_COLORS[k], ratio));
   }
   if (!map.getSource("vehicles")) {
     map.addSource("vehicles", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "id" });
   }
   const modeColor: ExpressionSpecification = [
-    "match", ["get", "mode"],
-    "tram", MODE_COLORS.tram, "bus", MODE_COLORS.bus, "trolley", MODE_COLORS.trolley, MODE_COLORS.train,
+    "match", ["get", "kind"],
+    "tram", KIND_COLORS.tram, "bus", KIND_COLORS.bus, "trolley", KIND_COLORS.trolley, "county", KIND_COLORS.county, KIND_COLORS.train,
   ];
   // Dots are always drawn; where pills collide (busy stops) the dot still shows the vehicle.
   map.addLayer({
@@ -292,7 +295,7 @@ function addVehicleLayers(map: MLMap) {
     minzoom: PILL_MIN_ZOOM,
     filter: [">=", ["get", "bearing"], 0],
     layout: {
-      "icon-image": ["concat", "wedge-", ["get", "mode"]],
+      "icon-image": ["concat", "wedge-", ["get", "kind"]],
       "icon-rotate": ["get", "bearing"],
       "icon-rotation-alignment": "map",
       "icon-allow-overlap": true,
@@ -301,7 +304,7 @@ function addVehicleLayers(map: MLMap) {
     },
   });
   const pillLayout = {
-    "icon-image": ["concat", "pill-", ["get", "mode"]],
+    "icon-image": ["concat", "pill-", ["get", "kind"]],
     "icon-text-fit": "both",
     "text-field": ["get", "text"],
     "text-font": ["Noto Sans Bold"],
@@ -316,6 +319,30 @@ function addVehicleLayers(map: MLMap) {
     layout: { ...pillLayout, "icon-padding": 1 },
     paint: { "text-color": "#ffffff" },
   });
+  // Optional (Settings → Map): vehicles seen from above, turned the way they drive, the line beside them.
+  map.addLayer({
+    id: "vehicle-topdown",
+    type: "symbol",
+    source: "vehicles",
+    minzoom: PILL_MIN_ZOOM,
+    layout: {
+      visibility: "none",
+      "icon-image": ["concat", "top-", ["get", "kind"]],
+      "icon-rotate": ["max", ["get", "bearing"], 0],
+      "icon-rotation-alignment": "map",
+      "icon-allow-overlap": true,
+      "icon-size": ["interpolate", ["linear"], ["zoom"], PILL_MIN_ZOOM, 0.9, 15, 1.3, 17, 1.9, 19, 2.8],
+      "text-field": ["get", "text"],
+      "text-font": ["Noto Sans Bold"],
+      "text-size": 12,
+      // Beside the (rotating) body, wherever it fits.
+      "text-variable-anchor": ["left", "right", "top", "bottom"],
+      "text-radial-offset": ["interpolate", ["linear"], ["zoom"], PILL_MIN_ZOOM, 1.2, 17, 2.2, 19, 3.2],
+      "text-optional": true,
+      "symbol-sort-key": ["get", "sort"],
+    },
+    paint: { "text-color": modeColor, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+  });
   // The selected vehicle always shows its pill, above everything else.
   map.addLayer({
     id: "vehicle-pill-selected",
@@ -325,6 +352,14 @@ function addVehicleLayers(map: MLMap) {
     layout: { ...pillLayout, "icon-allow-overlap": true, "icon-ignore-placement": true, "text-allow-overlap": true, "text-ignore-placement": true },
     paint: { "text-color": "#ffffff" },
   });
+}
+
+/** Line pills (with heading wedges) or top-down vehicles; dots stay for zoomed-out views either way. */
+function applyIcons(map: MLMap, icons: "pill" | "topdown") {
+  const top = icons === "topdown";
+  for (const l of ["vehicle-pills", "vehicle-heading"]) if (map.getLayer(l)) map.setLayoutProperty(l, "visibility", top ? "none" : "visible");
+  if (map.getLayer("vehicle-topdown")) map.setLayoutProperty("vehicle-topdown", "visibility", top ? "visible" : "none");
+  if (map.getLayer("vehicle-dots")) map.setLayerZoomRange("vehicle-dots", 0, top ? PILL_MIN_ZOOM : 24);
 }
 
 /**
@@ -355,6 +390,7 @@ export default function VehicleMap({
   fit,
   follow,
   onFollowEnd,
+  flyTo,
   active = true,
 }: VehicleMapProps) {
   const activeRef = useRef(active);
@@ -378,6 +414,10 @@ export default function VehicleMap({
   const themeRef = useRef(theme);
   const stopsRef = useRef(stops);
   const placesRef = useRef(places);
+  const [predict] = usePredictPositions();
+  const predictRef = useRef(predict);
+  const [vehicleIcons] = useVehicleIcons();
+  const iconsRef = useRef(vehicleIcons);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -455,6 +495,7 @@ export default function VehicleMap({
       addRailLayers(map);
       addPlaceLayers(map, themeRef.current);
       addRouteLayers(map, themeRef.current);
+      applyIcons(map, iconsRef.current);
       if (shapes.size > 0) map.getSource<GeoJSONSource>("rail")?.setData(railFeatures());
       map.getSource<GeoJSONSource>("places")?.setData(placeFeatures(placesRef.current));
       map.getSource<GeoJSONSource>("stops")?.setData(stopFeatures(stopsRef.current));
@@ -471,7 +512,8 @@ export default function VehicleMap({
       // How old each fix is now, by the server's clock: drives dead reckoning (lib/tween.ts).
       const serverNow = Date.now() + applied.state.clockSkewMs;
       for (const v of applied.changed) {
-        tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate, shapeOf, serverNow - Date.parse(v.updated_at)));
+        const age = predictRef.current ? serverNow - Date.parse(v.updated_at) : undefined;
+        tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate, shapeOf, age));
       }
       dirtyRef.current = true;
     });
@@ -519,7 +561,7 @@ export default function VehicleMap({
     raf = requestAnimationFrame(frame);
 
     // One click handler decides what was hit: vehicles win over stops.
-    const vehicleLayers = ["vehicle-pill-selected", "vehicle-pills", "vehicle-dots"];
+    const vehicleLayers = ["vehicle-pill-selected", "vehicle-topdown", "vehicle-pills", "vehicle-dots"];
     const hitLayers = [...vehicleLayers, "stops"];
     map.on("click", (e: MapMouseEvent) => {
       const box: [[number, number], [number, number]] = [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]];
@@ -544,6 +586,23 @@ export default function VehicleMap({
       if (g.__tramMap === map) delete g.__tramMap;
     };
   }, []);
+
+  useEffect(() => {
+    predictRef.current = predict;
+  }, [predict]);
+  const flyN = flyTo?.n;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !flyTo) return;
+    map.resize();
+    map.flyTo({ center: flyTo.center, zoom: flyTo.zoom, padding: { top: 0, left: 0, right: 0, bottom: 0 }, duration: prefersReducedMotion() ? 0 : 1200, essential: true });
+    // flyN stands for flyTo: the same city twice flies again only with a new n.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyN]);
+  useEffect(() => {
+    iconsRef.current = vehicleIcons;
+    if (mapRef.current?.getLayer("vehicle-topdown")) applyIcons(mapRef.current, vehicleIcons);
+  }, [vehicleIcons]);
 
   // Swap the basemap when the theme changes; our layers are re-added on style.load.
   useEffect(() => {
@@ -656,6 +715,7 @@ export default function VehicleMap({
         ["vehicle-dots", ["circle-opacity", "circle-stroke-opacity"]],
         ["vehicle-heading", ["icon-opacity"]],
         ["vehicle-pills", ["icon-opacity", "text-opacity"]],
+        ["vehicle-topdown", ["icon-opacity", "text-opacity"]],
       ] as const;
       for (const [layer, props] of faded) {
         if (map.getLayer(layer)) for (const p of props) map.setPaintProperty(layer, p, opacity);

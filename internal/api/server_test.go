@@ -143,6 +143,16 @@ func TestMetricsEndpoint(t *testing.T) {
 	if code, _ := get(srv, "203.0.113.9:5000", ""); code != 403 {
 		t.Errorf("public client on private mode = %d", code)
 	}
+	// A visitor through a reverse proxy we were not told to trust arrives from
+	// the proxy's private address: not a private client.
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	req.RemoteAddr = "172.18.0.5:41000"
+	req.Header.Set("X-Forwarded-For", "203.0.113.9")
+	w := httptest.NewRecorder()
+	srv.Handler(http.NotFoundHandler()).ServeHTTP(w, req)
+	if w.Code != 403 {
+		t.Errorf("visitor via an untrusted proxy = %d", w.Code)
+	}
 	if code, _ := get(NewServer(slog.New(slog.DiscardHandler), Deps{MetricsMode: "public"}), "203.0.113.9:5000", ""); code != 200 {
 		t.Errorf("public mode = %d", code)
 	}

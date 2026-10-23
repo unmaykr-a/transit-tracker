@@ -14,13 +14,15 @@
     "tram": "Tram",
     "bus": "Bus",
     "trolley": "Trolleybus",
-    "train": "Train"
+    "train": "Train",
+    "county": "County bus"
   },
   "modeShort": {
     "tram": "Tram",
     "bus": "Bus",
     "trolley": "Trolley",
-    "train": "Train"
+    "train": "Train",
+    "county": "County"
   },
   "live": {
     "delayed": "Live data delayed: {{feeds}}",
@@ -31,7 +33,8 @@
       "gps": "city transport",
       "elron": "trains",
       "county": "county buses",
-      "county-trips": "county bus times"
+      "county-trips": "county bus times",
+      "tartu": "Tartu buses"
     }
   },
   "map": {
@@ -43,7 +46,12 @@
     "loading": "Loading map…",
     "sheetMore": "Show details",
     "sheetLess": "Show less",
-    "unavailable": "The map could not be loaded. Check the connection; live data still updates."
+    "unavailable": "The map could not be loaded. Check the connection; live data still updates.",
+    "cities": "Cities",
+    "city": {
+      "tallinn": "Tallinn",
+      "tartu": "Tartu"
+    }
   },
   "vehicle": {
     "towards": "towards {{destination}}",
@@ -63,7 +71,8 @@
     "openLine": "Open line",
     "nextStop": "Next:",
     "follow": "Follow on the map",
-    "county": "County bus"
+    "county": "County bus",
+    "tartu": "Tartu city bus"
   },
   "home": {
     "title": "My lines",
@@ -116,7 +125,8 @@
     "nearestStops": "Nearest stops",
     "distance": "{{m}} m",
     "tripTo": "Trip here",
-    "tripToLabel": "Plan a trip to {{stop}}"
+    "tripToLabel": "Plan a trip to {{stop}}",
+    "tartu": "Tartu"
   },
   "settings": {
     "title": "Settings",
@@ -136,7 +146,14 @@
     "sections": "Sections",
     "railLines": "Railway lines on the map",
     "railLinesHint": "Draw the train tracks on the live map, also when zoomed out.",
-    "walkingIntro": "How fast you walk and where from, for “can I make it?”."
+    "walkingIntro": "How fast you walk and where from, for “can I make it?”.",
+    "vehicleIcons": "Vehicles on the map",
+    "vehicleIconsHint": "Line numbers, or the vehicles seen from above, turned the way they drive.",
+    "iconsPill": "Line numbers",
+    "iconsTopdown": "From above",
+    "predict": "Keep markers up to date",
+    "predictHint": "Positions arrive 5–15 s late; moving vehicles carry on along their route until the next one. Off: markers stop at the last reported position.",
+    "feedQuiet": "resting for the night"
   },
   "time": {
     "now": "now",
@@ -169,8 +186,9 @@
     "live_other": "{{count}} vehicles on the line",
     "notFound": "Line not found.",
     "showOnMap": "Show on map",
-    "county": "Harju county bus · timetable only",
-    "noPatterns": "No timetable for this line right now."
+    "county": "Harju county bus",
+    "noPatterns": "No timetable for this line right now.",
+    "tartu": "Tartu city bus"
   },
   "common": {
     "loading": "Loading…",

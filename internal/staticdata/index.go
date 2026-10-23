@@ -287,12 +287,18 @@ func (ix *Index) SearchRoutes(q string, limit int) []*Route {
 	for _, r := range ix.routeList {
 		short := strings.ToLower(r.ShortName)
 		long := Fold(r.LongName)
+		// Tartu's lines are keyed "tartu-2" and shown as "2": "2" finds them after Tallinn's.
+		shown, other := strings.CutPrefix(short, TartuPrefix)
 		score := 0
 		switch {
-		case short == fq || (r.Mode == feeds.ModeTram && short == "t"+fq):
+		case short == fq || (r.Mode == feeds.ModeTram && short == "t"+fq) || short == strings.Replace(fq, "tartu ", TartuPrefix, 1):
 			score = 400
+		case other && shown == fq:
+			score = 390
 		case strings.HasPrefix(short, fq) || (r.Mode == feeds.ModeTram && strings.HasPrefix(short, "t"+fq)):
 			score = 300
+		case other && strings.HasPrefix(shown, fq):
+			score = 290
 		case strings.Contains(" "+long, " "+fq):
 			score = 200
 		case len(fq) >= 3 && strings.Contains(long, fq):
