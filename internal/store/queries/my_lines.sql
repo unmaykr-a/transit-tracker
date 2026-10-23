@@ -15,8 +15,8 @@ VALUES (sqlc.arg(user_id), sqlc.arg(route_id), sqlc.arg(direction), sqlc.arg(hea
 RETURNING *;
 
 -- name: CreateSavedTrip :one
-INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, label, sort, notify_threshold_min, created_at, origin_place_id)
-VALUES (sqlc.arg(user_id), 'trip', '', 0, '', sqlc.arg(from_area_id), sqlc.arg(to_area_id), sqlc.arg(label),
+INSERT INTO saved_lines (user_id, kind, route_id, direction, board_stop_id, from_area_id, to_area_id, transfers, label, sort, notify_threshold_min, created_at, origin_place_id)
+VALUES (sqlc.arg(user_id), 'trip', '', 0, '', sqlc.arg(from_area_id), sqlc.arg(to_area_id), sqlc.arg(transfers), sqlc.arg(label),
         (SELECT coalesce(max(s.sort), -1) + 1 FROM saved_lines AS s WHERE s.user_id = sqlc.arg(user_id)), 0, sqlc.arg(created_at),
         sqlc.narg(origin_place_id))
 RETURNING *;
@@ -24,9 +24,12 @@ RETURNING *;
 -- name: ListTripOrigins :many
 SELECT DISTINCT from_area_id FROM saved_lines WHERE kind = 'trip';
 
+-- name: ListTripTransfers :many
+SELECT DISTINCT transfers FROM saved_lines WHERE kind = 'trip' AND transfers != '';
+
 -- name: UpdateSavedLine :exec
 UPDATE saved_lines
-SET label = ?, alight_stop_id = ?, notify_threshold_min = ?, from_area_id = ?, to_area_id = ?, origin_place_id = ?
+SET label = ?, alight_stop_id = ?, notify_threshold_min = ?, from_area_id = ?, to_area_id = ?, transfers = ?, origin_place_id = ?
 WHERE id = ? AND user_id = ?;
 
 -- name: SetSavedLineSort :exec

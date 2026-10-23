@@ -51,7 +51,13 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   (route, boarding platform) whose pattern visits a platform of From before one of To; the card merges departures of
   all those platforms (filtered to those routes/headsigns), each judged with its own platform's walk (`walks`).
   `GET /trips?from=&to=` previews the lines; the web page is `/trips/new?from=` (`?edit=<id>` edits a trip: PATCH
-  `from_area_id`/`to_area_id`). Any saved line can have `origin_place_id` (a saved place, `ON DELETE SET NULL`): when
+  `from_area_id`/`to_area_id`). Trips with changes (`saved_lines.transfers`, "alight" or "alight>board" areas,
+  comma-separated, ≤ 2): every leg needs a direct line (`validateTrip`); `Index.TransferOptions` suggests ways
+  (same area or ≤ 400 m walk, quickest first, one per line combination) using a `PatternTimer`
+  (`eta.Tracker.PatternTimes`: learned paces/dwell for city patterns, distance ÷ typical speed otherwise);
+  `/trips?from=&to=` returns `options` and checks `&via=`. Dashboard departures carry a `journey` (the departure
+  caught at each change after the platform walk + 1 min, waits, estimated `arrive_at`; also for direct trips and
+  lines with an alight stop). Any saved line can have `origin_place_id` (a saved place, `ON DELETE SET NULL`): when
   the request carries no location, `Builder.Build` walks from it and sets the entry's `walk_from`.
 - Wide screens (`lib/useWide.ts`, ≥1024 px): `components/SplitLayout.tsx` puts line and stop details beside
   `map/LiveMapPane.tsx` (the live `VehicleMap` with `fit`, line filter, highlighted pattern, places); phones keep the

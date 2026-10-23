@@ -22,6 +22,19 @@ export interface Departure {
   /** Set for trips, where departures can be of different lines. */
   line?: string;
   mode?: Mode;
+  /** Estimated arrival at the destination (trips, and lines with a stop to get off at). */
+  arrive_at?: string | null;
+  /** A trip's onward rides after each change. */
+  changes?: Change[];
+}
+
+export interface Change {
+  at: string;
+  line: string;
+  mode: Mode;
+  time: string;
+  wait_min: number;
+  walk_min: number;
 }
 
 /** Attributes of a sensor.bus_*_next entity. */
@@ -35,6 +48,8 @@ export interface NextAttributes {
   order?: number;
   /** The line's own starting place, when walks start there. */
   walk_from?: string;
+  /** Where a trip changes (stop names). */
+  via?: string[];
   /** A trip's destination stop (headsign is the next departure's). */
   destination?: string;
   line?: string;
@@ -93,7 +108,20 @@ export interface View {
   walkMin: number | null;
   walkApprox: boolean;
   /** Upcoming departures that have not left yet, soonest first. */
-  departures: { time: string; minutes: number; delayS: number; realtime: boolean; slack: number | null; level: Level; line?: string; mode?: Mode }[];
+  departures: {
+    time: string;
+    minutes: number;
+    delayS: number;
+    realtime: boolean;
+    slack: number | null;
+    level: Level;
+    line?: string;
+    mode?: Mode;
+    arriveAt?: string;
+    changes: Change[];
+  }[];
+  /** Where a trip changes. */
+  via: string[];
   url: string;
 }
 
@@ -111,6 +139,8 @@ export function view(attrs: NextAttributes, now: Date, count: number): View {
         level: slack === null ? ("none" as const) : level(slack),
         line: d.line,
         mode: d.mode,
+        arriveAt: d.arrive_at ?? undefined,
+        changes: d.changes ?? [],
       };
     })
     .filter((d) => d.minutes >= 0);
@@ -137,6 +167,7 @@ export function view(attrs: NextAttributes, now: Date, count: number): View {
     walkMin: attrs.walk_min ?? null,
     walkApprox: Boolean(attrs.walk_approx),
     departures: shown,
+    via: attrs.via ?? [],
     url: attrs.url ?? "",
   };
 }

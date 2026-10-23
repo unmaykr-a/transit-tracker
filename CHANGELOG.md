@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.0 — 2026-10-23
+
+Upgrading: pull the new image; the first start adds one column (`saved_lines.transfers`). Update the Home Assistant
+integration through HACS for the new attributes and card rows.
+
+- **Trips with changes.** When no line rides directly between two stops, or a change is quicker, the trip form
+  suggests ways with one change, or two when one is not enough. Changes can be at one stop or between stops up to
+  400 m apart. Ways are ranked by estimated time, and you can also choose the change stop yourself. Saved trips with
+  changes can be edited like any other trip.
+- **Each departure follows you to the destination.** The card shows the connection you can catch at each change (its
+  line, time, the walk between platforms and the wait, with "tight change" when there is no time to spare) and an
+  estimated arrival. Direct trips and lines saved with a stop to get off at show the arrival too. Ride times come
+  from the live tracker's learned street paces where it has them.
+- **Home Assistant**: next-departure sensors get `via`, `changes` and `arrive_at`; the card shows the changes and
+  the arrival under the countdown.
+
 ## 1.7.0 — 2026-10-23
 
 Upgrading: pull the new image; the first start adds one column (`user_prefs.show_rail`).

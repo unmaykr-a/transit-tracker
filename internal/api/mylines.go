@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/auth"
 	"github.com/unmaykr-a/transit-tracker/internal/dashboard"
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
+	"github.com/unmaykr-a/transit-tracker/internal/geo"
 	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 	"github.com/unmaykr-a/transit-tracker/internal/store/db"
 	"github.com/unmaykr-a/transit-tracker/internal/walk"
@@ -75,8 +77,9 @@ func validateLine(ix *staticdata.Index, routeID string, direction int, board, al
 	return "", invalid("board_stop_id", "the line does not depart from this stop in this direction")
 }
 
-// validateTrip checks that both stop areas exist and some line connects them.
-func validateTrip(ix *staticdata.Index, from, to string) error {
+// validateTrip checks that the stop areas exist and that every leg of the
+// trip (from, through its changes, to) has a line that rides it.
+func validateTrip(ix *staticdata.Index, from, to string, transfers []staticdata.Transfer) error {
 	if _, ok := ix.Area(from); !ok {
 		return invalid("from_area_id", "unknown stop")
 	}
@@ -86,29 +89,114 @@ func validateTrip(ix *staticdata.Index, from, to string) error {
 	if from == to {
 		return invalid("to_area_id", "choose a different stop")
 	}
-	if len(ix.Connections(from, to)) == 0 {
-		return invalid("to_area_id", "no line goes from the first stop to this one without changing")
+	if len(transfers) > staticdata.MaxTransfers {
+		return invalid("transfers", fmt.Sprintf("a trip can change at most %d times", staticdata.MaxTransfers))
+	}
+	seen := map[string]bool{from: true, to: true}
+	for _, t := range transfers {
+		a, okA := ix.Area(t.Alight)
+		b, okB := ix.Area(t.Board)
+		if !okA || !okB {
+			return invalid("transfers", "unknown stop to change at")
+		}
+		if seen[t.Alight] || (t.Board != t.Alight && seen[t.Board]) {
+			return invalid("transfers", "a trip passes each stop once")
+		}
+		seen[t.Alight], seen[t.Board] = true, true
+		if geo.DistanceM(a.Lat, a.Lon, b.Lat, b.Lon) > staticdata.MaxTransferWalkM {
+			return invalid("transfers", "the stops of a change are too far apart to walk")
+		}
+	}
+	for i, leg := range dashboard.LegAreas(from, to, transfers) {
+		if len(ix.Connections(leg[0], leg[1])) > 0 {
+			continue
+		}
+		if len(transfers) == 0 {
+			return invalid("to_area_id", "no line goes from the first stop to this one without changing")
+		}
+		a, _ := ix.Area(leg[0])
+		b, _ := ix.Area(leg[1])
+		field := "transfers"
+		if i == len(transfers) {
+			field = "to_area_id"
+		}
+		return invalid(field, fmt.Sprintf("no line goes from %s to %s without changing", a.Name, b.Name))
 	}
 	return nil
 }
 
-// handleTripPreview lists the lines that connect two stop areas, for the trip form.
-func (s *Server) handleTripPreview(w http.ResponseWriter, r *http.Request) {
-	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
-	ix := s.index()
-	if err := validateTrip(ix, from, to); err != nil {
-		var ve *auth.ValidationError
-		if errors.As(err, &ve) && ve.Field == "to_area_id" && from != to {
-			if _, ok := ix.Area(to); ok {
-				writeJSON(w, http.StatusOK, map[string]any{"lines": []dashboard.TripLine{}}) // valid stops, nothing direct
-				return
-			}
+// tripTransfers reads the changes of a trip from a request.
+func tripTransfers(in []staticdata.Transfer) []staticdata.Transfer {
+	out := make([]staticdata.Transfer, 0, len(in))
+	for _, t := range in {
+		if t.Board == "" {
+			t.Board = t.Alight
 		}
-		s.writeErr(w, err)
+		out = append(out, t)
+	}
+	return out
+}
+
+// tripOption is a way to make a trip with changes, as the trip form offers it.
+type tripOption struct {
+	Transfers []dashboard.TransferRef `json:"transfers"`
+	Legs      []dashboard.TripLeg     `json:"legs"`
+	Minutes   int                     `json:"minutes"` // rough: rides, walks and an average wait at each change
+	// Via is the changes in the form transfers are saved in ("a1,a2>a3"), for ?via= and display keys.
+	Via string `json:"via"`
+}
+
+func (s *Server) patternTimer() staticdata.PatternTimer {
+	if s.dashboard != nil && s.dashboard.Times != nil {
+		return s.dashboard.Times
+	}
+	return func(p *staticdata.Pattern) []float64 {
+		out := make([]float64, len(p.StopIDs))
+		for i := range out {
+			out[i] = float64(i) * 90
+		}
+		return out
+	}
+}
+
+// handleTripPreview shows how a trip can be made, for the trip form: the
+// direct lines, ways with changes (quickest first), and, with ?via=, the
+// lines of each leg of the changes given.
+func (s *Server) handleTripPreview(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	from, to := q.Get("from"), q.Get("to")
+	ix := s.index()
+	if _, ok := ix.Area(from); !ok {
+		s.writeErr(w, invalid("from_area_id", "unknown stop"))
 		return
 	}
-	trip := dashboard.ResolveLine(ix, db.SavedLine{Kind: dashboard.KindTrip, FromAreaID: from, ToAreaID: to})
-	writeJSON(w, http.StatusOK, map[string]any{"from": trip.From, "to": trip.To, "lines": trip.Lines})
+	if _, ok := ix.Area(to); !ok || from == to {
+		s.writeErr(w, invalid("to_area_id", "unknown stop"))
+		return
+	}
+	direct := dashboard.ResolveLine(ix, db.SavedLine{Kind: dashboard.KindTrip, FromAreaID: from, ToAreaID: to})
+	out := map[string]any{"from": direct.From, "to": direct.To, "lines": direct.Lines, "options": []tripOption{}}
+	if via := q.Get("via"); via != "" {
+		transfers := dashboard.ParseTransfers(via)
+		if err := validateTrip(ix, from, to, transfers); err != nil {
+			s.writeErr(w, err)
+			return
+		}
+		trip := dashboard.ResolveLine(ix, db.SavedLine{Kind: dashboard.KindTrip, FromAreaID: from, ToAreaID: to, Transfers: via})
+		out["legs"], out["transfers"] = trip.Legs, trip.Transfers
+	}
+	// Changes are offered even when lines go direct: a change can be much quicker.
+	opts := []tripOption{}
+	for _, o := range ix.TransferOptions(from, to, s.patternTimer(), 4) {
+		via := dashboard.FormatTransfers(o.Transfers)
+		trip := dashboard.ResolveLine(ix, db.SavedLine{Kind: dashboard.KindTrip, FromAreaID: from, ToAreaID: to, Transfers: via})
+		if trip.Unavailable {
+			continue
+		}
+		opts = append(opts, tripOption{Transfers: trip.Transfers, Legs: trip.Legs, Minutes: int(math.Ceil(o.Seconds / 60)), Via: via})
+	}
+	out["options"] = opts
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) handleListLines(w http.ResponseWriter, r *http.Request) {
@@ -134,8 +222,10 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		AlightStopID string `json:"alight_stop_id"`
 		FromAreaID   string `json:"from_area_id"`
 		ToAreaID     string `json:"to_area_id"`
-		Label        string `json:"label"`
-		OriginPlace  *int64 `json:"origin_place_id"`
+		// Transfers: where a trip changes, in order; board defaults to alight.
+		Transfers   []staticdata.Transfer `json:"transfers"`
+		Label       string                `json:"label"`
+		OriginPlace *int64                `json:"origin_place_id"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		s.writeErr(w, err)
@@ -159,13 +249,14 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Kind == dashboard.KindTrip {
-		if err := validateTrip(s.index(), in.FromAreaID, in.ToAreaID); err != nil {
+		transfers := tripTransfers(in.Transfers)
+		if err := validateTrip(s.index(), in.FromAreaID, in.ToAreaID, transfers); err != nil {
 			s.writeErr(w, err)
 			return
 		}
 		sl, err := s.db.Q.CreateSavedTrip(r.Context(), db.CreateSavedTripParams{
-			UserID: p.User.ID, FromAreaID: in.FromAreaID, ToAreaID: in.ToAreaID, Label: strings.TrimSpace(in.Label), CreatedAt: time.Now().Unix(),
-			OriginPlaceID: originPlace,
+			UserID: p.User.ID, FromAreaID: in.FromAreaID, ToAreaID: in.ToAreaID, Transfers: dashboard.FormatTransfers(transfers),
+			Label: strings.TrimSpace(in.Label), CreatedAt: time.Now().Unix(), OriginPlaceID: originPlace,
 		})
 		if err != nil {
 			s.writeErr(w, err)
@@ -175,6 +266,9 @@ func (s *Server) handleCreateLine(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if in.Kind != "" && in.Kind != dashboard.KindLine {
 		s.writeErr(w, invalid("kind", "must be line or trip"))
+		return
+	} else if len(in.Transfers) > 0 {
+		s.writeErr(w, invalid("transfers", "only trips change"))
 		return
 	}
 	headsign, err := validateLine(s.index(), in.RouteID, in.Direction, in.BoardStopID, in.AlightStopID)
@@ -217,6 +311,8 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		NotifyMin    *int    `json:"notify_threshold_min"`
 		FromAreaID   *string `json:"from_area_id"` // trips only
 		ToAreaID     *string `json:"to_area_id"`
+		// Transfers replaces a trip's changes ([] for none); absent leaves them.
+		Transfers *[]staticdata.Transfer `json:"transfers"`
 		// OriginPlace: a place id, or null to clear; absent leaves it as is.
 		OriginPlace json.RawMessage `json:"origin_place_id"`
 	}
@@ -235,7 +331,7 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, invalid("alight_stop_id", "a trip already ends at its destination"))
 		return
 	}
-	if (in.FromAreaID != nil || in.ToAreaID != nil) && sl.Kind != dashboard.KindTrip {
+	if (in.FromAreaID != nil || in.ToAreaID != nil || in.Transfers != nil) && sl.Kind != dashboard.KindTrip {
 		s.writeErr(w, invalid("from_area_id", "only trips have a from and to stop"))
 		return
 	}
@@ -246,19 +342,22 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 		}
 		sl.AlightStopID = *in.AlightStopID
 	}
-	if in.FromAreaID != nil || in.ToAreaID != nil {
-		from, to := sl.FromAreaID, sl.ToAreaID
+	if in.FromAreaID != nil || in.ToAreaID != nil || in.Transfers != nil {
+		from, to, transfers := sl.FromAreaID, sl.ToAreaID, dashboard.ParseTransfers(sl.Transfers)
 		if in.FromAreaID != nil {
 			from = *in.FromAreaID
 		}
 		if in.ToAreaID != nil {
 			to = *in.ToAreaID
 		}
-		if err := validateTrip(s.index(), from, to); err != nil {
+		if in.Transfers != nil {
+			transfers = tripTransfers(*in.Transfers)
+		}
+		if err := validateTrip(s.index(), from, to, transfers); err != nil {
 			s.writeErr(w, err)
 			return
 		}
-		sl.FromAreaID, sl.ToAreaID = from, to
+		sl.FromAreaID, sl.ToAreaID, sl.Transfers = from, to, dashboard.FormatTransfers(transfers)
 	}
 	if len(in.OriginPlace) > 0 {
 		var id *int64
@@ -282,7 +381,7 @@ func (s *Server) handleUpdateLine(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.db.Q.UpdateSavedLine(r.Context(), db.UpdateSavedLineParams{
 		Label: sl.Label, AlightStopID: sl.AlightStopID, NotifyThresholdMin: sl.NotifyThresholdMin,
-		FromAreaID: sl.FromAreaID, ToAreaID: sl.ToAreaID, OriginPlaceID: sl.OriginPlaceID, ID: sl.ID, UserID: sl.UserID,
+		FromAreaID: sl.FromAreaID, ToAreaID: sl.ToAreaID, Transfers: sl.Transfers, OriginPlaceID: sl.OriginPlaceID, ID: sl.ID, UserID: sl.UserID,
 	}); err != nil {
 		s.writeErr(w, err)
 		return

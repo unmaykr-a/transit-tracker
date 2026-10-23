@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 	_ "time/tzdata" // distroless has no zoneinfo; Europe/Tallinn must always resolve
@@ -133,7 +134,8 @@ func serve(cfg config.Config) error {
 		}
 		return cur().WalkProviders
 	})
-	board := &dashboard.Builder{Index: importer.Index, Departures: deps, Walk: walker}
+	board := &dashboard.Builder{Index: importer.Index, Departures: deps, Walk: walker,
+		Times: func(p *staticdata.Pattern) []float64 { return tracker.PatternTimes(importer.Index(), p) }}
 
 	var sso *auth.OIDC
 	if cfg.OIDC.Enabled() {
@@ -214,12 +216,21 @@ func prewarmSaved(ctx context.Context, log *slog.Logger, db *store.Store, ix fun
 			continue
 		}
 		index := ix()
-		// Saved trips board at any platform of their origin stop.
-		if areas, err := db.Q.ListTripOrigins(ctx); err == nil {
-			for _, a := range areas {
-				if area, ok := index.Area(a); ok {
-					ids = append(ids, area.StopIDs...)
+		// Saved trips board at any platform of their origin stop, and of each stop they change at.
+		areas, err := db.Q.ListTripOrigins(ctx)
+		if err != nil {
+			areas = nil
+		}
+		if lists, err := db.Q.ListTripTransfers(ctx); err == nil {
+			for _, l := range lists {
+				for _, t := range dashboard.ParseTransfers(l) {
+					areas = append(areas, t.Board)
 				}
+			}
+		}
+		for _, a := range slices.Compact(slices.Sorted(slices.Values(areas))) {
+			if area, ok := index.Area(a); ok {
+				ids = append(ids, area.StopIDs...)
 			}
 		}
 		for _, id := range ids {

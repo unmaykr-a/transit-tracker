@@ -87,7 +87,15 @@
     "noDepartures": "No departures in the next hours.",
     "then": "then",
     "walkFromPlace": "from {{place}}",
-    "removeLine": "Remove this line?"
+    "removeLine": "Remove this line?",
+    "via": "via {{stops}}",
+    "journey": "Journey",
+    "changeAt": "at {{stop}}",
+    "walkMin": "{{min}} min walk",
+    "waitMin": "{{min}} min wait",
+    "tightChange": "tight change",
+    "arrive": "Arrive",
+    "laterUnknown": "Later rides not known yet"
   },
   "search": {
     "title": "Search",
@@ -406,7 +414,7 @@
   },
   "trip": {
     "title": "Trip between two stops",
-    "intro": "Pick where you get on and where you get off: every line that rides directly between them counts, whichever comes first.",
+    "intro": "Pick where you get on and where you get off. Lines that ride directly count, whichever comes first; if none do, or a change is quicker, pick a way with a change.",
     "add": "Add a trip",
     "fromHere": "Trip from here",
     "from": "From",
@@ -428,6 +436,19 @@
     "startPlaceHint": "Walking time and the verdict start here whenever you are not sharing your location (also in Home Assistant without a “Walk from” entity).",
     "noStartPlace": "None",
     "addPlace": "Add a place",
-    "update": "Save changes"
+    "update": "Save changes",
+    "how": "How to ride",
+    "direct": "Direct",
+    "noChange": "no change",
+    "noneTryChange": "No line rides directly between these stops — pick a way with a change.",
+    "changes_one": "{{count}} change",
+    "changes_other": "{{count}} changes",
+    "aboutMin": "about {{min}} min",
+    "custom": "Choose where to change",
+    "customHint": "Pick the stop where you change (and a second one if you need it). Each ride must have a direct line.",
+    "changeStop": "Change {{n}} at",
+    "changeAt": "Change at {{stop}}",
+    "walkChange": "Change: walk {{m}} m from {{from}} to {{to}}",
+    "leg": "{{from}} → {{to}}"
   }
 }
