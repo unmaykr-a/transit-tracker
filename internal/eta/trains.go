@@ -18,7 +18,10 @@ import (
 // station): no match, rather than another line's track.
 
 const (
-	railMaxOffsetM = 300 // further from every track: not matched (depot, siding, bad fix)
+	// Further from every qualifying track: not matched (depot, bad fix). Generous,
+	// because the station names already pick the line; this only rules out
+	// trains nowhere near it, and tolerates coarse GTFS shapes.
+	railMaxOffsetM = 1500
 	railExactBonM  = 400 // the pattern starts and ends at the route name's stations
 	railStickyBonM = 50
 	railWrongWayM  = 300 // heading against the pattern's direction (when Elron reports a heading)

@@ -96,7 +96,7 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   disagreement (soft, weaker when stationary) − headsign/stickiness bonuses, sets `pattern_id`, `next_stop_id`,
   `dist_along_m`. Trains (no GTFS ids in the Elron feed) get the same fields from `Tracker.MatchTrains` in the Elron
   poller: only rail patterns calling at both stations of the Elron route name (`liin`, "Keila - Tallinn") in order
-  qualify (exact first/last preferred), then nearest track within 300 m, heading, previous match; else no match. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
+  qualify (exact first/last preferred), then nearest track within 1.5 km, heading, previous match; else no match. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
   dwell per stop; terminus layover is ignored. ETAs sum the paces ahead plus dwell at intermediate stops (route speed
   until a segment has data), scaled by a self-calibrated factor per mode and horizon band learned from the tracker's
   own probes against later GPS arrivals (`calibrate`, half strength; `bus_eta_scale` metric). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
