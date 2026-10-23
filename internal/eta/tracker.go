@@ -18,6 +18,7 @@ type PatternGeom struct {
 	Shape     *Shape
 	StopAlong []float64
 	headsign  string
+	stations  []string // rail patterns: folded station names, for MatchTrains
 }
 
 // Geometry indexes every pattern's geometry by route.

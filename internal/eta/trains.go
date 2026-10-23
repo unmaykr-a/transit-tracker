@@ -1,20 +1,27 @@
 package eta
 
 import (
-	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
+	"slices"
+	"strings"
+
 	"github.com/unmaykr-a/transit-tracker/internal/state"
+	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 )
 
-// Trains report a route name ("Tallinn - Turba") and a trip number, not a GTFS
-// pattern, so they are matched to rail patterns by position: the pattern whose
-// track runs closest to the train, preferring one heading to the train's
-// destination and the pattern it had before. This gives trains a pattern_id,
-// so the map can draw a selected train's line and move it along the track.
+// Trains report a route name ("Keila - Tallinn") and a trip number, not a GTFS
+// pattern. In the city every line shares the same tracks, so position alone
+// cannot tell them apart; the route name can: it names the first and last
+// station, which is also how Elron's GTFS names its trips. A train is matched
+// only to patterns calling at both stations in that order (best: starting and
+// ending there), then by distance to the track, heading and the pattern it had
+// before. No such pattern (a line missing from the timetable data, a renamed
+// station): no match, rather than another line's track.
 
 const (
-	railMaxOffsetM   = 300 // further from every track: not matched (depot, siding, bad fix)
-	railHeadsignBonM = 150
-	railStickyBonM   = 100
+	railMaxOffsetM = 300 // further from every track: not matched (depot, siding, bad fix)
+	railExactBonM  = 400 // the pattern starts and ends at the route name's stations
+	railStickyBonM = 50
+	railWrongWayM  = 300 // heading against the pattern's direction (when Elron reports a heading)
 )
 
 func railGeoms(ix *staticdata.Index, routeID string) []*PatternGeom {
@@ -29,14 +36,51 @@ func railGeoms(ix *staticdata.Index, routeID string) []*PatternGeom {
 		if len(stops) != len(p.StopIDs) || len(stops) < 2 || len(p.Shape) < 2 {
 			continue
 		}
-		head := p.Headsign
-		if s, ok := ix.Stop(p.StopIDs[len(p.StopIDs)-1]); ok && head == "" {
-			head = s.Name
+		names := make([]string, len(p.StopIDs))
+		for i, id := range p.StopIDs {
+			s, _ := ix.Stop(id)
+			names[i] = stationName(s.Name)
 		}
 		sh := NewShape(p.Shape)
-		out = append(out, &PatternGeom{Pattern: p, Shape: sh, StopAlong: sh.StopPositions(stops), headsign: staticdata.Fold(head)})
+		out = append(out, &PatternGeom{Pattern: p, Shape: sh, StopAlong: sh.StopPositions(stops), headsign: staticdata.Fold(p.Headsign), stations: names})
 	}
 	return out
+}
+
+// stationName folds a station name for matching; Tallinn's station is also called Balti jaam.
+func stationName(name string) string {
+	n := staticdata.Fold(name)
+	if n == "balti jaam" {
+		return "tallinn"
+	}
+	return n
+}
+
+// routeEnds reads the first and last station from an Elron route name.
+func routeEnds(route string) (from, to string) {
+	i := strings.LastIndex(route, "-")
+	if i < 0 {
+		return "", stationName(route)
+	}
+	return stationName(route[:i]), stationName(route[i+1:])
+}
+
+// railFit reports whether pattern pg can be the train's route from..to: it
+// calls at both in order (ok), and whether it starts and ends there (exact).
+func railFit(pg *PatternGeom, from, to string) (ok, exact bool) {
+	n := len(pg.stations)
+	if from == "" || to == "" || n < 2 {
+		return false, false
+	}
+	i := slices.Index(pg.stations, from)
+	if i < 0 {
+		return false, false
+	}
+	j := slices.Index(pg.stations[i+1:], to)
+	if j < 0 {
+		return false, false
+	}
+	return true, i == 0 && i+1+j == n-1
 }
 
 // MatchTrains sets the pattern, progress and next stop of train vehicles.
@@ -53,18 +97,25 @@ func (t *Tracker) MatchTrains(vs []state.Vehicle) {
 	seen := make(map[string]bool, len(vs))
 	for i := range vs {
 		v := &vs[i]
-		dest := staticdata.Fold(v.Destination)
+		from, to := routeEnds(v.Line)
 		var best *PatternGeom
 		var bestProj Projection
 		bestScore := 0.0
 		for _, pg := range g.rail {
+			fits, exact := railFit(pg, from, to)
+			if !fits {
+				continue
+			}
 			pr, ok := pg.Shape.Project(v.Lat, v.Lon, 0)
 			if !ok || pr.Offset > railMaxOffsetM {
 				continue
 			}
 			score := pr.Offset
-			if dest != "" && pg.headsign == dest {
-				score -= railHeadsignBonM
+			if exact {
+				score -= railExactBonM
+			}
+			if v.Bearing >= 0 && angleDiff(v.Bearing, pr.Bearing) > 120 {
+				score += railWrongWayM
 			}
 			if t.trainPattern[v.ID] == pg.Pattern.ID {
 				score -= railStickyBonM

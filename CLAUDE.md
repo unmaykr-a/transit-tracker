@@ -56,7 +56,8 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   (same area or ≤ 400 m walk, quickest first, one per line combination) using a `PatternTimer`
   (`eta.Tracker.PatternTimes`: learned paces/dwell for city patterns, distance ÷ typical speed otherwise);
   `/trips?from=&to=` returns `options` and checks `&via=`. Dashboard departures carry a `journey` (the departure
-  caught at each change after the platform walk + 1 min, waits, estimated `arrive_at`; also for direct trips and
+  caught at each change after the platform walk + 1 min — live rows extended with OTP timetable rows beyond the
+  last live one (`Departures.Timetable`), waits, estimated `arrive_at`; also for direct trips and
   lines with an alight stop). Any saved line can have `origin_place_id` (a saved place, `ON DELETE SET NULL`): when
   the request carries no location, `Builder.Build` walks from it and sets the entry's `walk_from`.
 - Wide screens (`lib/useWide.ts`, ≥1024 px): `components/SplitLayout.tsx` puts line and stop details beside
@@ -94,7 +95,8 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   store: projects each fix onto the line's pattern shapes (equirectangular, `Shape.Project`), scores offset + heading
   disagreement (soft, weaker when stationary) − headsign/stickiness bonuses, sets `pattern_id`, `next_stop_id`,
   `dist_along_m`. Trains (no GTFS ids in the Elron feed) get the same fields from `Tracker.MatchTrains` in the Elron
-  poller: the nearest rail pattern within 300 m, preferring the train's destination and its previous pattern. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
+  poller: only rail patterns calling at both stations of the Elron route name (`liin`, "Keila - Tallinn") in order
+  qualify (exact first/last preferred), then nearest track within 300 m, heading, previous match; else no match. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
   dwell per stop; terminus layover is ignored. ETAs sum the paces ahead plus dwell at intermediate stops (route speed
   until a segment has data), scaled by a self-calibrated factor per mode and horizon band learned from the tracker's
   own probes against later GPS arrivals (`calibrate`, half strength; `bus_eta_scale` metric). API: `/vehicles/{id}/trip` (stops ahead with ETAs),

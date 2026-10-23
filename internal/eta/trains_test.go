@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
-	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 	"github.com/unmaykr-a/transit-tracker/internal/state"
+	"github.com/unmaykr-a/transit-tracker/internal/staticdata"
 )
 
 func TestMatchTrains(t *testing.T) {
@@ -27,28 +27,56 @@ func TestMatchTrains(t *testing.T) {
 	if len(g.rail) == 0 {
 		t.Fatal("no rail patterns in the fixture")
 	}
-	pg := g.rail[0]
-	mid := pg.Shape.Length() / 2
-	pt := pg.Shape.PointAt(mid) // [lon, lat]
-	far := state.Vehicle{ID: "train-2", Mode: feeds.ModeTrain, Lat: pt[1] + 0.05, Lon: pt[0]}
+	var r14in *PatternGeom // Paldiski → Tallinn
+	for _, pg := range g.rail {
+		if pg.Pattern.RouteID == "train:R14" {
+			r14in = pg
+		}
+	}
+	// A point on the track shared by R12 and R14, 1.5 km before Tallinn.
+	pt := r14in.Shape.PointAt(r14in.Shape.Length() - 1500)
+	at := func(id, route string, lat float64) state.Vehicle {
+		return state.Vehicle{ID: id, Mode: feeds.ModeTrain, Line: route, Lat: lat, Lon: pt[0], Bearing: -1}
+	}
 	vs := []state.Vehicle{
-		{ID: "train-1", Mode: feeds.ModeTrain, Lat: pt[1], Lon: pt[0], Destination: pg.Pattern.Headsign},
-		far,
+		at("train-546", "Paldiski - Tallinn", pt[1]),
+		at("train-748", "Keila-Tallinn", pt[1]),
+		at("train-747", "Tallinn - Keila", pt[1]),
+		at("train-645", "Tallinn - Turba", pt[1]), // not in the fixture's timetable
+		at("train-9", "Paldiski - Tallinn", pt[1]+0.05),
 	}
 	tr.MatchTrains(vs)
-	got := vs[0]
-	if got.PatternID == "" || got.NextStopID == "" {
-		t.Fatalf("train on the track not matched: %+v", got)
+	pattern := func(v state.Vehicle) (route, first, last string) {
+		pg, ok := g.byIDOrRail(v.PatternID)
+		if !ok {
+			return "", "", ""
+		}
+		return pg.Pattern.RouteID, pg.stations[0], pg.stations[len(pg.stations)-1]
 	}
-	m, _ := g.byIDOrRail(got.PatternID)
-	if m == nil || m.Pattern.RouteID != pg.Pattern.RouteID {
-		t.Errorf("matched %s, want a pattern of %s", got.PatternID, pg.Pattern.RouteID)
+	for i, want := range [][3]string{
+		{"train:R14", "paldiski", "tallinn"},
+		{"train:R12", "keila", "tallinn"},
+		{"train:R12", "tallinn", "keila"},
+		{},
+		{},
+	} {
+		r, a, z := pattern(vs[i])
+		if [3]string{r, a, z} != want {
+			t.Errorf("%s (%s): matched %s %s→%s, want %v", vs[i].ID, vs[i].Line, r, a, z, want)
+		}
 	}
-	if got.DistAlongM <= 0 {
-		t.Errorf("dist along = %v", got.DistAlongM)
+	if vs[0].DistAlongM <= 0 || vs[0].NextStopID == "" {
+		t.Errorf("progress not set: %+v", vs[0])
 	}
-	if vs[1].PatternID != "" {
-		t.Errorf("train 5 km off the track matched %s", vs[1].PatternID)
+	// A heading against the pattern's direction is not that pattern.
+	wrong := []state.Vehicle{at("train-1", "Keila - Tallinn", pt[1])}
+	wrong[0].Bearing = 180
+	if pr, ok := r14in.Shape.Project(pt[1], pt[0], 0); ok {
+		wrong[0].Bearing = pr.Bearing // heading the right way still matches
+	}
+	tr.MatchTrains(wrong)
+	if wrong[0].PatternID == "" {
+		t.Error("a train heading the right way was not matched")
 	}
 }
 

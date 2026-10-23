@@ -3,8 +3,13 @@
 ## 1.8.1 — 2026-10-23
 
 - Fixed: with railway lines switched off, a selected train showed no line. Trains are now matched to their rail
-  pattern by position (the closest track, preferring one heading to the train's destination), so a selected train
-  draws its line like any other vehicle and moves along the track between updates.
+  pattern, so a selected train draws its own line and moves along the track between updates. In the city, where
+  every line shares the tracks, the train's route name decides (it names the first and last station, e.g. "Keila -
+  Tallinn"): only patterns calling at both stations in that order qualify, and a train on a line missing from the
+  timetable gets no line rather than another line's.
+- Trips with changes look further ahead: rides after a change use the timetable beyond the last live departure
+  (live boards list only about the next half hour), so long first rides no longer end in "Later rides not known
+  yet".
 
 ## 1.8.0 — 2026-10-23
 
