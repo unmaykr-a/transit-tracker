@@ -189,6 +189,31 @@ func (s *Service) routeID(mode feeds.Mode, line string) string {
 
 func (s *Service) fromSiri(st *staticdata.Stop, b feeds.SiriBoard, now time.Time) []Departure {
 	out := make([]Departure, 0, len(b.Departures))
+	// Rows and the header's server clock share one scale (seconds of the day), so
+	// a departure is the server's time plus the difference. That holds on the days
+	// the clocks change, when "seconds since midnight" and the wall clock disagree
+	// by an hour. The board can be up to a cache TTL old, so the server time is
+	// placed on the wall clock; if that lands far from now (the scales disagreed),
+	// now is used instead.
+	serverAt := now
+	if b.ServerSecOfDay > 0 {
+		if t := secOfDay(b.ServerSecOfDay, now, s.Location); t.Sub(now).Abs() < 10*time.Minute {
+			serverAt = t
+		}
+	}
+	at := func(sec int) time.Time {
+		if b.ServerSecOfDay <= 0 {
+			return secOfDay(sec, now, s.Location)
+		}
+		d := sec - b.ServerSecOfDay
+		switch { // across midnight, rows may count from either day
+		case d < -43200:
+			d += 86400
+		case d > 43200:
+			d -= 86400
+		}
+		return serverAt.Add(time.Duration(d) * time.Second)
+	}
 	for _, d := range b.Departures {
 		line := d.Line
 		if d.Mode == feeds.ModeTram && !strings.HasPrefix(strings.ToUpper(line), "T") {
@@ -197,8 +222,8 @@ func (s *Service) fromSiri(st *staticdata.Stop, b feeds.SiriBoard, now time.Time
 		out = append(out, Departure{
 			StopID: st.ID, Platform: st.Platform, Mode: d.Mode, Line: line, RouteID: s.routeID(d.Mode, line),
 			Headsign:    d.Destination,
-			ScheduledAt: secOfDay(d.ScheduledSec, now, s.Location),
-			ExpectedAt:  secOfDay(d.ExpectedSec, now, s.Location),
+			ScheduledAt: at(d.ScheduledSec),
+			ExpectedAt:  at(d.ExpectedSec),
 			Realtime:    true, DelayS: d.DelaySec(), LowFloor: d.LowFloor, Source: "siri",
 		})
 	}

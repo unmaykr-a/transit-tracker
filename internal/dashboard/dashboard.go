@@ -178,6 +178,8 @@ type Place struct {
 type Prefs struct {
 	WalkSpeedKmh float64 `json:"walk_speed_kmh"`
 	BufferMin    int     `json:"buffer_min"`
+	// ShowRail draws railway lines on the live map (off by default).
+	ShowRail bool `json:"show_rail"`
 }
 
 // DefaultPrefs match PLAN.md (4.8 km/h, 1 minute buffer).

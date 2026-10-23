@@ -62,7 +62,10 @@ export default function SearchPage() {
                   params={{ mode: l.mode, line: l.short_name }}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                 >
-                  <LinePill mode={l.mode} line={l.short_name} />
+                  {/* A fixed column, so the names line up whether the pill says 2 or 24A. */}
+                  <span className="flex w-12 shrink-0">
+                    <LinePill mode={l.mode} line={l.short_name} />
+                  </span>
                   <span className="min-w-0 flex-1 truncate">{l.long_name}</span>
                   <span className="text-xs text-muted-foreground">{t(`modeShort.${l.mode}`)}</span>
                 </Link>

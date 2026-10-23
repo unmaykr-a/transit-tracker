@@ -463,7 +463,7 @@ func (s *Server) prefs(r *http.Request) (dashboard.Prefs, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return dashboard.DefaultPrefs, nil
 	}
-	return dashboard.Prefs{WalkSpeedKmh: p.WalkSpeedKmh, BufferMin: int(p.BufferMin)}, err
+	return dashboard.Prefs{WalkSpeedKmh: p.WalkSpeedKmh, BufferMin: int(p.BufferMin), ShowRail: p.ShowRail != 0}, err
 }
 
 func (s *Server) handleGetPrefs(w http.ResponseWriter, r *http.Request) {
@@ -484,6 +484,7 @@ func (s *Server) handleUpdatePrefs(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		WalkSpeedKmh *float64 `json:"walk_speed_kmh"`
 		BufferMin    *int     `json:"buffer_min"`
+		ShowRail     *bool    `json:"show_rail"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		s.writeErr(w, err)
@@ -503,7 +504,16 @@ func (s *Server) handleUpdatePrefs(w http.ResponseWriter, r *http.Request) {
 		}
 		cur.BufferMin = *in.BufferMin
 	}
-	if err := s.db.Q.UpsertUserPrefs(r.Context(), db.UpsertUserPrefsParams{UserID: principal(r).User.ID, WalkSpeedKmh: cur.WalkSpeedKmh, BufferMin: int64(cur.BufferMin)}); err != nil {
+	if in.ShowRail != nil {
+		cur.ShowRail = *in.ShowRail
+	}
+	showRail := int64(0)
+	if cur.ShowRail {
+		showRail = 1
+	}
+	if err := s.db.Q.UpsertUserPrefs(r.Context(), db.UpsertUserPrefsParams{
+		UserID: principal(r).User.ID, WalkSpeedKmh: cur.WalkSpeedKmh, BufferMin: int64(cur.BufferMin), ShowRail: showRail,
+	}); err != nil {
 		s.writeErr(w, err)
 		return
 	}

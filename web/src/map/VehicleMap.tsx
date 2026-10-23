@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { MapStop } from "@/api";
 import { pillText } from "@/lib/lines";
 import { live } from "@/lib/liveClient";
+import { useShowRail } from "@/lib/mapPrefs";
 import { loadShapes, patternRoutes, shapes } from "@/lib/shapes";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { prefersReducedMotion, useTheme } from "@/lib/theme";
@@ -68,7 +69,8 @@ function addRailLayers(map: MLMap) {
   if (!map.getSource("rail")) map.addSource("rail", { type: "geojson", data: NO_FEATURES });
   const width: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 7, 1.5, 12, 3, 16, 5];
   map.addLayer(
-    { id: "rail", type: "line", source: "rail", minzoom: 6, paint: { "line-color": MODE_COLORS.train, "line-opacity": 0.55, "line-width": width } },
+    // Hidden until the person turns railway lines on (the effect below shows them).
+    { id: "rail", type: "line", source: "rail", minzoom: 6, layout: { visibility: "none" }, paint: { "line-color": MODE_COLORS.train, "line-opacity": 0.55, "line-width": width } },
     "stops",
   );
   // White ties on the line, the usual way maps draw railways.
@@ -78,6 +80,7 @@ function addRailLayers(map: MLMap) {
       type: "line",
       source: "rail",
       minzoom: 11,
+      layout: { visibility: "none" },
       paint: { "line-color": "#ffffff", "line-opacity": 0.8, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 16, 2], "line-dasharray": [2, 3] },
     },
     "stops",
@@ -490,8 +493,9 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     mapRef.current?.getSource<GeoJSONSource>("places")?.setData(placeFeatures(places));
   }, [places]);
 
-  // Railway lines follow the train filter chip.
-  const showRail = modes.has("train");
+  // Railway lines are opt-in (Settings → Map) and follow the train filter chip.
+  const [railPref] = useShowRail();
+  const showRail = railPref && modes.has("train");
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;

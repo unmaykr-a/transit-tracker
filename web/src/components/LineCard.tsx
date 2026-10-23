@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, Footprints, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { DashboardEntry } from "@/api";
-import { ConfirmButton } from "@/components/ConfirmButton";
 import { Button } from "@/components/ui/button";
 import { clock, countdown, minutesUntil } from "@/lib/format";
 import { judge } from "@/lib/verdict";
@@ -27,6 +27,7 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage;
   const l = entry.line;
+  const [confirming, setConfirming] = useState(false);
   // Verdicts are recomputed every tick from the departure times, so chips stay
   // right between dashboard refreshes.
   // A trip's departures leave from several platforms, each with its own walk.
@@ -98,12 +99,26 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
                 </Link>
               </Button>
             )}
-            <ConfirmButton variant="ghost" size="icon" onConfirm={() => onRemove?.()} question={t("home.removeLine")} aria-label={t("home.remove")}>
+            <Button variant="ghost" size="icon" onClick={() => setConfirming(true)} aria-label={t("home.remove")} aria-expanded={confirming}>
               <Trash2 className="size-4" />
-            </ConfirmButton>
+            </Button>
           </div>
         )}
       </header>
+      {editing && confirming && (
+        // Its own row: inline in the header it squeezed the title away on phones.
+        <div role="group" aria-label={t("home.removeLine")} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+          <span>{t("home.removeLine")}</span>
+          <span className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
+              {t("admin.cancel")}
+            </Button>
+            <Button size="sm" className="bg-red-600 text-white hover:bg-red-700" onClick={() => onRemove?.()}>
+              {t("home.remove")}
+            </Button>
+          </span>
+        </div>
+      )}
 
       {l.unavailable ? (
         <p className="text-sm text-muted-foreground">{t("home.unavailable")}</p>

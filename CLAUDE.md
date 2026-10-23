@@ -71,14 +71,18 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - Instance defaults (`lib/mapConfig.ts`, applied in the session query before anything renders): admin map styles and
   start view feed every map via `styleUrl`/`startView`; `default_theme`/`default_locale` apply only to visitors without
   their own choice (`bus.theme`, `bus.lang`; the language is saved only by `setLanguage`, not by detection).
+- Railway lines are opt-in: `lib/mapPrefs.ts` `useShowRail()` (`user_prefs.show_rail` for accounts, `bus.map.rail`
+  for visitors); the rail layers start hidden. Settings pages use `components/SettingsGroup.tsx` (`SettingsGroup`,
+  `SettingRow`); button radio groups use `lib/radioGroup.ts` (one Tab stop, arrow keys).
 - `liveClient` closes the stream 30 s after the last listener leaves or the tab is hidden, and reconnects at once on
   `visibilitychange`/`online`. Destructive actions use `components/ConfirmButton.tsx`.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),
   `/stops/{areaOrPlatformId}`, `/stops/{id}/departures?platform=&limit=`, `/lines/{mode}/{line}`.
 - Live API: `GET /api/v1/vehicles?mode=&line=`, `GET /api/v1/vehicles/{id}`, `GET /api/v1/status`,
   `WS /ws` (messages `snapshot`, `diff` with `upsert`/`move`/`remove`, `stale`; client sends
-  `{"filter":{"modes":[],"lines":[]}}`), SSE fallback `GET /api/v1/vehicles/stream`. Diffs are computed per
-  client against what it last received, so slow clients self-heal. `move` tuples are
+  `{"filter":{"modes":[],"lines":[]}}`), SSE fallback `GET /api/v1/vehicles/stream`. Each store version is one
+  shared `liveFrame` (`api/livehub.go`) with one view per distinct filter and its snapshot/diff encoded once;
+  clients that kept up get those bytes, others a diff against what they last received (slow clients self-heal). `move` tuples are
   `[id, lat, lon, bearing, speed_mps, updated_at_ms, dist_along_m]`.
 - `internal/eta` — vehicle → pattern matching and ETAs. `Tracker.Annotate` runs inside the GPS poller before the
   store: projects each fix onto the line's pattern shapes (equirectangular, `Shape.Project`), scores offset + heading
@@ -124,6 +128,9 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   off) or `BUS_METRICS_TOKEN`.
 - Accessibility: `web/e2e/a11y.spec.ts` runs axe (WCAG 2.1 AA) on every page in light and dark plus a keyboard-only
   flow; new pages go into its lists. Text on mode colours must keep ≥ 4.5:1 contrast with white.
+- Load testing: `tools/loadtest` (WS/SSE live clients, browsing, signed-in users with dashboards and HA tokens;
+  fake feeds only) — see `docs/load-testing.md`. SQLite uses a fixed pool (16); never hash passwords or call
+  upstreams inside `Store.Tx` (it holds the write lock).
 - `deploy/` — homelab compose (bind mount, reverse proxy) + `.env.example` + `grafana-dashboard.json`. Root
   `compose.yaml` runs the published GHCR image (the normal way to run Bus); `compose.dev.yaml` builds from the checkout.
   Releases: the Release workflow (`workflow_dispatch` with a version, or a `v*` tag) publishes the image

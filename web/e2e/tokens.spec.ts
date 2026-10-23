@@ -10,7 +10,7 @@ test("API token: create in settings, read /ha/lines with it, revoke as admin", a
   await expect(page.getByRole("heading", { name: "My lines" })).toBeVisible();
 
   await page.goto("/settings");
-  const section = page.getByRole("region", { name: "API tokens" });
+  const section = page.getByRole("region", { name: "Integrations" });
   const name = `HA ${Date.now()}`;
   await section.getByLabel("Name").fill(name);
   await section.getByRole("button", { name: "Create token" }).click();

@@ -12,12 +12,42 @@ import { SESSION_KEY, useSession } from "@/lib/session";
 import { useNow } from "@/lib/useLive";
 
 const settingsRoute = getRouteApi("/settings");
+const SESSIONS_SHOWN = 4; // the current device sorts first
 
 /** Short device description from a User-Agent string. */
 function device(ua: string): string {
   const browser = /Firefox\//.test(ua) ? "Firefox" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
   const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
   return [browser, os].filter(Boolean).join(" · ") || ua.slice(0, 40) || "—";
+}
+
+/** Administration link and log out, shown in the Account group's header. */
+export function AccountActions({ user }: { user: User }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  // Clear the cache on logout: the next person on this device must not see this user's lines or places.
+  const out = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== SESSION_KEY[0] });
+      void qc.invalidateQueries({ queryKey: SESSION_KEY });
+    },
+  });
+  return (
+    <>
+      {user.role === "admin" && (
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/admin/users">
+            <Shield className="size-4" aria-hidden />
+            {t("account.admin")}
+          </Link>
+        </Button>
+      )}
+      <Button variant="outline" size="sm" onClick={() => out.mutate()}>
+        {t("auth.logout")}
+      </Button>
+    </>
+  );
 }
 
 export function AccountSection({ user }: { user: User }) {
@@ -34,39 +64,13 @@ export function AccountSection({ user }: { user: User }) {
       void qc.invalidateQueries({ queryKey: ["my-sessions"] });
     },
   });
+  const [allSessions, setAllSessions] = useState(false);
   const sessions = useQuery({ queryKey: ["my-sessions"], queryFn: ({ signal }) => fetchMySessions(signal) });
   const revoke = useMutation({ mutationFn: revokeMySession, onSuccess: () => qc.invalidateQueries({ queryKey: ["my-sessions"] }) });
-  // Clear the cache on logout: the next person on this device must not see this user's lines or places.
-  const out = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== SESSION_KEY[0] });
-      void qc.invalidateQueries({ queryKey: SESSION_KEY });
-    },
-  });
   const pwErr = (f: string) => (password.error instanceof ApiError && password.error.field === f ? password.error.message : undefined);
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="font-medium">{t("account.title")}</h2>
-          <p className="text-sm text-muted-foreground">{t("account.signedInAs", { name: user.username })}</p>
-        </div>
-        <div className="flex gap-2">
-          {user.role === "admin" && (
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/admin/users">
-                <Shield className="size-4" aria-hidden />
-                {t("account.admin")}
-              </Link>
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => out.mutate()}>
-            {t("auth.logout")}
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
 
       <form
         className="flex flex-col gap-3 rounded-xl border bg-card p-4"
@@ -118,7 +122,7 @@ export function AccountSection({ user }: { user: User }) {
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">{t("account.sessions")}</h3>
         <ul className="divide-y rounded-xl border bg-card">
-          {sessions.data?.sessions.map((s) => (
+          {(allSessions ? sessions.data?.sessions : sessions.data?.sessions.slice(0, SESSIONS_SHOWN))?.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
                 <p className="truncate font-medium">{s.current ? t("account.thisDevice") : device(s.user_agent)}</p>
@@ -134,8 +138,13 @@ export function AccountSection({ user }: { user: User }) {
             </li>
           ))}
         </ul>
+        {!allSessions && (sessions.data?.sessions.length ?? 0) > SESSIONS_SHOWN && (
+          <Button variant="ghost" size="sm" className="self-start" onClick={() => setAllSessions(true)}>
+            {t("account.allSessions", { count: sessions.data!.sessions.length })}
+          </Button>
+        )}
       </div>
-    </section>
+    </div>
   );
 }
 

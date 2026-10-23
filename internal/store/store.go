@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite" // pure-Go SQLite driver (no CGO, builds for any GOARCH)
@@ -34,6 +35,9 @@ func Open(ctx context.Context, dir string, log *slog.Logger) (*Store, error) {
 	return OpenDSN(ctx, "file:"+filepath.Join(dir, "bus.db"), log)
 }
 
+// poolSize is how many SQLite connections the server keeps open.
+const poolSize = 16
+
 // OpenDSN opens a database by DSN (tests use "file::memory:?cache=shared" style DSNs).
 func OpenDSN(ctx context.Context, dsn string, log *slog.Logger) (*Store, error) {
 	sep := "?"
@@ -49,6 +53,14 @@ func OpenDSN(ctx context.Context, dsn string, log *slog.Logger) (*Store, error) 
 	if err != nil {
 		return nil, err
 	}
+	// database/sql keeps only two idle connections by default: under load every
+	// other request then opened a fresh SQLite connection, re-running the pragmas
+	// and re-reading the schema under a lock (100–500 ms per request at a few
+	// hundred users). Keep a fixed pool instead; WAL lets its readers run in
+	// parallel and writers queue on busy_timeout.
+	conn.SetMaxOpenConns(poolSize)
+	conn.SetMaxIdleConns(poolSize)
+	conn.SetConnMaxIdleTime(10 * time.Minute)
 	if err := conn.PingContext(ctx); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("open database: %w", err)

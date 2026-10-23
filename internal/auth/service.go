@@ -102,42 +102,83 @@ func (s *Service) NeedsSetup(ctx context.Context) (bool, error) {
 	return n == 0, err
 }
 
-// CreateUser validates input and inserts a user.
-func (s *Service) CreateUser(ctx context.Context, q *db.Queries, username, email, password, role string) (db.User, error) {
+// newUser is a validated user with its password already hashed.
+type newUser struct{ username, email, hash, role string }
+
+// prepareUser validates input and hashes the password. Hashing takes tens of
+// milliseconds (and may wait for a free slot), so it never runs inside a
+// transaction: that held the database write lock for the whole hash, and
+// under concurrent sign-ups other writes timed out with SQLITE_BUSY.
+func prepareUser(username, email, password, role string) (newUser, error) {
 	username = strings.TrimSpace(username)
 	if err := ValidateUsername(username); err != nil {
-		return db.User{}, err
+		return newUser{}, err
 	}
 	if err := ValidatePassword(password); err != nil {
-		return db.User{}, err
+		return newUser{}, err
 	}
 	if err := ValidateRole(role); err != nil {
-		return db.User{}, err
+		return newUser{}, err
 	}
-	if _, err := q.GetUserByUsername(ctx, username); err == nil {
+	hash, err := HashPassword(password)
+	if err != nil {
+		return newUser{}, err
+	}
+	return newUser{username, strings.TrimSpace(email), hash, role}, nil
+}
+
+func (s *Service) insertUser(ctx context.Context, q *db.Queries, n newUser) (db.User, error) {
+	if _, err := q.GetUserByUsername(ctx, n.username); err == nil {
 		return db.User{}, ErrUsernameTaken
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return db.User{}, err
 	}
-	hash, err := HashPassword(password)
+	return q.CreateUser(ctx, db.CreateUserParams{Username: n.username, Email: n.email, PasswordHash: n.hash, Role: n.role, CreatedAt: s.now().Unix()})
+}
+
+// CreateUser validates input and inserts a user (q must not be inside a transaction: the password is hashed first).
+func (s *Service) CreateUser(ctx context.Context, q *db.Queries, username, email, password, role string) (db.User, error) {
+	if err := s.usernameFree(ctx, q, username); err != nil {
+		return db.User{}, err
+	}
+	n, err := prepareUser(username, email, password, role)
 	if err != nil {
 		return db.User{}, err
 	}
-	return q.CreateUser(ctx, db.CreateUserParams{Username: username, Email: strings.TrimSpace(email), PasswordHash: hash, Role: role, CreatedAt: s.now().Unix()})
+	return s.insertUser(ctx, q, n)
+}
+
+// usernameFree is a cheap early check, so a taken name costs no password hash (insertUser checks again).
+func (s *Service) usernameFree(ctx context.Context, q *db.Queries, username string) error {
+	if _, err := q.GetUserByUsername(ctx, strings.TrimSpace(username)); err == nil {
+		return ErrUsernameTaken
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	return nil
 }
 
 // Setup creates the first admin; it fails once any user exists.
 func (s *Service) Setup(ctx context.Context, username, email, password string) (db.User, error) {
+	if done, err := s.NeedsSetup(ctx); err != nil {
+		return db.User{}, err
+	} else if !done {
+		return db.User{}, ErrSetupDone
+	}
+	n, err := prepareUser(username, email, password, RoleAdmin)
+	if err != nil {
+		return db.User{}, err
+	}
 	var u db.User
-	err := s.Store.Tx(ctx, func(q *db.Queries) error {
-		n, err := q.CountUsers(ctx)
+	err = s.Store.Tx(ctx, func(q *db.Queries) error {
+		count, err := q.CountUsers(ctx)
 		if err != nil {
 			return err
 		}
-		if n > 0 {
+		if count > 0 {
 			return ErrSetupDone
 		}
-		u, err = s.CreateUser(ctx, q, username, email, password, RoleAdmin)
+		u, err = s.insertUser(ctx, q, n)
 		return err
 	})
 	return u, err
@@ -145,23 +186,39 @@ func (s *Service) Setup(ctx context.Context, username, email, password string) (
 
 // Signup creates a user through an invite or, when open sign-up is on, without one.
 func (s *Service) Signup(ctx context.Context, mode, inviteToken, username, email, password string) (db.User, error) {
+	// Check the invite before spending a password hash on the request; the
+	// transaction checks it again and claims it atomically.
+	role := RoleUser
+	if inviteToken != "" {
+		r, err := s.CheckInvite(ctx, inviteToken)
+		if err != nil {
+			return db.User{}, err
+		}
+		role = r
+	} else if mode != "open" {
+		return db.User{}, ErrSignupClosed
+	}
+	if err := s.usernameFree(ctx, s.Store.Q, username); err != nil {
+		return db.User{}, err
+	}
+	n, err := prepareUser(username, email, password, role)
+	if err != nil {
+		return db.User{}, err
+	}
 	var u db.User
-	err := s.Store.Tx(ctx, func(q *db.Queries) error {
-		role := RoleUser
+	err = s.Store.Tx(ctx, func(q *db.Queries) error {
 		var invite *db.Invite
 		if inviteToken != "" {
 			inv, err := q.GetInviteByHash(ctx, HashToken(inviteToken))
-			if errors.Is(err, sql.ErrNoRows) || (err == nil && (inv.UsedAt.Valid || inv.ExpiresAt <= s.now().Unix())) {
+			if errors.Is(err, sql.ErrNoRows) || (err == nil && (inv.UsedAt.Valid || inv.ExpiresAt <= s.now().Unix() || inv.Role != n.role)) {
 				return ErrInviteInvalid
 			} else if err != nil {
 				return err
 			}
-			invite, role = &inv, inv.Role
-		} else if mode != "open" {
-			return ErrSignupClosed
+			invite = &inv
 		}
 		var err error
-		if u, err = s.CreateUser(ctx, q, username, email, password, role); err != nil {
+		if u, err = s.insertUser(ctx, q, n); err != nil {
 			return err
 		}
 		if invite != nil {

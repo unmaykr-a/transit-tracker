@@ -15,7 +15,9 @@ export function DepartureList({ departures, showPlatform = true }: { departures:
         const lateMin = Math.round(d.delay_s / 60);
         return (
           <li key={`${d.stop_id}-${d.line}-${d.scheduled_at}-${d.headsign}`} className="flex items-center gap-3 py-3">
-            <LinePill mode={d.mode} line={d.line} link />
+            <span className="flex w-12 shrink-0">
+              <LinePill mode={d.mode} line={d.line} link />
+            </span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{d.headsign}</p>
               <p className="text-xs text-muted-foreground">

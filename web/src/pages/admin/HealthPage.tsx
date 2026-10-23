@@ -22,7 +22,7 @@ export default function HealthPage() {
           <div className="flex min-w-48 flex-col gap-1 text-sm">
             <h2 className="flex items-center gap-2 font-medium">
               {f.stale ? <CircleAlert className="size-4 text-amber-700" aria-hidden /> : <CircleCheck className="size-4 text-emerald-600" aria-hidden />}
-              {t(`live.feed.${f.name}`, { defaultValue: f.name })}
+              <span className="first-letter:uppercase">{t(`live.feed.${f.name}`, { defaultValue: f.name })}</span>
               <span className="font-normal text-muted-foreground">· {f.stale ? t("admin.stale") : t("admin.ok")}</span>
             </h2>
             <p className="text-muted-foreground">

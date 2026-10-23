@@ -114,3 +114,22 @@ test("a matched vehicle's sheet lists its next stops", async ({ page, request })
     return !!m && m.querySourceFeatures("selected-route").length > 0 && m.querySourceFeatures("selected-route-stops").length > 1;
   });
 });
+
+test("railway lines are off until switched on in settings", async ({ page }) => {
+  const railVisibility = () =>
+    page.waitForFunction(() => {
+      const m = (globalThis as { __tramMap?: { getLayer: (id: string) => unknown; getLayoutProperty: (id: string, p: string) => string } }).__tramMap;
+      return m?.getLayer("rail") ? (m.getLayoutProperty("rail", "visibility") ?? "visible") : undefined;
+    });
+  await page.goto("/map");
+  expect(await (await railVisibility()).jsonValue()).toBe("none");
+
+  await page.goto("/settings");
+  const toggle = page.getByRole("switch", { name: "Railway lines on the map" });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+
+  await page.goto("/map");
+  await expect.poll(async () => (await railVisibility()).jsonValue()).toBe("visible");
+});

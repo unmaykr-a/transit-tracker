@@ -63,8 +63,8 @@ function UserRow({ u, me }: { u: AdminUser; me: boolean }) {
           onChange={(e) => update.mutate({ role: e.target.value as Role })}
           className="h-8"
         >
-          <option value="user">{t("auth.roles.user")}</option>
-          <option value="admin">{t("auth.roles.admin")}</option>
+          <option value="user">{t("auth.roleNames.user")}</option>
+          <option value="admin">{t("auth.roleNames.admin")}</option>
         </Select>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -153,8 +153,8 @@ export default function UsersPage() {
         </Field>
         <Field label={t("admin.role")}>
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
-            <option value="user">{t("auth.roles.user")}</option>
-            <option value="admin">{t("auth.roles.admin")}</option>
+            <option value="user">{t("auth.roleNames.user")}</option>
+            <option value="admin">{t("auth.roleNames.admin")}</option>
           </Select>
         </Field>
         <div className="sm:col-span-2">

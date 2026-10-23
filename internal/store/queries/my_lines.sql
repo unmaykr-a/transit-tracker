@@ -60,5 +60,6 @@ DELETE FROM saved_places WHERE id = ? AND user_id = ?;
 SELECT * FROM user_prefs WHERE user_id = ?;
 
 -- name: UpsertUserPrefs :exec
-INSERT INTO user_prefs (user_id, walk_speed_kmh, buffer_min) VALUES (?, ?, ?)
-ON CONFLICT (user_id) DO UPDATE SET walk_speed_kmh = excluded.walk_speed_kmh, buffer_min = excluded.buffer_min;
+INSERT INTO user_prefs (user_id, walk_speed_kmh, buffer_min, show_rail) VALUES (?, ?, ?, ?)
+ON CONFLICT (user_id) DO UPDATE SET walk_speed_kmh = excluded.walk_speed_kmh, buffer_min = excluded.buffer_min,
+    show_rail = excluded.show_rail;

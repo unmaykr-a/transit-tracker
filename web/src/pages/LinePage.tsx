@@ -15,6 +15,7 @@ import { useSession } from "@/lib/session";
 import { useLiveState } from "@/lib/useLive";
 import { useWide } from "@/lib/useWide";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 const LineMap = lazy(() => import("@/map/LineMap"));
 const LiveMapPane = lazy(() => import("@/map/LiveMapPane"));
@@ -92,12 +93,14 @@ export default function LinePage() {
 
         {mains.length > 1 && (
           <div role="radiogroup" aria-label={t("line.direction")} className="grid grid-cols-2 gap-2">
-            {mains.map((p) => (
+            {mains.map((p, i) => (
               <button
                 key={p.id}
                 type="button"
                 role="radio"
                 aria-checked={p.id === pattern.id}
+                tabIndex={radioTabIndex(p.id === pattern.id, i, true)}
+                onKeyDown={radioKeyDown}
                 onClick={() => setDir(p.direction)}
                 className={cn(
                   "truncate rounded-xl border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -140,11 +143,17 @@ export default function LinePage() {
                     {s.name}
                     {s.platform && <span className="text-muted-foreground"> · {s.platform}</span>}
                   </Link>
-                  {at.map((h) => (
-                    <span key={h.vehicle.id} className="rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ background: color }}>
-                      {h.atStop ? t("line.here") : t("line.approaching")}
-                    </span>
-                  ))}
+                  {/* One badge per kind; two trams approaching the same stop show "×2", not two badges. */}
+                  {([true, false] as const).map((atStop) => {
+                    const n = at.filter((h) => h.atStop === atStop).length;
+                    if (n === 0) return null;
+                    return (
+                      <span key={String(atStop)} className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ background: color }}>
+                        {atStop ? t("line.here") : t("line.approaching")}
+                        {n > 1 && ` ×${n}`}
+                      </span>
+                    );
+                  })}
                 </li>
               );
             })}

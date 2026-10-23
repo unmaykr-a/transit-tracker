@@ -10,6 +10,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { useGeolocation } from "@/lib/geolocation";
 import { approxDistanceM } from "@/lib/tween";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 /** Pick boarding stop → (optional) alighting stop → label. The direction comes from the line page. */
 export function SaveLineSheet({ route, pattern, onClose }: { route: Route; pattern: Pattern; onClose: () => void }) {
@@ -68,6 +69,8 @@ export function SaveLineSheet({ route, pattern, onClose }: { route: Route; patte
               type="button"
               role="radio"
               aria-checked={i === boardIdx}
+              tabIndex={radioTabIndex(i === boardIdx, i, boardIdx >= 0)}
+              onKeyDown={radioKeyDown}
               onClick={() => {
                 setBoard(i);
                 setAlight("");

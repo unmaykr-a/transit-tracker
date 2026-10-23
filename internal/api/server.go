@@ -33,6 +33,7 @@ type Server struct {
 	started time.Time
 	store   *state.Store
 	health  *ingest.Health
+	hub     liveHub // shared live frames (livehub.go)
 	// originPatterns are extra hosts allowed to open /ws cross-origin
 	// (same-origin is always allowed).
 	originPatterns []string

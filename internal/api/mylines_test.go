@@ -214,6 +214,13 @@ func TestSavedLinesAndDashboard(t *testing.T) {
 	if code, _ := c.do("PATCH", "/api/v1/me/prefs", map[string]any{"walk_speed_kmh": 40}); code != 400 {
 		t.Errorf("silly speed = %d", code)
 	}
+	// Railway lines are off until asked for; turning them on keeps the other prefs.
+	if _, out := c.do("GET", "/api/v1/me/prefs", nil); out["show_rail"] != false {
+		t.Errorf("show_rail default = %v", out["show_rail"])
+	}
+	if code, out := c.do("PATCH", "/api/v1/me/prefs", map[string]any{"show_rail": true}); code != 200 || out["show_rail"] != true || out["buffer_min"].(float64) != 2 {
+		t.Errorf("show_rail: %d %v", code, out)
+	}
 	_, dash = c.do("GET", "/api/v1/me/dashboard?place="+pid, nil)
 	var t4Entry map[string]any
 	for _, e := range dash["entries"].([]any) {

@@ -13,8 +13,10 @@ import { useSession } from "@/lib/session";
 import { load, save } from "@/lib/storage";
 import { useNow } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 type OriginChoice = "gps" | number;
+const chip = "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm";
 const ORIGIN_KEY = "bus.origin";
 
 /** GPS positions are rounded to ~100 m in the query key so jitter does not refetch. */
@@ -65,6 +67,7 @@ function Dashboard() {
     reorder.mutate(ids);
   };
 
+  const originChecked = choice === "gps" || !!saved.data?.places.some((p) => p.id === choice);
   const gpsLabel =
     geo.state.status === "locating" ? t("home.locating") : geo.state.status === "denied" ? t("home.locationDenied") : t("home.myLocation");
 
@@ -99,43 +102,50 @@ function Dashboard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t("home.origin")}>
-        <span className="text-sm text-muted-foreground">{t("home.origin")}:</span>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={choice === "gps"}
-          onClick={() => pickOrigin("gps")}
-          className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm",
-            choice === "gps" ? "border-foreground bg-card font-medium" : "text-muted-foreground",
-          )}
-        >
-          <LocateFixed className="size-4" aria-hidden />
-          {choice === "gps" && !geo.enabled ? t("home.useLocation") : gpsLabel}
-        </button>
-        {saved.data?.places.map((p) => (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <span id="origin-label" className="text-sm text-muted-foreground">
+            {t("home.origin")}
+          </span>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/trips/new">{t("trip.add")}</Link>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
+              {editing ? t("home.done") : t("home.edit")}
+            </Button>
+          </div>
+        </div>
+        {/* One scrolling row on phones, so the cards stay near the top; wraps on wide screens. */}
+        <div role="radiogroup" aria-labelledby="origin-label" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:flex-wrap lg:overflow-visible">
           <button
-            key={p.id}
             type="button"
             role="radio"
-            aria-checked={choice === p.id}
-            onClick={() => pickOrigin(p.id)}
-            className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm",
-              choice === p.id ? "border-foreground bg-card font-medium" : "text-muted-foreground",
-            )}
+            aria-checked={choice === "gps"}
+            tabIndex={radioTabIndex(choice === "gps", 0, originChecked)}
+            onKeyDown={radioKeyDown}
+            onClick={() => pickOrigin("gps")}
+            className={cn(chip, choice === "gps" ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
           >
-            <MapPin className="size-4" aria-hidden />
-            {p.label}
+            <LocateFixed className="size-4 shrink-0" aria-hidden />
+            {choice === "gps" && !geo.enabled ? t("home.useLocation") : gpsLabel}
           </button>
-        ))}
-        <Button variant="ghost" size="sm" className="ml-auto" asChild>
-          <Link to="/trips/new">{t("trip.add")}</Link>
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => setEditing((e) => !e)}>
-          {editing ? t("home.done") : t("home.edit")}
-        </Button>
+          {saved.data?.places.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={choice === p.id}
+              tabIndex={radioTabIndex(choice === p.id, i + 1, originChecked)}
+              onKeyDown={radioKeyDown}
+              onClick={() => pickOrigin(p.id)}
+              className={cn(chip, choice === p.id ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
+            >
+              <MapPin className="size-4 shrink-0" aria-hidden />
+              <span className="max-w-48 truncate">{p.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
       {dash.data && !dash.data.has_origin && <p className="text-sm text-muted-foreground">{t("home.noOrigin")}</p>}
       <div className="grid gap-4 lg:grid-cols-2">
