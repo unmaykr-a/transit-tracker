@@ -55,6 +55,7 @@ type Server struct {
 	oidcConfig     config.OIDCConfig
 	geocode        func(ctx context.Context, q string) ([]feeds.Address, error)
 	geocodeCache   cache.TTL[string, []feeds.Address]
+	warnProxyOnce  sync.Once
 	placesMu       sync.Mutex
 	placesWindow   time.Time
 	placesUsed     int

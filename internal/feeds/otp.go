@@ -127,6 +127,10 @@ const agencyRoutesQuery = `query($id: String!) { agency(id: $id) { routes {
 // feed (SEBE, GoBus, Hansabuss…: estonia:harjumaa_<registry code>).
 const HarjuCountyAgencyPrefix = "estonia:harjumaa"
 
+// TartuCityAgencyPrefix selects Tartu's city bus operators (GoBus, SEBE,
+// Hansabuss: estonia:tartu_<registry code>; estonia:tartumaa_… is the county).
+const TartuCityAgencyPrefix = "estonia:tartu_"
+
 // Agencies returns the ids of agencies whose gtfsId starts with prefix, sorted.
 func (o *OTP) Agencies(ctx context.Context, prefix string) ([]string, error) {
 	var d struct {

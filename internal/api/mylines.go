@@ -562,7 +562,8 @@ func (s *Server) prefs(r *http.Request) (dashboard.Prefs, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return dashboard.DefaultPrefs, nil
 	}
-	return dashboard.Prefs{WalkSpeedKmh: p.WalkSpeedKmh, BufferMin: int(p.BufferMin), ShowRail: p.ShowRail != 0}, err
+	return dashboard.Prefs{WalkSpeedKmh: p.WalkSpeedKmh, BufferMin: int(p.BufferMin), ShowRail: p.ShowRail != 0,
+		VehicleIcons: p.VehicleIcons, PredictPositions: p.PredictPositions != 0}, err
 }
 
 func (s *Server) handleGetPrefs(w http.ResponseWriter, r *http.Request) {
@@ -581,9 +582,11 @@ func (s *Server) handleUpdatePrefs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		WalkSpeedKmh *float64 `json:"walk_speed_kmh"`
-		BufferMin    *int     `json:"buffer_min"`
-		ShowRail     *bool    `json:"show_rail"`
+		WalkSpeedKmh     *float64 `json:"walk_speed_kmh"`
+		BufferMin        *int     `json:"buffer_min"`
+		ShowRail         *bool    `json:"show_rail"`
+		VehicleIcons     *string  `json:"vehicle_icons"`
+		PredictPositions *bool    `json:"predict_positions"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		s.writeErr(w, err)
@@ -606,12 +609,19 @@ func (s *Server) handleUpdatePrefs(w http.ResponseWriter, r *http.Request) {
 	if in.ShowRail != nil {
 		cur.ShowRail = *in.ShowRail
 	}
-	showRail := int64(0)
-	if cur.ShowRail {
-		showRail = 1
+	if in.VehicleIcons != nil {
+		if *in.VehicleIcons != "pill" && *in.VehicleIcons != "topdown" {
+			s.writeErr(w, invalid("vehicle_icons", "must be pill or topdown"))
+			return
+		}
+		cur.VehicleIcons = *in.VehicleIcons
+	}
+	if in.PredictPositions != nil {
+		cur.PredictPositions = *in.PredictPositions
 	}
 	if err := s.db.Q.UpsertUserPrefs(r.Context(), db.UpsertUserPrefsParams{
-		UserID: principal(r).User.ID, WalkSpeedKmh: cur.WalkSpeedKmh, BufferMin: int64(cur.BufferMin), ShowRail: showRail,
+		UserID: principal(r).User.ID, WalkSpeedKmh: cur.WalkSpeedKmh, BufferMin: int64(cur.BufferMin), ShowRail: boolInt(cur.ShowRail),
+		VehicleIcons: cur.VehicleIcons, PredictPositions: boolInt(cur.PredictPositions),
 	}); err != nil {
 		s.writeErr(w, err)
 		return
@@ -716,4 +726,11 @@ func (s *Server) handleGeocode(w http.ResponseWriter, r *http.Request) {
 		out = []feeds.Address{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"addresses": out})
+}
+
+func boolInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }

@@ -23,9 +23,9 @@ func (t *Tracker) PatternTimes(ix *staticdata.Index, p *staticdata.Pattern) []fl
 
 // hasLive reports whether live data can inform a pattern's ride times: city
 // lines always (their default speeds are city speeds), county lines once one of
-// their buses has been followed (until then StaticTimes' county speed is better).
+// their buses has been followed (until then StaticTimes is better); Tartu's the same.
 func (t *Tracker) hasLive(ix *staticdata.Index, p *staticdata.Pattern) bool {
-	if r, ok := ix.Route(p.RouteID); !ok || r.Source != "county" {
+	if r, ok := ix.Route(p.RouteID); !ok || (r.Source != "county" && r.Source != "tartu") {
 		return true
 	}
 	t.mu.Lock()

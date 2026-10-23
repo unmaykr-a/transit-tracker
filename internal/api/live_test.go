@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -258,4 +259,40 @@ func TestStreamsEndWhenAccessGoes(t *testing.T) {
 	}
 	admin.do("POST", "/api/v1/auth/logout", nil)
 	ended(adminStream, "logout")
+}
+
+// Feed errors can name upstream hosts or internal addresses: only admins see them.
+func TestPublicStatusHidesFeedErrors(t *testing.T) {
+	health := ingest.NewHealth()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go health.Run(ctx, slog.New(slog.DiscardHandler), ingest.Feed{
+		Name: "gps", Interval: func() time.Duration { return time.Hour },
+		Poll: func(context.Context) (ingest.Result, error) {
+			return ingest.Result{}, errors.New("dial tcp 10.1.2.3:443: connect: connection refused")
+		},
+	})
+	deadline := time.Now().Add(5 * time.Second)
+	for fs := health.Snapshot(); len(fs) == 0 || fs[0].LastError == ""; fs = health.Snapshot() {
+		if time.Now().After(deadline) {
+			t.Fatal("the failing poll never ran")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler), Deps{Store: state.NewStore(), Health: health}).Handler(SPA(fstest.MapFS{})))
+	defer srv.Close()
+	for _, path := range []string{"/api/v1/status", "/api/v1/vehicles"} {
+		res, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if strings.Contains(string(b), "10.1.2.3") || strings.Contains(string(b), "last_error") {
+			t.Errorf("%s leaks the feed error: %s", path, b)
+		}
+		if !strings.Contains(string(b), `"stale":true`) {
+			t.Errorf("%s no longer says the feed is stale: %s", path, b)
+		}
+	}
 }

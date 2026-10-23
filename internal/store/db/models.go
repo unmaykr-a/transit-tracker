@@ -156,8 +156,10 @@ type UserIdentity struct {
 }
 
 type UserPref struct {
-	UserID       int64
-	WalkSpeedKmh float64
-	BufferMin    int64
-	ShowRail     int64
+	UserID           int64
+	WalkSpeedKmh     float64
+	BufferMin        int64
+	ShowRail         int64
+	VehicleIcons     string
+	PredictPositions int64
 }

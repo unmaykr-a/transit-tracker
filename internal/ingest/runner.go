@@ -25,8 +25,11 @@ type Status struct {
 	Count       int       `json:"count"`
 	Failures    int       `json:"consecutive_failures"`
 	Stale       bool      `json:"stale"`
-	Polls       int64     `json:"polls"`  // since start, successful or not
-	Errors      int64     `json:"errors"` // since start
+	// Quiet: the feed answers but has nothing new to say at night (no
+	// vehicles, or parked ones not moving): not stale, nothing to warn about.
+	Quiet  bool  `json:"quiet,omitempty"`
+	Polls  int64 `json:"polls"`  // since start, successful or not
+	Errors int64 `json:"errors"` // since start
 }
 
 // Result is what a poll reports back on success.
@@ -128,10 +131,30 @@ func (h *Health) Snapshot() []Status {
 	for _, s := range h.feeds {
 		c := *s
 		c.Stale = c.LastData.IsZero() || now.Sub(c.LastData) > StaleAfter
+		if c.Stale && c.Failures == 0 && !c.LastSuccess.IsZero() && now.Sub(c.LastSuccess) <= StaleAfter && quietHours(now) {
+			c.Stale, c.Quiet = false, true
+		}
 		out = append(out, c)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+var tallinn = func() *time.Location {
+	l, err := time.LoadLocation("Europe/Tallinn")
+	if err != nil {
+		return time.UTC
+	}
+	return l
+}()
+
+// quietHours is the night without service in Tallinn (00:45–05:00): a feed
+// that answers but has no new positions then is resting, not delayed. In
+// service hours the same is a problem worth showing (an empty or frozen feed).
+func quietHours(t time.Time) bool {
+	l := t.In(tallinn)
+	m := l.Hour()*60 + l.Minute()
+	return m >= 45 && m < 5*60
 }
 
 // StaleMap reports which feeds are currently stale.

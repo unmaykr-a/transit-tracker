@@ -200,10 +200,14 @@ type Prefs struct {
 	BufferMin    int     `json:"buffer_min"`
 	// ShowRail draws railway lines on the live map (off by default).
 	ShowRail bool `json:"show_rail"`
+	// VehicleIcons is how the map draws vehicles: "pill" (line numbers) or "topdown" (vehicles seen from above).
+	VehicleIcons string `json:"vehicle_icons"`
+	// PredictPositions moves markers on along their route between updates (on by default).
+	PredictPositions bool `json:"predict_positions"`
 }
 
 // DefaultPrefs match PLAN.md (4.8 km/h, 1 minute buffer).
-var DefaultPrefs = Prefs{WalkSpeedKmh: 4.8, BufferMin: 1}
+var DefaultPrefs = Prefs{WalkSpeedKmh: 4.8, BufferMin: 1, VehicleIcons: "pill", PredictPositions: true}
 
 // Builder assembles dashboards.
 type Builder struct {

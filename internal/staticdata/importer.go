@@ -26,10 +26,12 @@ type Importer struct {
 	// CountyAgencyPrefix, if set, also imports the timetable routes of every
 	// agency whose id starts with it (feeds.HarjuCountyAgencyPrefix).
 	CountyAgencyPrefix string
-	Store              *store.Store
-	Log                *slog.Logger
-	Location           *time.Location
-	Now                func() time.Time
+	// TartuAgencyPrefix, if set, also imports Tartu's city bus routes (feeds.TartuCityAgencyPrefix).
+	TartuAgencyPrefix string
+	Store             *store.Store
+	Log               *slog.Logger
+	Location          *time.Location
+	Now               func() time.Time
 	// OnSwap is called after a new index is installed.
 	OnSwap func(*Index)
 
@@ -159,6 +161,16 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 			src.CountyRoutes = county
 		}
 	}
+	if im.TartuAgencyPrefix != "" {
+		if tartu, err := im.agencyRoutes(ctx, im.TartuAgencyPrefix); err != nil {
+			if im.hasSource("tartu") {
+				return Dataset{}, fmt.Errorf("Tartu routes (kept the previous data): %w", err)
+			}
+			im.Log.Warn("Tartu routes unavailable, importing without them", "err", err)
+		} else {
+			src.TartuRoutes = tartu
+		}
+	}
 	// Trains are optional for a first import (keep the city importable when
 	// Elron's feed is down), but once we have them, a failure keeps the old data.
 	res, err = im.Fetcher.Get(ctx, im.ElronGTFSURL(), false)
@@ -192,7 +204,12 @@ func (im *Importer) hasSource(source string) bool {
 }
 
 func (im *Importer) countyRoutes(ctx context.Context) ([]feeds.OTPRoute, error) {
-	agencies, err := im.OTP.Agencies(ctx, im.CountyAgencyPrefix)
+	return im.agencyRoutes(ctx, im.CountyAgencyPrefix)
+}
+
+// agencyRoutes fetches the routes of every agency whose id starts with prefix.
+func (im *Importer) agencyRoutes(ctx context.Context, prefix string) ([]feeds.OTPRoute, error) {
+	agencies, err := im.OTP.Agencies(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { fetchAllStops, places, type MapStop } from "@/api";
 import { VehicleSheet } from "@/components/VehicleSheet";
 import { useSession } from "@/lib/session";
-import type { Mode } from "@/lib/types";
+import type { Kind, Mode } from "@/lib/types";
 
 import { useMapPane } from "./mapPane";
 import type { Selection } from "./VehicleMap";
@@ -13,7 +13,7 @@ import type { Selection } from "./VehicleMap";
 const NO_STOPS: MapStop[] = [];
 
 interface Props {
-  modes: ReadonlySet<Mode>;
+  modes: ReadonlySet<Kind>;
   lineTokens: string[];
   fit?: [number, number][];
   highlightPattern?: string;

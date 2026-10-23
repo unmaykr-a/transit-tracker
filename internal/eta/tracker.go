@@ -38,7 +38,7 @@ func BuildGeometry(ix *staticdata.Index) *Geometry {
 			g.rail = append(g.rail, railGeoms(ix, r.ID)...)
 			continue
 		}
-		if r.Source != "tallinn" && r.Source != "county" {
+		if r.Source != "tallinn" && r.Source != "county" && r.Source != "tartu" {
 			continue
 		}
 		for _, p := range ix.Patterns(r.ID) {
@@ -287,8 +287,13 @@ func (t *Tracker) Annotate(vs []state.Vehicle) { t.annotate(vs, "gps") }
 
 // AnnotateCounty does the same for the county buses (their own batch), and
 // fills a matched bus's Destination from its pattern (the feed has none).
-func (t *Tracker) AnnotateCounty(vs []state.Vehicle) {
-	t.annotate(vs, "county")
+func (t *Tracker) AnnotateCounty(vs []state.Vehicle) { t.annotateOther(vs, "county") }
+
+// AnnotateTartu is AnnotateCounty for Tartu's city buses.
+func (t *Tracker) AnnotateTartu(vs []state.Vehicle) { t.annotateOther(vs, "tartu") }
+
+func (t *Tracker) annotateOther(vs []state.Vehicle, group string) {
+	t.annotate(vs, group)
 	g := t.geo.Load()
 	if g == nil {
 		return
@@ -350,7 +355,7 @@ func (t *Tracker) annotate(vs []state.Vehicle, group string) {
 				t.routeSpeed[rid] = rate
 			}
 		}
-		if !v.County { // county ETAs (long stretches between stops) would skew the city's calibration
+		if group == "gps" { // county and Tartu ETAs would skew Tallinn's calibration
 			t.calibrate(v, pg, tr)
 		}
 		v.PatternID = pg.Pattern.ID

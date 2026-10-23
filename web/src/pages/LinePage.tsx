@@ -13,6 +13,7 @@ import { placeVehicles } from "@/lib/lineVehicles";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { useSession } from "@/lib/session";
 import { useLiveState } from "@/lib/useLive";
+import type { Kind } from "@/lib/types";
 import { useWide } from "@/lib/useWide";
 import { cn } from "@/lib/utils";
 import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
@@ -36,8 +37,9 @@ export default function LinePage() {
   const wide = useWide();
   const lineMode = q.data?.route.mode;
   const lineName = q.data?.route.short_name;
-  const modes = useMemo(() => new Set(lineMode ? [lineMode] : []), [lineMode]);
-  const tokens = useMemo(() => (lineName ? [lineName.toLowerCase()] : []), [lineName]);
+  const lineSource = q.data?.route.source;
+  const modes = useMemo(() => new Set<Kind>(lineMode ? [lineSource === "county" ? "county" : lineMode] : []), [lineMode, lineSource]);
+  const tokens = useMemo(() => (lineName ? ["=" + lineName.toLowerCase()] : []), [lineName]);
 
   const vehicles = useMemo(() => {
     if (!q.data) return [];
@@ -63,11 +65,11 @@ export default function LinePage() {
     >
       <div className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6">
         <header className="flex items-start gap-3">
-          <LinePill mode={r.mode} line={r.short_name} className="h-9 min-w-12 text-base" />
+          <LinePill mode={r.mode} kind={r.source === "county" ? "county" : undefined} line={r.short_name} className="h-9 min-w-12 text-base" />
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold tracking-tight">{r.long_name}</h1>
             <p className="text-sm text-muted-foreground">
-              {r.source === "county" ? t("line.county") : `${t(`mode.${r.mode}`)} · ${t("line.live", { count: vehicles.length })}`}
+              {`${r.source === "county" ? t("line.county") : r.source === "tartu" ? t("line.tartu") : t(`mode.${r.mode}`)} · ${t("line.live", { count: vehicles.length })}`}
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>

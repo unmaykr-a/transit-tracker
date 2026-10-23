@@ -1,13 +1,14 @@
 import { Link } from "@tanstack/react-router";
 
-import type { Mode } from "@/lib/types";
+import { displayLine } from "@/lib/lines";
+import type { Kind, Mode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { ModePill } from "./ModePill";
 
 /** A line number in its mode colour, optionally linking to the line page. */
-export function LinePill({ mode, line, link = false, className }: { mode: Mode; line: string; link?: boolean; className?: string }) {
-  const pill = <ModePill mode={mode} className={className}>{line}</ModePill>;
+export function LinePill({ mode, kind, line, link = false, className }: { mode: Mode; kind?: Kind; line: string; link?: boolean; className?: string }) {
+  const pill = <ModePill mode={kind ?? mode} className={className}>{displayLine(line)}</ModePill>;
   if (!link) return pill;
   return (
     <Link

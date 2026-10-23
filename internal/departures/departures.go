@@ -42,9 +42,10 @@ type Service struct {
 	Index    func() *staticdata.Index
 	Location *time.Location
 	Now      func() time.Time
-	// CountyLive, if set, gives a county trip's live predicted time at a stop
-	// (by its national code) from the county GTFS-RT feed (ingest.CountyTrips).
-	CountyLive func(tripID, stopCode string) (time.Time, bool)
+	// Live, if set, gives a live predicted time for a timetable trip of a county
+	// or Tartu route at a stop (county GTFS-RT predictions; Tartu: the tracker's
+	// ETA for the bus running that trip).
+	Live func(tripID string, st *staticdata.Stop) (time.Time, bool)
 
 	initOnce sync.Once
 	siri     *cache.TTL[string, feeds.SiriBoard]
@@ -280,6 +281,9 @@ func (s *Service) fromOTP(st *staticdata.Stop, times []feeds.OTPStopTime) []Depa
 	for _, t := range times {
 		mode := otpMode(t.Trip.Route.Mode)
 		line := t.Trip.Route.ShortName
+		if st.Source == "tartu" && mode == feeds.ModeBus && s.routeID(mode, staticdata.TartuPrefix+line) != "" {
+			line = staticdata.TartuPrefix + line // Tartu's bus 2, not Tallinn's
+		}
 		if mode == feeds.ModeBus && s.routeID(feeds.ModeTrolley, line) != "" && s.routeID(feeds.ModeBus, line) == "" {
 			mode = feeds.ModeTrolley // OTP files Tallinn trolleybuses under BUS
 		}
@@ -295,9 +299,9 @@ func (s *Service) fromOTP(st *staticdata.Stop, times []feeds.OTPStopTime) []Depa
 			ExpectedAt:  base.Add(time.Duration(t.RealtimeDeparture) * time.Second).In(s.Location),
 			Realtime:    t.Realtime, DelayS: t.DepartureDelay, Source: "otp",
 		}
-		// County buses: the national timetable has no live times; the county feed does.
-		if !d.Realtime && s.CountyLive != nil && st.Code != "" && s.isCounty(d.RouteID) {
-			if at, ok := s.CountyLive(t.Trip.GtfsID, st.Code); ok {
+		// County and Tartu buses: the national timetable has no live times; their own feeds do.
+		if !d.Realtime && s.Live != nil && s.liveSource(d.RouteID) {
+			if at, ok := s.Live(t.Trip.GtfsID, st); ok {
 				if delay := at.Sub(d.ScheduledAt); delay > -30*time.Minute && delay < 3*time.Hour {
 					d.ExpectedAt, d.Realtime, d.DelayS = at.In(s.Location), true, int(delay.Seconds())
 				}
@@ -323,6 +327,19 @@ func (s *Service) countyAt(st *staticdata.Stop) bool {
 		}
 	}
 	return false
+}
+
+// liveSource reports whether a route's live times come from Live (county, Tartu).
+func (s *Service) liveSource(routeID string) bool {
+	if s.Index == nil || routeID == "" {
+		return false
+	}
+	ix := s.Index()
+	if ix == nil {
+		return false
+	}
+	r, ok := ix.Route(routeID)
+	return ok && (r.Source == "county" || r.Source == "tartu")
 }
 
 func (s *Service) isCounty(routeID string) bool {

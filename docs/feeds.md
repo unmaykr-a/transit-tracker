@@ -235,6 +235,13 @@ protobuf, no key, `ETag` + `Last-Modified` (the snapshot changes every 3–9 s).
   as above; no `route_id`.
 - **Join**: OTP's county trip ids are the same without the numeric prefix (`estonia:ATL_al_…-harjumaa114-…` ↔
   `44_ATL_al_…-harjumaa114-…`), so live times attach to timetable departures exactly (`ingest.TripKey`).
+- Tartu city buses (used since 1.11.0): `wss://api.ridango.com/rt-ws/vehicle-status`, subscribe with
+  `{"regionId":32,"topLeftCoordinates":{"longitude":0,"latitude":180},"bottomRightCoordinates":{"longitude":180,"latitude":-180}}`;
+  answers `{"connectionEstablished":true}` then arrays of `{deviceId, locationId (plate), updateTime (RFC 3339),
+  trip {tripId "<…>|<national trip id>", routeShortName, startTime}, position {speed m/s, bearing, latitude,
+  longitude}}` every few seconds, sometimes only the changed vehicles. The part of `tripId` after `|` is the OTP
+  trip id (`estonia:<it>`). Timetables: OTP agencies `estonia:tartu_*` (GoBus 15 lines, SEBE 69, Hansabuss 31/31R;
+  `estonia:tartumaa_*` is the county).
 - Other Ridango endpoints the GoNow web app uses: `wss://wmb-public-api-peutk.eu-prod.ridango.cloud/ws/tenant/2/
   vehicle/locations` (the same Harju data as JSON every ~5 s) and Tartu city buses on
   `wss://api.ridango.com/rt-ws/vehicle-status` (send `{"regionId":32,…}`; 54 trips, lines 1–13) with routes at

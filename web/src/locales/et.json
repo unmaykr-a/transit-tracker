@@ -14,13 +14,15 @@
     "tram": "Tramm",
     "bus": "Buss",
     "trolley": "Trollibuss",
-    "train": "Rong"
+    "train": "Rong",
+    "county": "Maakonnabuss"
   },
   "modeShort": {
     "tram": "Tramm",
     "bus": "Buss",
     "trolley": "Troll",
-    "train": "Rong"
+    "train": "Rong",
+    "county": "Maakond"
   },
   "live": {
     "delayed": "Reaalajaandmed hilinevad: {{feeds}}",
@@ -31,7 +33,8 @@
       "gps": "linnatransport",
       "elron": "rongid",
       "county": "maakonnabussid",
-      "county-trips": "maakonnabusside ajad"
+      "county-trips": "maakonnabusside ajad",
+      "tartu": "Tartu bussid"
     }
   },
   "map": {
@@ -43,7 +46,12 @@
     "loading": "Kaart laeb…",
     "sheetMore": "Näita üksikasju",
     "sheetLess": "Näita vähem",
-    "unavailable": "Kaarti ei õnnestunud laadida. Kontrolli ühendust; reaalajas andmed uuenevad edasi."
+    "unavailable": "Kaarti ei õnnestunud laadida. Kontrolli ühendust; reaalajas andmed uuenevad edasi.",
+    "cities": "Linnad",
+    "city": {
+      "tallinn": "Tallinn",
+      "tartu": "Tartu"
+    }
   },
   "vehicle": {
     "towards": "suunaga {{destination}}",
@@ -63,7 +71,8 @@
     "openLine": "Ava liin",
     "nextStop": "Järgmine:",
     "follow": "Jälgi kaardil",
-    "county": "Maakonnabuss"
+    "county": "Maakonnabuss",
+    "tartu": "Tartu linnabuss"
   },
   "home": {
     "title": "Minu liinid",
@@ -116,7 +125,8 @@
     "nearestStops": "Lähimad peatused",
     "distance": "{{m}} m",
     "tripTo": "Sõit siia",
-    "tripToLabel": "Planeeri sõit peatusesse {{stop}}"
+    "tripToLabel": "Planeeri sõit peatusesse {{stop}}",
+    "tartu": "Tartu"
   },
   "settings": {
     "title": "Seaded",
@@ -136,7 +146,14 @@
     "sections": "Jaotised",
     "railLines": "Raudteed kaardil",
     "railLinesHint": "Näita rongiteid reaalajas kaardil, ka välja suumituna.",
-    "walkingIntro": "Kui kiiresti ja kust sa kõnnid, et teada, kas jõuad peale."
+    "walkingIntro": "Kui kiiresti ja kust sa kõnnid, et teada, kas jõuad peale.",
+    "vehicleIcons": "Sõidukid kaardil",
+    "vehicleIconsHint": "Liininumbrid või sõidukid ülaltvaates, sõidusuunas pööratud.",
+    "iconsPill": "Liininumbrid",
+    "iconsTopdown": "Ülaltvaates",
+    "predict": "Hoia märgid ajakohased",
+    "predictHint": "Asukohad jõuavad kohale 5–15 s hiljem; liikuvad sõidukid jätkavad marsruudil kuni järgmise asukohani. Väljas: märgid peatuvad viimases teatatud kohas.",
+    "feedQuiet": "öörahu"
   },
   "time": {
     "now": "kohe",
@@ -169,8 +186,9 @@
     "live_other": "{{count}} sõidukit liinil",
     "notFound": "Liini ei leitud.",
     "showOnMap": "Näita kaardil",
-    "county": "Harjumaa maakonnaliin · ainult sõiduplaan",
-    "noPatterns": "Sellel liinil praegu sõiduplaani pole."
+    "county": "Harjumaa maakonnaliin",
+    "noPatterns": "Sellel liinil praegu sõiduplaani pole.",
+    "tartu": "Tartu linnaliin"
   },
   "common": {
     "loading": "Laen…",

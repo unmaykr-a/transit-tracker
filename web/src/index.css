@@ -17,6 +17,7 @@
   --mode-bus: #0b7d75;
   --mode-trolley: #2d66c3;
   --mode-train: #b8540a;
+  --mode-county: #6b3fb8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,6 +61,7 @@
   --color-bus: var(--mode-bus);
   --color-trolley: var(--mode-trolley);
   --color-train: var(--mode-train);
+  --color-county: var(--mode-county);
 }
 
 @layer base {

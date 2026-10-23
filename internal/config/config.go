@@ -23,6 +23,8 @@ type Config struct {
 	FakeFeeds bool
 	// County imports Harju county bus timetables too (BUS_COUNTY, default true).
 	County bool
+	// Tartu imports Tartu's city buses too (BUS_TARTU, default true).
+	Tartu bool
 	// Contact goes into the upstream User-Agent so operators can reach us, BUS_CONTACT.
 	Contact string
 	Feeds   FeedConfig
@@ -68,6 +70,8 @@ type FeedConfig struct {
 	// County buses live (GTFS-RT, ÜTK Põhja via Ridango); "off" disables.
 	CountyVehiclesURL string // BUS_COUNTY_VEHICLES_URL
 	CountyTripsURL    string // BUS_COUNTY_TRIPS_URL
+	// Tartu buses live (Ridango realtime WebSocket); "off" disables.
+	TartuLiveURL string // BUS_TARTU_LIVE_URL
 }
 
 const repoURL = "https://github.com/unmaykr-a/transit-tracker"
@@ -91,10 +95,14 @@ func load(getenv func(string) string) (Config, error) {
 		ElronGTFSURL:      or(getenv("BUS_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
 		CountyVehiclesURL: orOff(getenv("BUS_COUNTY_VEHICLES_URL"), "https://ytkpohja-avl-prod.ridango.cloud/data/gtfs/vehicle-positions.pb"),
 		CountyTripsURL:    orOff(getenv("BUS_COUNTY_TRIPS_URL"), "https://ytkpohja-avl-prod.ridango.cloud/data/gtfs/trip-updates.pb"),
+		TartuLiveURL:      orOff(getenv("BUS_TARTU_LIVE_URL"), "wss://api.ridango.com/rt-ws/vehicle-status"),
 	}
 	var err error
 	if c.County, err = parseBoolDefault(getenv("BUS_COUNTY"), true); err != nil {
 		return c, fmt.Errorf("BUS_COUNTY: %w", err)
+	}
+	if c.Tartu, err = parseBoolDefault(getenv("BUS_TARTU"), true); err != nil {
+		return c, fmt.Errorf("BUS_TARTU: %w", err)
 	}
 	if c.FakeFeeds, err = parseBool(getenv("BUS_FAKE_FEEDS")); err != nil {
 		return c, fmt.Errorf("BUS_FAKE_FEEDS: %w", err)

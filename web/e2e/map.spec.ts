@@ -276,3 +276,37 @@ test("phones: map sheets drag down to close; text fields do not make iOS zoom", 
   );
   expect(small).toEqual([]);
 });
+
+test("settings: vehicles from above, and markers that stop at the last position", async ({ page }) => {
+  const layout = (layer: string) =>
+    page.evaluate((l) => {
+      const m = (globalThis as { __tramMap?: { getLayer: (id: string) => unknown; getLayoutProperty: (id: string, p: string) => string } }).__tramMap;
+      return m?.getLayer(l) ? (m.getLayoutProperty(l, "visibility") ?? "visible") : "missing";
+    }, layer);
+  await page.goto("/map");
+  await renderedPills(page, 1);
+  expect(await layout("vehicle-topdown")).toBe("none");
+  // The county chip filters county buses on their own.
+  await expect(page.getByRole("button", { name: "County", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "From above" }).click();
+  await expect(page.getByRole("radio", { name: "From above" })).toHaveAttribute("aria-checked", "true");
+  const predict = page.getByRole("switch", { name: "Keep markers up to date" });
+  await expect(predict).toHaveAttribute("aria-checked", "true");
+  await predict.click();
+  await expect(predict).toHaveAttribute("aria-checked", "false");
+
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Map" }).click();
+  await expect.poll(() => layout("vehicle-topdown")).toBe("visible");
+  expect(await layout("vehicle-pills")).toBe("none");
+  // Remembered in this browser for visitors.
+  await page.reload();
+  await expect.poll(() => layout("vehicle-topdown")).toBe("visible");
+  await expect.poll(() =>
+    page.evaluate(() => {
+      const m = (globalThis as unknown as { __tramMap: { queryRenderedFeatures: (o: object) => unknown[] } }).__tramMap;
+      return m.queryRenderedFeatures({ layers: ["vehicle-topdown"] }).length;
+    }),
+  ).toBeGreaterThan(0);
+});

@@ -12,7 +12,7 @@ import { SettingRow, SettingsGroup } from "@/components/SettingsGroup";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { LANGUAGES, setLanguage } from "@/i18n";
-import { useShowRail } from "@/lib/mapPrefs";
+import { usePredictPositions, useShowRail, useVehicleIcons, type VehicleIcons } from "@/lib/mapPrefs";
 import { useSession } from "@/lib/session";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/theme";
 import { useLiveState } from "@/lib/useLive";
@@ -65,6 +65,8 @@ export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const theme = useThemePref();
   const [showRail, setShowRail] = useShowRail();
+  const [vehicleIcons, setVehicleIcons] = useVehicleIcons();
+  const [predict, setPredict] = usePredictPositions();
   const live = useLiveState(5000);
   const health = useQuery({
     queryKey: ["health"],
@@ -158,6 +160,20 @@ export default function SettingsPage() {
             <SettingRow id="set-rail" label={t("settings.railLines")} hint={t("settings.railLinesHint")}>
               <Switch checked={showRail} onChange={setShowRail} aria-labelledby="set-rail" />
             </SettingRow>
+            <SettingRow id="set-icons" label={t("settings.vehicleIcons")} hint={t("settings.vehicleIconsHint")}>
+              <Segmented<VehicleIcons>
+                label={t("settings.vehicleIcons")}
+                value={vehicleIcons}
+                onChange={setVehicleIcons}
+                options={[
+                  { value: "pill", label: t("settings.iconsPill") },
+                  { value: "topdown", label: t("settings.iconsTopdown") },
+                ]}
+              />
+            </SettingRow>
+            <SettingRow id="set-predict" label={t("settings.predict")} hint={t("settings.predictHint")}>
+              <Switch checked={predict} onChange={setPredict} aria-labelledby="set-predict" />
+            </SettingRow>
           </div>
         </SettingsGroup>
 
@@ -184,7 +200,7 @@ export default function SettingsPage() {
                   <span className="text-muted-foreground tabular-nums">
                     {t("live.vehicles", { count: f.count })} ·{" "}
                     <span className={f.stale ? "text-amber-700 dark:text-amber-400" : undefined}>
-                      {f.stale ? t("settings.feedStale") : t("settings.feedOk")}
+                      {f.stale ? t("settings.feedStale") : f.quiet ? t("settings.feedQuiet") : t("settings.feedOk")}
                     </span>
                   </span>
                 </li>

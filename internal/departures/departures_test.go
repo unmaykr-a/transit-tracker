@@ -193,8 +193,8 @@ func TestCountyBusesJoinCityBoards(t *testing.T) {
 	}
 
 	// With the county feed, the county row carries its bus's live time (by trip and stop code).
-	s.CountyLive = func(trip, code string) (time.Time, bool) {
-		if trip == "estonia:ATL-Fr-harjumaa120-A-OB-1600-abc" && code == "10801-1" {
+	s.Live = func(trip string, st *staticdata.Stop) (time.Time, bool) {
+		if trip == "estonia:ATL-Fr-harjumaa120-A-OB-1600-abc" && st.Code == "10801-1" {
 			return now.Add(11 * time.Minute), true
 		}
 		return time.Time{}, false

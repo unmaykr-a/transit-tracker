@@ -23,7 +23,7 @@ const (
 // BuildVersion changes whenever Build's output for the same sources changes
 // (naming, grouping, ids). A saved dataset with another version is re-imported
 // at startup instead of waiting for the nightly refresh.
-const BuildVersion = "3"
+const BuildVersion = "4"
 
 func joinModes(ms []feeds.Mode) string {
 	parts := make([]string, len(ms))

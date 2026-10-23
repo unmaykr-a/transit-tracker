@@ -121,6 +121,8 @@ scrape_configs:
 | `BUS_OIDC_NAME`, `BUS_OIDC_AUTO_CREATE` | `single sign-on`, `true` | Button label; create accounts on first sign-in |
 | `BUS_COUNTY` | `true` | Harju county buses too (timetables, and live positions and times) |
 | `BUS_COUNTY_VEHICLES_URL`, `BUS_COUNTY_TRIPS_URL` | ÜTK Põhja GTFS-RT | Live county buses; `off` disables |
+| `BUS_TARTU` | `true` | Tartu city buses too (timetables and live positions) |
+| `BUS_TARTU_LIVE_URL` | Ridango realtime WebSocket | Live Tartu buses; `off` disables |
 | `BUS_FAKE_FEEDS` | `false` | Replay recorded feeds instead of polling upstream |
 | `BUS_CONTACT` | base URL or repo URL | Contact URL sent to upstream feeds |
 | `BUS_GPS_URL`, `BUS_GPS_INTERVAL` | Tallinn `gps.txt`, `5s` | City vehicle feed (minimum 2 s) |
