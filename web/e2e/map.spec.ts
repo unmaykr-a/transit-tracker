@@ -124,6 +124,19 @@ test("railway lines are off until switched on in settings", async ({ page }) => 
   await page.goto("/map");
   expect(await (await railVisibility()).jsonValue()).toBe("none");
 
+  // Even with railway lines off, a selected train shows its own line (trains are matched to rail patterns).
+  const trains = (await (await page.request.get("/api/v1/vehicles?mode=train")).json()).vehicles as { id: string; lat: number; lon: number; pattern_id?: string }[];
+  const train = trains.find((v) => v.pattern_id);
+  expect(train, "a fake train matched to a rail pattern").toBeTruthy();
+  await page.evaluate(([lon, lat]) => (globalThis as unknown as { __tramMap: { jumpTo: (o: object) => void } }).__tramMap.jumpTo({ center: [lon, lat], zoom: 14 }), [train!.lon, train!.lat]);
+  const pill = (await renderedPills(page, 1)).find((p) => p.id === train!.id);
+  expect(pill, "the train's marker on screen").toBeTruthy();
+  await page.mouse.click(pill!.x, pill!.y);
+  await page.waitForFunction(() => {
+    const m = (globalThis as { __tramMap?: { queryRenderedFeatures: (o: object) => unknown[] } }).__tramMap;
+    return (m?.queryRenderedFeatures({ layers: ["selected-route"] }).length ?? 0) > 0;
+  });
+
   await page.goto("/settings");
   const toggle = page.getByRole("switch", { name: "Railway lines on the map" });
   await expect(toggle).toHaveAttribute("aria-checked", "false");

@@ -93,7 +93,8 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - `internal/eta` — vehicle → pattern matching and ETAs. `Tracker.Annotate` runs inside the GPS poller before the
   store: projects each fix onto the line's pattern shapes (equirectangular, `Shape.Project`), scores offset + heading
   disagreement (soft, weaker when stationary) − headsign/stickiness bonuses, sets `pattern_id`, `next_stop_id`,
-  `dist_along_m`. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
+  `dist_along_m`. Trains (no GTFS ids in the Elron feed) get the same fields from `Tracker.MatchTrains` in the Elron
+  poller: the nearest rail pattern within 300 m, preferring the train's destination and its previous pattern. Progress feeds travel paces per stop pair (shared by all lines on that street, decaying) and mean
   dwell per stop; terminus layover is ignored. ETAs sum the paces ahead plus dwell at intermediate stops (route speed
   until a segment has data), scaled by a self-calibrated factor per mode and horizon band learned from the tracker's
   own probes against later GPS arrivals (`calibrate`, half strength; `bus_eta_scale` metric). API: `/vehicles/{id}/trip` (stops ahead with ETAs),

@@ -24,14 +24,21 @@ type PatternGeom struct {
 type Geometry struct {
 	byRoute map[string][]*PatternGeom
 	byID    map[string]*PatternGeom
+	// rail holds the train patterns, matched by MatchTrains only (not by Annotate,
+	// and not used for ETAs).
+	rail []*PatternGeom
 }
 
 // BuildGeometry prepares the city patterns of an index (a few hundred; milliseconds).
 func BuildGeometry(ix *staticdata.Index) *Geometry {
 	g := &Geometry{byRoute: map[string][]*PatternGeom{}, byID: map[string]*PatternGeom{}}
 	for _, r := range ix.Routes() {
+		if r.Mode == feeds.ModeTrain {
+			g.rail = append(g.rail, railGeoms(ix, r.ID)...)
+			continue
+		}
 		if r.Source != "tallinn" {
-			continue // only city vehicles report live positions; county and rail have none to match
+			continue // county buses report no live positions
 		}
 		for _, p := range ix.Patterns(r.ID) {
 			stops := make([][2]float64, 0, len(p.StopIDs))
@@ -174,6 +181,8 @@ type Tracker struct {
 	paces  map[[2]string]*segPace
 	dwells map[string]*stopDwell
 	calib  map[feeds.Mode]*[calibBands]float64 // log of the prediction scale per mode and horizon band; 0 = unscaled
+	// trainPattern is each train's matched rail pattern, for stickiness (MatchTrains).
+	trainPattern map[string]string
 }
 
 func NewTracker() *Tracker {

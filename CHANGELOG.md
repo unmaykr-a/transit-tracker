@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — 2026-10-23
+
+- Fixed: with railway lines switched off, a selected train showed no line. Trains are now matched to their rail
+  pattern by position (the closest track, preferring one heading to the train's destination), so a selected train
+  draws its line like any other vehicle and moves along the track between updates.
+
 ## 1.8.0 — 2026-10-23
 
 Upgrading: pull the new image; the first start adds one column (`saved_lines.transfers`). Update the Home Assistant
