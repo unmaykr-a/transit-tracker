@@ -7,6 +7,9 @@ Runs as one small container on a Raspberry Pi 5 (arm64) or amd64.
 - **My lines** — save your everyday lines and see live countdowns with a *can I make it?* verdict based on real
   walking time from where you are (or a saved place).
   Or save a **trip** between two stops: every line that rides directly between them counts, whichever comes first.
+  When no line goes all the way (or a change is quicker), pick one of the suggested **ways with a change** (one or
+  two changes, at one stop or a short walk apart) or choose the change stop yourself; the card shows the connection
+  you can catch at each change and when you arrive.
   Lines and trips can have a usual starting point for when your location is off.
 - **Live map** — every bus, tram, trolleybus and Elron train, gliding along its route, with the next stops and ETAs.
 - **Search, stops and lines** — departure boards per platform (live SIRI times, timetable fallback), route maps.

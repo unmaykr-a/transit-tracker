@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowDown, ArrowUp, Footprints, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CornerDownRight, Flag, Footprints, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -45,6 +45,10 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
   const tripLines = trip ? [...new Map((l.lines ?? []).map((x) => [x.route_id, x])).values()] : [];
   const title = trip ? `${l.from?.name ?? "?"} → ${l.to?.name ?? "?"}` : `${l.short_name} → ${l.headsign}`;
   const walk = head ? walkFor(head.stop_id) : entry.walk;
+  const via = (l.transfers ?? []).map((x) => x.alight?.name).filter(Boolean);
+  // The journey worth spelling out: of the departure to aim for.
+  const focus = head && head.v.level === "red" && nextCatchable ? nextCatchable : head;
+  const journey = focus?.journey;
 
   return (
     <article aria-label={l.label || title} className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
@@ -83,6 +87,7 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
               </span>
             )}
           </p>
+          {via.length > 0 && <p className="truncate text-sm text-muted-foreground">{t("home.via", { stops: via.join(", ") })}</p>}
         </div>
         {editing && (
           <div className="flex gap-1">
@@ -135,6 +140,35 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
             </span>
           </div>
           <VerdictChip level={head.v.level} slack={head.v.slack} nextIn={nextCatchable ? minutesUntil(nextCatchable.expected_at, now) : undefined} />
+          {journey && (
+            <ul className="w-full space-y-1 text-sm" aria-label={t("home.journey")}>
+              {journey.legs.slice(1).map((leg, i) => (
+                <li key={i} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                  <CornerDownRight className="size-4 text-muted-foreground" aria-hidden />
+                  <LinePill mode={leg.mode} line={leg.line} className="h-5 min-w-7 px-1.5 text-xs" />
+                  <span className="tabular-nums">{clock(leg.depart_at, lang)}</span>
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {t("home.changeAt", { stop: leg.board_stop.name })}
+                    {leg.walk_min > 0 && <> · {t("home.walkMin", { min: leg.walk_min })}</>}
+                    {" · "}
+                    <span className={cn(leg.wait_min === 0 && "font-medium text-amber-700 dark:text-amber-400")}>
+                      {leg.wait_min === 0 ? t("home.tightChange") : t("home.waitMin", { min: leg.wait_min })}
+                    </span>
+                  </span>
+                </li>
+              ))}
+              <li className="flex items-center gap-1.5 text-muted-foreground">
+                <Flag className="size-4" aria-hidden />
+                {journey.arrive_at ? (
+                  <span>
+                    {t("home.arrive")} <span className="font-medium text-foreground tabular-nums">≈ {clock(journey.arrive_at, lang)}</span>
+                  </span>
+                ) : (
+                  <span>{t("home.laterUnknown")}</span>
+                )}
+              </li>
+            </ul>
+          )}
           {deps.length > 1 && (
             <p className="w-full text-sm text-muted-foreground">
               {t("home.then")}{" "}

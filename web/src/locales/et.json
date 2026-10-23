@@ -87,7 +87,15 @@
     "noDepartures": "Lähitundidel väljumisi pole.",
     "then": "siis",
     "walkFromPlace": "kohast {{place}}",
-    "removeLine": "Eemaldad selle liini?"
+    "removeLine": "Eemaldad selle liini?",
+    "via": "läbi {{stops}}",
+    "journey": "Teekond",
+    "changeAt": "peatuses {{stop}}",
+    "walkMin": "{{min}} min kõndi",
+    "waitMin": "{{min}} min ootamist",
+    "tightChange": "napp ümberistumine",
+    "arrive": "Kohal",
+    "laterUnknown": "Järgmised sõidud pole veel teada"
   },
   "search": {
     "title": "Otsing",
@@ -406,7 +414,7 @@
   },
   "trip": {
     "title": "Sõit kahe peatuse vahel",
-    "intro": "Vali, kus sisened ja kus väljud: arvesse lähevad kõik liinid, mis sõidavad nende vahel otse, ükskõik milline tuleb esimesena.",
+    "intro": "Vali, kus sisened ja kus väljud. Arvesse lähevad otse sõitvad liinid, mis tahes tuleb esimesena; kui otseliini pole või ümberistumisega on kiirem, vali ümberistumisega teekond.",
     "add": "Lisa sõit",
     "fromHere": "Sõit siit",
     "from": "Kust",
@@ -428,6 +436,19 @@
     "startPlaceHint": "Kõndimisaeg ja hinnang arvutatakse siit, kui sa oma asukohta ei jaga (ka Home Assistantis ilma „Kust kõnnid“ olemita).",
     "noStartPlace": "Puudub",
     "addPlace": "Lisa koht",
-    "update": "Salvesta muudatused"
+    "update": "Salvesta muudatused",
+    "how": "Kuidas sõita",
+    "direct": "Otse",
+    "noChange": "ümberistumiseta",
+    "noneTryChange": "Nende peatuste vahel ei sõida ükski liin otse — vali ümberistumisega teekond.",
+    "changes_one": "{{count}} ümberistumine",
+    "changes_other": "{{count}} ümberistumist",
+    "aboutMin": "umbes {{min}} min",
+    "custom": "Vali ümberistumise peatus ise",
+    "customHint": "Vali peatus, kus istud ümber (vajadusel ka teine). Igal sõidul peab olema otseliin.",
+    "changeStop": "{{n}}. ümberistumine",
+    "changeAt": "Ümberistumine: {{stop}}",
+    "walkChange": "Ümberistumine: kõnni {{m}} m peatusest {{from}} peatusse {{to}}",
+    "leg": "{{from}} → {{to}}"
   }
 }

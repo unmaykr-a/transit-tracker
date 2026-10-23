@@ -67,7 +67,9 @@ One device per saved line, e.g. a line labelled *Work*:
 `headsign`, `destination`, `stop_name`, `platform`, `minutes`, `delay_s`, `realtime`, `next_departures` (up to 5,
 each with `time`, `minutes`, `delay_s`, `realtime`, `headsign`, `line`, `mode`, `verdict`, `leave_in_min`),
 `walk_min`, `walk_approx`, `walk_from` (the line's own starting place, when used), `verdict`, `leave_in_min`,
-`catchable`, `order`, `url`, `error`.
+`catchable`, `order`, `url`, `error`, and for trips with changes `via` (the stops it changes at), `changes` (the
+ride caught at each change: `at`, `line`, `mode`, `time`, `wait_min`, `walk_min`) and `arrive_at` (estimated arrival;
+also set for direct trips and lines saved with a stop to get off at).
 
 If the token is revoked, Home Assistant asks for a new one (re-authentication) instead of failing silently. To move
 to another server URL or token yourself, use the integration's **Reconfigure** menu entry. When the server cannot be

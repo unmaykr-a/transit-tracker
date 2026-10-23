@@ -131,7 +131,9 @@ export class BusCard extends LitElement {
       c.show_walk && v.walkMin !== null
         ? `${t(v.walkApprox ? "walkApprox" : "walk", { n: v.walkMin })}${v.walkFrom ? " " + t("walkFrom", { place: v.walkFrom }) : ""}`
         : "";
-    const meta = [v.stop ? t("from", { stop: v.stop }) : "", walk].filter(Boolean).join(" · ");
+    const meta = [v.stop ? t("from", { stop: v.stop }) : "", walk, v.via.length ? t("via", { stops: v.via.join(", ") }) : ""]
+      .filter(Boolean)
+      .join(" · ");
     const label = attrs.label && attrs.label !== attrs.line ? attrs.label : "";
     const countdown = unavailable
       ? html`<span class="muted">${t("unavailable")}</span>`
@@ -169,6 +171,18 @@ export class BusCard extends LitElement {
           <div class="countdown">${v.trip && first ? this.pill(v.line, v.mode, true) : nothing}${countdown}</div>
           ${c.show_verdict && first && first.slack !== null && !unavailable ? this.chip(first.level, first.slack) : nothing}
         </div>
+        ${first && !unavailable && (first.changes.length > 0 || first.arriveAt)
+          ? html`<div class="journey">
+              ${first.changes.map(
+                (ch) => html`<div class="change">
+                  ↳ ${this.pill(ch.line, ch.mode, true)} <span class="clock">${clock(ch.time, lang)}</span>
+                  <span class="muted">${t("changeAt", { stop: ch.at })} ·
+                    <span class=${ch.wait_min === 0 ? "tight" : ""}>${ch.wait_min === 0 ? t("tight") : t("wait", { n: ch.wait_min })}</span></span>
+                </div>`,
+              )}
+              ${first.arriveAt ? html`<div class="muted">${t("arrive", { time: clock(first.arriveAt, lang) })}</div>` : nothing}
+            </div>`
+          : nothing}
         ${rest.length > 0 && !unavailable
           ? html`<div class="later">
               ${t("then")}
@@ -189,6 +203,23 @@ export class BusCard extends LitElement {
   }
 
   static styles = css`
+    .journey {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 8px;
+      font-size: 0.9em;
+    }
+    .change {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .tight {
+      color: var(--warning-color, #b45309);
+      font-weight: 600;
+    }
     .lines {
       display: flex;
       flex-direction: column;

@@ -86,3 +86,35 @@ describe("view", () => {
     expect(v.departures[0]).toMatchObject({ minutes: 4, level: "none", slack: null });
   });
 });
+
+describe("trips with changes", () => {
+  it("passes each departure's changes and arrival through, and the trip's change stops", () => {
+    const now = new Date("2026-10-23T09:00:00Z");
+    const v = view(
+      {
+        kind: "trip",
+        via: ["Viru"],
+        next_departures: [
+          {
+            time: "2026-10-23T09:05:00Z",
+            minutes: 5,
+            delay_s: 0,
+            realtime: true,
+            headsign: "Kopli",
+            verdict: "none",
+            leave_in_min: null,
+            line: "T4",
+            mode: "tram",
+            arrive_at: "2026-10-23T09:31:00Z",
+            changes: [{ at: "Viru", line: "17", mode: "bus", time: "2026-10-23T09:16:00Z", wait_min: 3, walk_min: 1 }],
+          },
+        ],
+      },
+      now,
+      3,
+    );
+    expect(v.via).toEqual(["Viru"]);
+    expect(v.departures[0]!.arriveAt).toBe("2026-10-23T09:31:00Z");
+    expect(v.departures[0]!.changes[0]!.line).toBe("17");
+  });
+});

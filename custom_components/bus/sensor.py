@@ -40,6 +40,8 @@ class BusNextSensor(BusLineEntity, SensorEntity):
     _unrecorded_attributes = frozenset(
         {
             "next_departures",
+            "changes",
+            "arrive_at",
             "minutes",
             "delay_s",
             "realtime",
@@ -75,6 +77,10 @@ class BusNextSensor(BusLineEntity, SensorEntity):
             "lines": line.get("lines", []),
             "order": self.coordinator.order(self.line_id),
             "walk_from": line.get("walk_from"),
+            # A trip's changes (stop names) and, for the next departure, its onward rides and arrival.
+            "via": line.get("via", []),
+            "changes": nxt.get("changes", []),
+            "arrive_at": nxt.get("arrive_at"),
             "headsign": nxt.get("headsign") or line.get("headsign"),
             # The saved line's direction, or a trip's destination stop (headsign is the next departure's).
             "destination": line.get("headsign"),

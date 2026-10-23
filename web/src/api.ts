@@ -164,10 +164,10 @@ export const fetchHealth = (signal?: AbortSignal) => getJSON<Health>("/healthz",
 export const fetchSearch = (q: string, signal?: AbortSignal) =>
   getJSON<SearchResult>(`/api/v1/search?q=${encodeURIComponent(q)}&limit=8`, signal);
 
-/** The lines that ride from one stop area to another without changing. */
-export const fetchTripLines = (from: string, to: string, signal?: AbortSignal) =>
-  getJSON<{ from?: AreaRef; to?: AreaRef; lines: TripLine[] }>(
-    `/api/v1/trips?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+/** How a trip can be made: lines riding it directly, ways with changes, and (with via) each leg's lines. */
+export const fetchTripLines = (from: string, to: string, signal?: AbortSignal, via?: string) =>
+  getJSON<{ from?: AreaRef; to?: AreaRef; lines: TripLine[]; options: TripOption[]; legs?: TripLeg[]; transfers?: TransferRef[] }>(
+    `/api/v1/trips?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${via ? `&via=${encodeURIComponent(via)}` : ""}`,
     signal,
   );
 
@@ -417,9 +417,49 @@ export interface SavedLine {
   from?: AreaRef;
   to?: AreaRef;
   lines?: TripLine[];
+  /** A trip with changes: where it changes, and each ride with its lines (lines repeats the first). */
+  transfers?: TransferRef[];
+  legs?: TripLeg[];
   /** Saved place walking times start from when no location is shared. */
   origin_place_id?: number | null;
 }
+
+/** A change: get off in one stop area, get on in the same one or another a short walk away. */
+export interface TransferRef {
+  alight: AreaRef | null;
+  board: AreaRef | null;
+  walk_m: number;
+}
+
+export interface TripLeg {
+  from: AreaRef | null;
+  to: AreaRef | null;
+  lines: TripLine[];
+}
+
+/** A way to make a trip with changes, as the trip form offers it. */
+export interface TripOption {
+  transfers: TransferRef[];
+  legs: TripLeg[];
+  minutes: number;
+  /** The changes as saved ("a1,a2>a3"). */
+  via: string;
+}
+
+export interface Transfer {
+  alight: string;
+  board: string;
+}
+
+/** "a1,a2>a3" ⇄ changes, the form the server stores and accepts in ?via=. */
+export const viaOf = (ts: Transfer[]) => ts.map((t) => (t.board && t.board !== t.alight ? `${t.alight}>${t.board}` : t.alight)).join(",");
+export const transfersOf = (via: string): Transfer[] =>
+  via
+    ? via.split(",").map((p) => {
+        const [alight, board] = p.split(">");
+        return { alight: alight!, board: board ?? alight! };
+      })
+    : [];
 
 export interface Walk {
   minutes: number;
@@ -450,6 +490,29 @@ export type VerdictLevel = "neutral" | "green" | "amber" | "red" | "none";
 
 export interface DashboardDeparture extends Departure {
   verdict: { level: VerdictLevel; slack_min: number };
+  /** Trips (and lines with a stop to get off at): the rides to the destination and an estimated arrival. */
+  journey?: Journey;
+}
+
+export interface JourneyLeg {
+  route_id: string;
+  mode: Mode;
+  line: string;
+  headsign: string;
+  board_stop: StopRef;
+  depart_at: string;
+  realtime: boolean;
+  alight_stop: StopRef;
+  arrive_at: string;
+  /** The change before this ride: walking from the previous stop, then waiting. */
+  walk_min: number;
+  wait_min: number;
+}
+
+export interface Journey {
+  legs: JourneyLeg[];
+  /** Missing when a later ride has no known departure yet. */
+  arrive_at?: string;
 }
 
 export interface DashboardEntry {
@@ -500,11 +563,18 @@ export const myLines = {
   list: (signal?: AbortSignal) => getJSON<{ lines: SavedLine[] }>("/api/v1/me/lines", signal),
   create: (l: { route_id: string; direction: number; board_stop_id: string; alight_stop_id?: string; label?: string }) =>
     send<{ line: SavedLine }>("POST", "/api/v1/me/lines", l),
-  createTrip: (t: { from_area_id: string; to_area_id: string; label?: string; origin_place_id?: number | null }) =>
+  createTrip: (t: { from_area_id: string; to_area_id: string; transfers?: Transfer[]; label?: string; origin_place_id?: number | null }) =>
     send<{ line: SavedLine }>("POST", "/api/v1/me/lines", { kind: "trip", ...t }),
   update: (
     id: number,
-    p: { label?: string; alight_stop_id?: string; from_area_id?: string; to_area_id?: string; origin_place_id?: number | null },
+    p: {
+      label?: string;
+      alight_stop_id?: string;
+      from_area_id?: string;
+      to_area_id?: string;
+      transfers?: Transfer[];
+      origin_place_id?: number | null;
+    },
   ) => send<{ line: SavedLine }>("PATCH", `/api/v1/me/lines/${id}`, p),
   remove: (id: number) => send("DELETE", `/api/v1/me/lines/${id}`),
   reorder: (ids: number[]) => send<{ lines: SavedLine[] }>("POST", "/api/v1/me/lines/reorder", { ids }),

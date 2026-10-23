@@ -22,6 +22,11 @@ const en = {
   from: "from {stop}",
   walkFrom: "from {place}",
   then: "then",
+  via: "via {stops}",
+  changeAt: "at {stop}",
+  wait: "{n} min wait",
+  tight: "tight change",
+  arrive: "Arrive ≈ {time}",
   allLines: "Saved lines (leave empty for all)",
   noLines: "No saved lines yet. Add lines in Bus, then reload the integration.",
 };
@@ -49,6 +54,11 @@ const et: typeof en = {
   from: "peatusest {stop}",
   walkFrom: "kohast {place}",
   then: "siis",
+  via: "läbi {stops}",
+  changeAt: "peatuses {stop}",
+  wait: "{n} min ootamist",
+  tight: "napp ümberistumine",
+  arrive: "Kohal ≈ {time}",
   allLines: "Salvestatud liinid (tühi: kõik)",
   noLines: "Salvestatud liine veel pole. Lisa liine Busis ja laadi integratsioon uuesti.",
 };
