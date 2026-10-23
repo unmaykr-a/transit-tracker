@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/unmaykr-a/transit-tracker/internal/feeds"
+	"github.com/unmaykr-a/transit-tracker/internal/geo"
 )
 
 // LineRef is a route serving a stop, with the destinations it goes to from there.
@@ -232,6 +233,39 @@ func (ix *Index) SearchAreas(q string, limit int) []AreaResult {
 		}
 		return out[i].Area.Name < out[j].Area.Name
 	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// NearbyArea is a stop area and its straight-line distance from a point.
+type NearbyArea struct {
+	Area  *Area
+	DistM float64
+}
+
+// NearestAreas returns up to limit stop areas within maxM metres of a point,
+// nearest first. Areas no line serves are left out.
+func (ix *Index) NearestAreas(lat, lon, maxM float64, limit int) []NearbyArea {
+	var out []NearbyArea
+	for _, a := range ix.areas {
+		d := geo.DistanceM(lat, lon, a.Lat, a.Lon)
+		if d > maxM {
+			continue
+		}
+		served := false
+		for _, id := range a.StopIDs {
+			if len(ix.stopLines[id]) > 0 {
+				served = true
+				break
+			}
+		}
+		if served {
+			out = append(out, NearbyArea{a, d})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].DistM < out[j].DistM })
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]
 	}

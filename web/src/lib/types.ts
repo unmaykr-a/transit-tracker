@@ -13,6 +13,8 @@ export interface Vehicle {
   speed_mps: number;
   destination: string;
   low_floor: boolean;
+  /** A county bus (from the county feed). */
+  county?: boolean;
   delay_s?: number;
   pattern_id?: string;
   next_stop_id?: string;

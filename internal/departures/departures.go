@@ -42,6 +42,9 @@ type Service struct {
 	Index    func() *staticdata.Index
 	Location *time.Location
 	Now      func() time.Time
+	// CountyLive, if set, gives a county trip's live predicted time at a stop
+	// (by its national code) from the county GTFS-RT feed (ingest.CountyTrips).
+	CountyLive func(tripID, stopCode string) (time.Time, bool)
 
 	initOnce sync.Once
 	siri     *cache.TTL[string, feeds.SiriBoard]
@@ -285,13 +288,22 @@ func (s *Service) fromOTP(st *staticdata.Stop, times []feeds.OTPStopTime) []Depa
 			headsign = staticTerminus(t.Trip.Route.LongName)
 		}
 		base := time.Unix(t.ServiceDay, 0)
-		out = append(out, Departure{
+		d := Departure{
 			StopID: st.ID, Platform: st.Platform, Mode: mode, Line: line, RouteID: s.routeID(mode, line),
 			Headsign:    headsign,
 			ScheduledAt: base.Add(time.Duration(t.ScheduledDeparture) * time.Second).In(s.Location),
 			ExpectedAt:  base.Add(time.Duration(t.RealtimeDeparture) * time.Second).In(s.Location),
 			Realtime:    t.Realtime, DelayS: t.DepartureDelay, Source: "otp",
-		})
+		}
+		// County buses: the national timetable has no live times; the county feed does.
+		if !d.Realtime && s.CountyLive != nil && st.Code != "" && s.isCounty(d.RouteID) {
+			if at, ok := s.CountyLive(t.Trip.GtfsID, st.Code); ok {
+				if delay := at.Sub(d.ScheduledAt); delay > -30*time.Minute && delay < 3*time.Hour {
+					d.ExpectedAt, d.Realtime, d.DelayS = at.In(s.Location), true, int(delay.Seconds())
+				}
+			}
+		}
+		out = append(out, d)
 	}
 	return out
 }

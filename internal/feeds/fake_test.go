@@ -104,3 +104,17 @@ func TestFakeStaticAndDepartures(t *testing.T) {
 		t.Fatalf("otp stoptimes: %+v %v", times, err)
 	}
 }
+
+func TestFakeCountyFeedIsEmptyAndFresh(t *testing.T) {
+	now := time.Date(2026, 10, 22, 9, 0, 0, 0, time.UTC)
+	c := &http.Client{Transport: FakeTransport{Now: func() time.Time { return now }}}
+	res, err := c.Get("https://ytkpohja-avl-prod.ridango.cloud/data/gtfs/vehicle-positions.pb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	f, skipped, err := ParseGTFSRT(res.Body)
+	if err != nil || skipped != 0 || len(f.Vehicles) != 0 || !f.At.Equal(now) {
+		t.Fatalf("feed %+v skipped %d err %v", f, skipped, err)
+	}
+}

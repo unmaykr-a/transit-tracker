@@ -5,7 +5,7 @@ import { expandSheet } from "./helpers";
 test.describe("search, stops and lines", () => {
   test("searching Balti jaam shows city platforms and Elron departures", async ({ page }) => {
     await page.goto("/search");
-    await page.getByRole("searchbox", { name: "Search lines and stops" }).fill("balti jaam");
+    await page.getByRole("searchbox", { name: "Search lines, stops and places" }).fill("balti jaam");
     const stop = page.getByRole("link", { name: /^Balti jaam/ }).first();
     await expect(stop).toBeVisible();
     await stop.click();
@@ -24,6 +24,18 @@ test.describe("search, stops and lines", () => {
     await tabs.getByRole("tab", { name: /Platform A/ }).click();
     await expect(page).toHaveURL(/[?&]p=/);
     await expect(page.getByText(/Platform [B-Z] ·/)).toHaveCount(0);
+  });
+
+  test("a place name finds the stops near it", async ({ page }) => {
+    // Fake feeds answer every address search with Pärnu mnt 20 (a recorded In-ADS response).
+    await page.goto("/search?q=stockmann");
+    const places = page.getByRole("region", { name: "Places" }).or(page.locator("section").filter({ hasText: "Places" }));
+    await expect(places.getByText("Pärnu mnt 20").first()).toBeVisible();
+    await expect(places.getByText("Nearest stops").first()).toBeVisible();
+    const stop = places.getByRole("link").filter({ hasText: / m$/ }).first();
+    await expect(stop).toBeVisible();
+    await stop.click();
+    await expect(page).toHaveURL(/\/stops\//);
   });
 
   test("diacritics are optional in stop search", async ({ page }) => {

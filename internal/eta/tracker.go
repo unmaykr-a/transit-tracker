@@ -38,8 +38,8 @@ func BuildGeometry(ix *staticdata.Index) *Geometry {
 			g.rail = append(g.rail, railGeoms(ix, r.ID)...)
 			continue
 		}
-		if r.Source != "tallinn" {
-			continue // county buses report no live positions
+		if r.Source != "tallinn" && r.Source != "county" {
+			continue
 		}
 		for _, p := range ix.Patterns(r.ID) {
 			stops := make([][2]float64, 0, len(p.StopIDs))
@@ -184,10 +184,13 @@ type Tracker struct {
 	calib  map[feeds.Mode]*[calibBands]float64 // log of the prediction scale per mode and horizon band; 0 = unscaled
 	// trainPattern is each train's matched rail pattern, for stickiness (MatchTrains).
 	trainPattern map[string]string
+	// group is the source each tracked vehicle was annotated from: a source's
+	// batch forgets only its own vehicles that left (Annotate, AnnotateCounty).
+	group map[string]string
 }
 
 func NewTracker() *Tracker {
-	return &Tracker{tracks: map[string]*track{}, lastPos: map[string][2]float64{}, routeSpeed: map[string]float64{}, paces: map[[2]string]*segPace{}, dwells: map[string]*stopDwell{}, calib: map[feeds.Mode]*[calibBands]float64{}}
+	return &Tracker{tracks: map[string]*track{}, lastPos: map[string][2]float64{}, routeSpeed: map[string]float64{}, paces: map[[2]string]*segPace{}, dwells: map[string]*stopDwell{}, calib: map[feeds.Mode]*[calibBands]float64{}, group: map[string]string{}}
 }
 
 // segment returns i such that StopAlong[i] <= along < StopAlong[i+1].
@@ -279,8 +282,25 @@ func (t *Tracker) SetGeometry(g *Geometry) { t.geo.Store(g) }
 // Geometry returns the current geometry (nil before the first import).
 func (t *Tracker) Geometry() *Geometry { return t.geo.Load() }
 
-// Annotate matches vehicles in place: PatternID, NextStopID and DistAlongM.
-func (t *Tracker) Annotate(vs []state.Vehicle) {
+// Annotate matches the city GPS vehicles in place: PatternID, NextStopID and DistAlongM.
+func (t *Tracker) Annotate(vs []state.Vehicle) { t.annotate(vs, "gps") }
+
+// AnnotateCounty does the same for the county buses (their own batch), and
+// fills a matched bus's Destination from its pattern (the feed has none).
+func (t *Tracker) AnnotateCounty(vs []state.Vehicle) {
+	t.annotate(vs, "county")
+	g := t.geo.Load()
+	if g == nil {
+		return
+	}
+	for i := range vs {
+		if pg, ok := g.byID[vs[i].PatternID]; ok && vs[i].Destination == "" {
+			vs[i].Destination = pg.Pattern.Headsign
+		}
+	}
+}
+
+func (t *Tracker) annotate(vs []state.Vehicle, group string) {
 	g := t.geo.Load()
 	if g == nil {
 		return
@@ -291,6 +311,7 @@ func (t *Tracker) Annotate(vs []state.Vehicle) {
 	for i := range vs {
 		v := &vs[i]
 		seen[v.ID] = true
+		t.group[v.ID] = group
 		// The store derives speed after annotation, so movement is judged here
 		// from the previous fix.
 		pos := [2]float64{v.Lat, v.Lon}
@@ -329,19 +350,18 @@ func (t *Tracker) Annotate(vs []state.Vehicle) {
 				t.routeSpeed[rid] = rate
 			}
 		}
-		t.calibrate(v, pg, tr)
+		if !v.County { // county ETAs (long stretches between stops) would skew the city's calibration
+			t.calibrate(v, pg, tr)
+		}
 		v.PatternID = pg.Pattern.ID
 		v.NextStopID = pg.Pattern.StopIDs[tr.nextStop]
 		v.DistAlongM = float64(int(pr.Along))
 	}
-	for id := range t.tracks {
-		if !seen[id] {
+	for id, gr := range t.group {
+		if gr == group && !seen[id] {
 			delete(t.tracks, id)
-		}
-	}
-	for id := range t.lastPos {
-		if !seen[id] {
 			delete(t.lastPos, id)
+			delete(t.group, id)
 		}
 	}
 }
@@ -454,6 +474,9 @@ func (t *Tracker) speedFor(v state.Vehicle, tr *track, routeID string) float64 {
 	route, haveRoute := t.routeSpeed[routeID]
 	if !haveRoute {
 		route = defaultSpeed[v.Mode]
+		if v.County {
+			route = countySpeed
+		}
 	}
 	if own, ok := progressRate(tr.history); ok {
 		return max(1, 0.5*own+0.5*route)

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.10.0 — 2026-10-23
+
+Upgrading: pull the new image. Live county buses are on by default (`BUS_COUNTY`); see `.env.example` to turn them
+off.
+
+- **Harju county buses live.** County buses (lines 100–199 and the municipal lines) now move on the map like city
+  vehicles, with their route, destination and the stops ahead, and county departures on stop boards and in My lines
+  show live times and delays instead of the timetable. The data is ÜTK Põhja's public GTFS-Realtime feed.
+- **Markers no longer lag behind.** A position is 5–15 s old when it arrives, so vehicles used to be drawn
+  50–150 m behind where they were. Moving vehicles now continue along their route at their speed until the next
+  position (never jumping backwards): on real data, the typical gap to the true position fell from 112 m to 34 m.
+- **Search finds places.** Search for an address or a building such as "Stockmann" or "Tammsaare ärikeskus" to see
+  the nearest stops with their lines and walking distance, and plan a trip there.
+- **On board.** On a vehicle's sheet, tap "I'm on board" and pick your stop: the sheet counts the stops down and the
+  phone buzzes a stop before yours and again at the next stop (Android, while the page is open). It follows the
+  vehicle on the map, centred in the part of the map the sheet leaves visible.
+- Phones: map sheets can be dragged — up to open, down to make them compact or close them.
+- iPhone: tapping the map's line filter or a drop-down no longer zooms the page in.
+- Trains on the map stay on their track instead of drifting with Elron's GPS, and every Elron route name is
+  understood now ("Tartu - Tapa (Tallinn)", "Tallinn - Valga / Riia" and "Tallinn - Tartu RV" trains had no line).
+- Stop pages hide platforms no line serves (an empty "E" tab at Balti jaam).
+
 ## 1.9.0 — 2026-10-23
 
 - **One map across pages.** The live map is now kept while you move between the map, a line and a stop (and the

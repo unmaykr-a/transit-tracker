@@ -78,7 +78,7 @@ func newUpstream(t *testing.T) *upstream {
 			if id == "estonia:1301" { // a city platform county bus 120 also calls at
 				st["stoptimesWithoutPatterns"] = append(st["stoptimesWithoutPatterns"].([]any),
 					map[string]any{"scheduledDeparture": sec + 480, "realtimeDeparture": sec + 480, "realtime": false, "serviceDay": serviceDay, "headsign": "Jüri",
-						"trip": map[string]any{"route": map[string]any{"shortName": "120", "longName": "Tallinn - Jüri", "mode": "BUS"}}})
+						"trip": map[string]any{"gtfsId": "estonia:ATL-Fr-harjumaa120-A-OB-1600-abc", "route": map[string]any{"shortName": "120", "longName": "Tallinn - Jüri", "mode": "BUS"}}})
 			}
 			stops = append(stops, st)
 		}
@@ -162,7 +162,7 @@ func TestDropArrivals(t *testing.T) {
 func TestCountyBusesJoinCityBoards(t *testing.T) {
 	u := newUpstream(t)
 	s := testService(u)
-	city := &staticdata.Stop{ID: "1301", SiriID: "1301", Platform: "A", Modes: []feeds.Mode{feeds.ModeTram, feeds.ModeBus}}
+	city := &staticdata.Stop{ID: "1301", SiriID: "1301", Code: "10801-1", Platform: "A", Modes: []feeds.Mode{feeds.ModeTram, feeds.ModeBus}}
 	ix := staticdata.NewIndex(staticdata.Dataset{
 		Stops: []staticdata.Stop{*city},
 		Routes: []staticdata.Route{
@@ -190,6 +190,19 @@ func TestCountyBusesJoinCityBoards(t *testing.T) {
 	}
 	if u.siriCalls.Load() != 1 || u.otpCalls.Load() != 1 {
 		t.Errorf("siri=%d otp=%d calls", u.siriCalls.Load(), u.otpCalls.Load())
+	}
+
+	// With the county feed, the county row carries its bus's live time (by trip and stop code).
+	s.CountyLive = func(trip, code string) (time.Time, bool) {
+		if trip == "estonia:ATL-Fr-harjumaa120-A-OB-1600-abc" && code == "10801-1" {
+			return now.Add(11 * time.Minute), true
+		}
+		return time.Time{}, false
+	}
+	deps, _ = s.ForStops(context.Background(), []*staticdata.Stop{city}, 20, 2*time.Hour)
+	d := deps[len(deps)-1]
+	if d.Line != "120" || !d.Realtime || d.DelayS != 180 || !d.ExpectedAt.Equal(now.Add(11*time.Minute)) {
+		t.Errorf("county row with the live feed: %+v", d)
 	}
 }
 

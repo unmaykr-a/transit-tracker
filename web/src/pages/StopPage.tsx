@@ -57,7 +57,10 @@ export default function StopPage() {
   if (stop.isError) return <p className="p-6 text-muted-foreground">{t("stop.notFound")}</p>;
   if (!stop.data) return <p className="p-6 text-muted-foreground">{t("common.loading")}</p>;
   const s = stop.data;
-  const multi = s.platforms.length > 1;
+  // Platforms no line serves (a closed or unused pole) get no tab, unless linked to directly.
+  const served = s.platforms.filter((p) => p.lines.length > 0 || p.id === platform);
+  const tabs = served.length > 0 ? served : s.platforms;
+  const multi = tabs.length > 1;
 
   return (
     <SplitLayout
@@ -107,7 +110,7 @@ export default function StopPage() {
             <div role="tablist" className="flex gap-2">
               {[
                 { id: undefined, label: t("stop.all"), sub: "" },
-                ...s.platforms.map((p) => ({
+                ...tabs.map((p) => ({
                   id: p.id,
                   label: p.platform,
                   sub: [...new Set(p.lines.flatMap((l) => l.headsigns))].slice(0, 3).join(", "),

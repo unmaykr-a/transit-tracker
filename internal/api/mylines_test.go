@@ -30,6 +30,9 @@ import (
 )
 
 // fullServer runs everything against the fake upstream: import, departures, accounts, dashboard.
+// lastServer is the server fullServer built last (tests poke its internals).
+var lastServer *Server
+
 // geocodeCalls counts the test geocoder's upstream calls (the server caches them).
 var geocodeCalls atomic.Int64
 
@@ -72,7 +75,7 @@ func fullServerWithLive(t *testing.T) (*client, *staticdata.Importer, *state.Sto
 	tracker := eta.NewTracker()
 	tracker.SetGeometry(eta.BuildGeometry(im.Index()))
 	vehicles := state.NewStore()
-	srv := httptest.NewServer(NewServer(slog.New(slog.DiscardHandler), Deps{
+	api := NewServer(slog.New(slog.DiscardHandler), Deps{
 		Store: vehicles, Health: ingest.NewHealth(), Static: im.Index, StaticStatus: im.Status, Departures: deps,
 		Auth: accounts, Settings: set, DB: st, DataDir: dir, Tracker: tracker,
 		Dashboard: &dashboard.Builder{Index: im.Index, Departures: deps, Walk: walker},
@@ -83,7 +86,9 @@ func fullServerWithLive(t *testing.T) (*client, *staticdata.Importer, *state.Sto
 			}
 			return []feeds.Address{{Label: "Pärnu mnt 20", Detail: "Kesklinna linnaosa, Tallinn", Lat: 59.4319, Lon: 24.7451}}, nil
 		},
-	}).Handler(SPA(fstest.MapFS{})))
+	})
+	lastServer = api
+	srv := httptest.NewServer(api.Handler(SPA(fstest.MapFS{})))
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
 	c := &client{t: t, base: srv.URL, http: &http.Client{Jar: jar}}
@@ -307,6 +312,40 @@ func TestGeocode(t *testing.T) {
 	anon := &client{t: t, base: c.base, http: &http.Client{}}
 	if code, _ := anon.do("GET", "/api/v1/geocode?q=narva", nil); code != 401 {
 		t.Errorf("anonymous geocode = %d", code)
+	}
+}
+
+func TestPlaces(t *testing.T) {
+	c, _ := fullServer(t)
+	// Public (like search): an anonymous visitor finds a place and the stops near it.
+	anon := &client{t: t, base: c.base, http: &http.Client{}}
+	code, out := anon.do("GET", "/api/v1/places?q=stockmann", nil)
+	places, _ := out["places"].([]any)
+	if code != 200 || len(places) != 1 {
+		t.Fatalf("places = %d %v", code, out)
+	}
+	p := places[0].(map[string]any)
+	stops := p["stops"].([]any)
+	if p["label"] != "Pärnu mnt 20" || len(stops) == 0 {
+		t.Fatalf("place = %v", p)
+	}
+	first := stops[0].(map[string]any)
+	if first["id"] == "" || first["dist_m"].(float64) > 1500 || len(first["lines"].([]any)) == 0 {
+		t.Errorf("nearest stop = %v", first)
+	}
+	if code, _ := anon.do("GET", "/api/v1/places?q=ab", nil); code != 400 {
+		t.Errorf("short query = %d", code)
+	}
+	// Upstream searches are capped per minute across everyone; cached answers are not.
+	srv := lastServer
+	srv.placesMu.Lock()
+	srv.placesWindow, srv.placesUsed = time.Now(), placesPerMinute
+	srv.placesMu.Unlock()
+	if code, _ := anon.do("GET", "/api/v1/places?q=something+new", nil); code != 429 {
+		t.Errorf("over the budget = %d, want 429", code)
+	}
+	if code, _ := anon.do("GET", "/api/v1/places?q=stockmann", nil); code != 200 {
+		t.Errorf("cached answer over the budget = %d", code)
 	}
 }
 

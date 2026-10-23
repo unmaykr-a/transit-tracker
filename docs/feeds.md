@@ -213,9 +213,32 @@ match on route + scheduled start time instead.
 - OTP lists the county operators as agencies `estonia:harjumaa_<registry code>` (2026-10-22: Hansabuss 125 routes,
   SEBE 53, GoBus 43, Ekspressbussiliinid 1, Alukvik 1). All are mode `BUS`; short names (100–277, `H1`…, `J1`…,
   `Anija1`…) do not clash with city lines.
-- No live data: `gps.txt` and SIRI cover Tallinn city vehicles only (types 1–3), and OTP marks county stoptimes
-  `SCHEDULED` (`realtime: false`). The Ridango system the operators use has no public feed we know of.
+- `gps.txt` and SIRI cover Tallinn city vehicles only (types 1–3), and OTP marks county stoptimes `SCHEDULED`
+  (`realtime: false`). Live county data comes from ÜTK Põhja's GTFS-RT (below).
 - County terminals in Tallinn use numbered platform names (`Balti jaam 1`, `Balti jaam 6`), so they form their own stop
   areas next to the city's `Balti jaam`.
 - Importing them grows the static data from ~1 360 to ~3 500 stops and ~270 to ~880 patterns (import ~5 s); idle
   memory with county routes is ~56 MB RSS.
+
+## ÜTK Põhja GTFS-RT — `https://ytkpohja-avl-prod.ridango.cloud/data/gtfs/{vehicle-positions,trip-updates,service-alerts}.pb`
+
+Found 2026-10-23 (via the GoNow app). Ridango AVL for the North Estonia transport centre: plain GTFS-Realtime
+protobuf, no key, `ETag` + `Last-Modified` (the snapshot changes every 3–9 s).
+
+- **VehiclePositions** (~190 entities): `trip` (`trip_id` like
+  `44_ATL_al_21.09-25.10.26_Orumetsa+FRK-Fr-harjumaa174-A-OB-1620-4cd6234`, `start_time` `16:20:00`, `start_date`,
+  `route_id` `174_9721_1_3`, no `direction_id`), `position` (lat, lon, bearing, speed m/s), `stop_id` = the national
+  stop **code** (`11903-2`, OTP `code`), `vehicle.label` = licence plate. Covers Harju (`harjumaa`, ~140) but also
+  Rapla, Lääne and Lääne-Viru county buses; the county is in the trip id (`-Fr-<county><line>-`), lines may be
+  `SV14`, `J7` (municipal).
+- **TripUpdates** (~190): per trip the stops ahead with absolute `arrival`/`departure` times (no `delay`), stop ids
+  as above; no `route_id`.
+- **Join**: OTP's county trip ids are the same without the numeric prefix (`estonia:ATL_al_…-harjumaa114-…` ↔
+  `44_ATL_al_…-harjumaa114-…`), so live times attach to timetable departures exactly (`ingest.TripKey`).
+- Other Ridango endpoints the GoNow web app uses: `wss://wmb-public-api-peutk.eu-prod.ridango.cloud/ws/tenant/2/
+  vehicle/locations` (the same Harju data as JSON every ~5 s) and Tartu city buses on
+  `wss://api.ridango.com/rt-ws/vehicle-status` (send `{"regionId":32,…}`; 54 trips, lines 1–13) with routes at
+  `https://wmb-public-api-tartu.eu-prod.ridango.cloud/tenant/7/v1/{routes,stops}`.
+- `mqtt.peatus.ee` (HFP over MQTT, used by web.peatus.ee) only republishes Tallinn's `gps.txt` with guessed route
+  ids; peatus.ee OTP has no live county times; Transitous has Estonian static GTFS (all counties, `eu-gtfs.remix.com`)
+  and only Elron live.

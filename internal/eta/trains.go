@@ -59,18 +59,59 @@ func stationName(name string) string {
 	return n
 }
 
-// routeEnds reads the first and last station from an Elron route name.
-func routeEnds(route string) (from, to string) {
+// routeEnds reads the first and last station from an Elron route name. Names
+// seen in the feed: "Keila - Tallinn", "Tartu-Tallinn", "Tartu - Tapa
+// (Tallinn)" and "(Tartu) Tapa - Tallinn" (a through train: the part in
+// brackets is the rest of its journey, not this route), "Tallinn - Valga /
+// Riia" (either destination) and "Tallinn - Tartu RV" (a service code).
+// Each end may thus have alternatives.
+func routeEnds(route string) (from, to []string) {
+	for {
+		i := strings.IndexByte(route, '(')
+		j := strings.IndexByte(route, ')')
+		if i < 0 || j < i {
+			break
+		}
+		route = route[:i] + " " + route[j+1:]
+	}
 	i := strings.LastIndex(route, "-")
 	if i < 0 {
-		return "", stationName(route)
+		return nil, stationNames(route)
 	}
-	return stationName(route[:i]), stationName(route[i+1:])
+	return stationNames(route[:i]), stationNames(route[i+1:])
+}
+
+// stationNames splits "Valga / Riia" into folded names and drops a trailing
+// service code ("Tartu RV").
+func stationNames(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, "/") {
+		f := strings.Fields(part)
+		if n := len(f); n > 1 && len(f[n-1]) <= 3 && strings.ToUpper(f[n-1]) == f[n-1] {
+			f = f[:n-1]
+		}
+		if name := stationName(strings.Join(f, " ")); name != "" {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // railFit reports whether pattern pg can be the train's route from..to: it
-// calls at both in order (ok), and whether it starts and ends there (exact).
-func railFit(pg *PatternGeom, from, to string) (ok, exact bool) {
+// calls at one of from and then one of to (ok), and whether it starts and ends
+// there (exact).
+func railFit(pg *PatternGeom, from, to []string) (ok, exact bool) {
+	for _, a := range from {
+		for _, z := range to {
+			if o, e := railFit1(pg, a, z); o && (e || !ok) {
+				ok, exact = true, e
+			}
+		}
+	}
+	return ok, exact
+}
+
+func railFit1(pg *PatternGeom, from, to string) (ok, exact bool) {
 	n := len(pg.stations)
 	if from == "" || to == "" || n < 2 {
 		return false, false

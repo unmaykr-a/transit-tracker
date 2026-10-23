@@ -200,6 +200,23 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+func TestNearestAreas(t *testing.T) {
+	ix, _ := fixtureIndex(t)
+	// Liivalaia 53 (Stockmann): the nearest served areas, nearest first, all within reach.
+	near := ix.NearestAreas(59.4316, 24.7562, 600, 4)
+	if len(near) == 0 {
+		t.Fatal("no stop areas near Liivalaia 53")
+	}
+	for i, n := range near {
+		if n.DistM > 600 || (i > 0 && n.DistM < near[i-1].DistM) {
+			t.Errorf("%d: %s at %.0f m", i, n.Area.Name, n.DistM)
+		}
+	}
+	if got := ix.NearestAreas(58.0, 22.0, 1000, 4); len(got) != 0 {
+		t.Errorf("stops near Saaremaa in a Tallinn index: %v", got)
+	}
+}
+
 func TestSaveLoadRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	st, err := store.Open(ctx, t.TempDir(), slog.New(slog.DiscardHandler))

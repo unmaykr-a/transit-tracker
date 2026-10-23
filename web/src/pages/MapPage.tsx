@@ -113,7 +113,7 @@ export default function MapPage() {
               placeholder={t("map.lineFilterPlaceholder")}
               inputMode="text"
               autoCapitalize="characters"
-              className="h-8 w-32 rounded-full border bg-background px-3 pr-7 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-8 w-32 rounded-full border bg-background px-3 pr-7 text-base shadow-sm md:text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             {filters.lines && (
               <button

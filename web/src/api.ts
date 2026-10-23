@@ -313,6 +313,8 @@ export interface AdminSettings extends PublicSettings {
   otp_url: string;
   stops_url: string;
   elron_gtfs_url: string;
+  county_vehicles_url: string;
+  county_trips_url: string;
   user_agent_contact: string;
   walk_providers: string[];
   transitous_url: string;
@@ -588,6 +590,14 @@ export interface Address {
   lon: number;
 }
 
+/** A place (address or named building) with the stop areas nearest to it. */
+export interface PlaceHit extends Address {
+  stops: (AreaHit & { dist_m: number })[];
+}
+
+export const fetchPlaces = (q: string, signal?: AbortSignal) =>
+  getJSON<{ places: PlaceHit[] }>(`/api/v1/places?q=${encodeURIComponent(q)}`, signal);
+
 export const fetchAddresses = (q: string, signal?: AbortSignal) =>
   getJSON<{ addresses: Address[] }>(`/api/v1/geocode?q=${encodeURIComponent(q)}`, signal);
 
@@ -618,4 +628,5 @@ export interface VehicleTrip {
   trip: { pattern_id: string; along_m: number; next_stop_index: number; speed_mps: number; ahead: TripStop[] } | null;
 }
 
-export const fetchTrip = (id: string, signal?: AbortSignal) => getJSON<VehicleTrip>(`/api/v1/vehicles/${encodeURIComponent(id)}/trip?limit=6`, signal);
+export const fetchTrip = (id: string, signal?: AbortSignal, limit = 6) =>
+  getJSON<VehicleTrip>(`/api/v1/vehicles/${encodeURIComponent(id)}/trip?limit=${limit}`, signal);

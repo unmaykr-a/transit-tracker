@@ -23,10 +23,17 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - `internal/staticdata` — nightly import (03:30 Tallinn, on start if missing/older than 20 h or built by another
   `BuildVersion`): OTP city routes + Tallinn stops.txt (names, SIRI ids) + Elron GTFS (rail) + Harju county bus
   routes (`BUS_COUNTY`, every OTP agency `estonia:harjumaa*`; route source `county`, `bus:<short>` ids, county-only
-  stops have no SIRI id; timetable only, not given to the ETA tracker). Builds stops,
+  stops have no SIRI id). Live county buses: `ingest.CountyPoller` (ÜTK Põhja GTFS-RT VehiclePositions, hand-decoded in
+  `feeds/gtfsrt.go`, region `harjumaa` and lines the index knows; ids `bus-<plate>`, `county: true`; matched by
+  `Tracker.AnnotateCounty` — the tracker keeps per-source groups so one poller never drops the other's tracks; county
+  buses skip ETA calibration) and `ingest.CountyTrips` (TripUpdates → `departures.Service.CountyLive`, joined to OTP
+  rows by `TripKey`). Builds stops,
   stop areas (platform letters A, B…), routes (`<mode>:<short>`), patterns; saved in one transaction and served
   from an immutable in-memory `Index` (diacritic-insensitive search via `Fold`). Bump `BuildVersion` whenever
   `Build` output changes for the same input.
+- `GET /api/v1/places?q=` (public): In-ADS places/addresses with their nearest served stop areas
+  (`Index.NearestAreas`), sharing the 1 h geocode cache; upstream misses capped at 60/min. The search page shows them
+  ("Stockmann" → Liivalaia 53 → Lennuki, Tornimäe…), with "Trip here" (`/trips/new?to=`).
 - `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail, county-only and
   city platforms without live rows; city platforms county buses also serve get SIRI rows plus the county rows from OTP; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
 - `internal/auth` — argon2id passwords, cookie sessions (`bus_session`, HttpOnly, SameSite=Lax, Secure behind
@@ -108,7 +115,15 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   until a segment has data), scaled by a self-calibrated factor per mode and horizon band learned from the tracker's
   own probes against later GPS arrivals (`calibrate`, half strength; `bus_eta_scale` metric). API: `/vehicles/{id}/trip` (stops ahead with ETAs),
   `/patterns/{id}` and `/patterns?route=` (encoded polylines, ETag). The map tweens markers along the shape
-  (`lib/shapes.ts`, `lib/tween.ts`) using `dist_along_m` (7th `move` tuple field).
+  (`lib/shapes.ts`, `lib/tween.ts`) using `dist_along_m` (7th `move` tuple field). Moving matched vehicles are dead-
+  reckoned along the shape from the fix's age (server clock) at their speed, ≤ 12 s / 100 m past the fix and never
+  backwards (measured on real data: median error of moving markers 112 m → 34 m); matched trains are drawn on the
+  track (`snap`). Elron route names like "Tartu - Tapa (Tallinn)", "Tallinn - Valga / Riia", "Tallinn - Tartu RV"
+  are parsed by `eta.routeEnds`.
+- On-board mode (`lib/ride.ts`, `VehicleSheet`): pick the stop to get off at; counts stops down, buzzes
+  (`navigator.vibrate`) a stop before and at the next stop; stored in `bus.ride`; following centres the vehicle in
+  the map area a `data-map-cover` sheet leaves visible. Map sheets drag on phones (handle/header: up opens, down
+  compacts/closes; decided from `pointerup`). Inputs and selects use ≥ 16 px text on phones (iOS zoom).
 - `web/` — Vite + React 19 + TS + Tailwind v4 + shadcn/ui, TanStack Router (code-based routes in
   `src/router.tsx`) + Query, i18next (`src/locales/{en,et}.json` — every UI string goes in both), MapLibre.
   `src/lib/liveClient.ts` is the single shared WS/SSE connection; `src/map/VehicleMap.tsx` animates markers
