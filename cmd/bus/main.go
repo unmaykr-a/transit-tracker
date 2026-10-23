@@ -118,7 +118,7 @@ func serve(cfg config.Config) error {
 	vehicles := state.NewStore()
 	health := ingest.NewHealth()
 	gps := &ingest.GPSPoller{URL: func() string { return cur().GPSURL }, Fetcher: fetcher, Store: vehicles, Annotate: tracker.Annotate}
-	elron := &ingest.ElronPoller{URL: func() string { return cur().ElronURL }, Fetcher: fetcher, Store: vehicles, Location: tallinn}
+	elron := &ingest.ElronPoller{URL: func() string { return cur().ElronURL }, Fetcher: fetcher, Store: vehicles, Location: tallinn, Annotate: tracker.MatchTrains}
 	// Live feeds retry at least every minute, so the map recovers soon after the upstream does.
 	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll, MaxBackoff: time.Minute})
 	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll, MaxBackoff: time.Minute})

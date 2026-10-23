@@ -215,7 +215,7 @@ func (f FakeTransport) fakeDepartures(stopID string) []fakeDep {
 		headway := time.Duration(6+seed%10) * time.Minute
 		delay := time.Duration(seed%150) * time.Second
 		first := now.Truncate(headway).Add(time.Duration(seed%uint32(headway.Seconds())) * time.Second)
-		for t := first.Add(-headway); t.Before(now.Add(time.Hour)); t = t.Add(headway) {
+		for t := first.Add(-headway); t.Before(now.Add(3 * time.Hour)); t = t.Add(headway) {
 			if t.Add(delay).After(now) {
 				out = append(out, fakeDep{l, t, t.Add(delay)})
 			}
@@ -240,6 +240,9 @@ func (f FakeTransport) fakeSiri(stopID string) []byte {
 	fmt.Fprintf(&b, "stop,%s\n", stopID)
 	words := map[Mode]string{ModeBus: "bus", ModeTram: "tram", ModeTrolley: "trol"}
 	for _, d := range deps {
+		if d.expected.After(now.Add(time.Hour)) {
+			break // live boards list about the next hour; the timetable (fakeOTP) reaches further
+		}
 		word, ok := words[d.line.Mode]
 		if !ok {
 			continue // trains are not in SIRI

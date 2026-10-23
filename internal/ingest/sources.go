@@ -96,6 +96,8 @@ type ElronPoller struct {
 	Fetcher  *feeds.Fetcher
 	Store    *state.Store
 	Location *time.Location
+	// Annotate, if set, matches trains to rail patterns before they are stored.
+	Annotate func([]state.Vehicle)
 }
 
 func (p *ElronPoller) Poll(ctx context.Context) (Result, error) {
@@ -116,6 +118,9 @@ func (p *ElronPoller) Poll(ctx context.Context) (Result, error) {
 			newest = v.UpdatedAt
 		}
 		vs = append(vs, v)
+	}
+	if p.Annotate != nil {
+		p.Annotate(vs)
 	}
 	p.Store.Replace("elron", vs)
 	// No trains running (night) is fresh data, not a stale feed; a time ahead of

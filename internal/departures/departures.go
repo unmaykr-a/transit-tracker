@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -78,12 +79,40 @@ func (s *Service) Siri(ctx context.Context, siriID string) (feeds.SiriBoard, err
 }
 
 func (s *Service) otpTimes(ctx context.Context, ids []string) (map[string][]feeds.OTPStopTime, error) {
+	return s.otpTimesN(ctx, ids, 12)
+}
+
+func (s *Service) otpTimesN(ctx context.Context, ids []string, n int) (map[string][]feeds.OTPStopTime, error) {
 	s.init()
 	ids = slices.Clone(ids)
 	sort.Strings(ids)
-	return s.otp.Get(ctx, strings.Join(ids, ","), func(ctx context.Context) (map[string][]feeds.OTPStopTime, error) {
-		return s.OTP.StopTimes(ctx, ids, 12, 4*3600)
+	key := strings.Join(ids, ",")
+	if n != 12 {
+		key += "#" + strconv.Itoa(n)
+	}
+	return s.otp.Get(ctx, key, func(ctx context.Context) (map[string][]feeds.OTPStopTime, error) {
+		return s.OTP.StopTimes(ctx, ids, n, 4*3600)
 	})
+}
+
+// Timetable returns the timetabled departures (OTP, up to n per platform over
+// four hours) from the given platforms, soonest first. Live boards list only
+// the next half hour or so; journeys with changes look further ahead.
+func (s *Service) Timetable(ctx context.Context, stops []*staticdata.Stop, n int) ([]Departure, error) {
+	ids := make([]string, len(stops))
+	for i, st := range stops {
+		ids[i] = st.OTPID()
+	}
+	times, err := s.otpTimesN(ctx, ids, n)
+	if err != nil {
+		return nil, err
+	}
+	var all []Departure
+	for _, st := range stops {
+		all = append(all, s.fromOTP(st, times[st.OTPID()])...)
+	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].ExpectedAt.Before(all[j].ExpectedAt) })
+	return all, nil
 }
 
 // ForStops returns the next departures from the given platforms, soonest first.

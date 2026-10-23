@@ -233,7 +233,33 @@ func (b *Builder) laterLegs(ctx context.Context, ix *staticdata.Index, legs [][2
 		if err != nil {
 			return nil, err
 		}
+		// Live boards reach only half an hour or so ahead; a change after a long
+		// first ride needs the timetable beyond the last live departure.
+		if tt, err := b.Departures.Timetable(ctx, boards, 30); err == nil {
+			deps = extendWithTimetable(deps, tt)
+		}
 		out = append(out, laterLeg{conns: conns, deps: pickTrip(deps, conns)})
 	}
 	return out, nil
+}
+
+// extendWithTimetable adds timetabled departures later than the last live one
+// of the same route at the same platform (all of them where there is none).
+func extendWithTimetable(live, tt []departures.Departure) []departures.Departure {
+	type key struct{ route, stop string }
+	last := map[key]time.Time{}
+	for _, d := range live {
+		k := key{d.RouteID, d.StopID}
+		if d.ExpectedAt.After(last[k]) {
+			last[k] = d.ExpectedAt
+		}
+	}
+	out := slices.Clone(live)
+	for _, d := range tt {
+		if d.ExpectedAt.After(last[key{d.RouteID, d.StopID}]) {
+			out = append(out, d)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b departures.Departure) int { return a.ExpectedAt.Compare(b.ExpectedAt) })
+	return out
 }
