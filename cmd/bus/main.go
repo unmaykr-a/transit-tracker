@@ -166,7 +166,7 @@ func serve(cfg config.Config) error {
 		Handler: api.NewServer(log, api.Deps{
 			OIDC: sso, OIDCConfig: cfg.OIDC,
 			Store: vehicles, Health: health, Static: importer.Index, StaticStatus: importer.Status, Departures: deps,
-			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies,
+			Auth: accounts, Settings: set, DB: db, DataDir: cfg.DataDir, TrustedProxies: cfg.TrustedProxies, BaseURL: cfg.BaseURL,
 			RefreshStatic: importer.Import, Dashboard: board, Tracker: tracker,
 			Geocode: func(ctx context.Context, q string) ([]feeds.Address, error) {
 				return geocode(ctx, fetcher, cur().GeocoderURL, q)

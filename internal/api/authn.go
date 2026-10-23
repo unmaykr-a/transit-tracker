@@ -52,7 +52,9 @@ func (s *Server) trusted(addr netip.Addr) bool {
 // clientMeta resolves the client IP and scheme. X-Forwarded-* headers are only
 // believed from BUS_TRUSTED_PROXIES (e.g. Nginx Proxy Manager's network).
 func (s *Server) clientMeta(r *http.Request) *requestMeta {
-	m := &requestMeta{HTTPS: r.TLS != nil}
+	// Behind an https:// BUS_BASE_URL the browser talks HTTPS whatever the hop to
+	// us; other hosts (a LAN address) keep plain cookies so they still work.
+	m := &requestMeta{HTTPS: r.TLS != nil || (s.httpsHost != "" && strings.EqualFold(r.Host, s.httpsHost))}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr

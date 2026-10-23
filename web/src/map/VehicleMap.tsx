@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { MapStop } from "@/api";
 import { pillText } from "@/lib/lines";
+import { LIVERIES } from "@/lib/livery";
 import { live } from "@/lib/liveClient";
 import { usePredictPositions, useShowRail, useVehicleIcons } from "@/lib/mapPrefs";
 import { loadShapes, patternRoutes, shapes } from "@/lib/shapes";
@@ -15,6 +16,7 @@ import { KINDS, type Kind, type Mode } from "@/lib/types";
 
 import { collapseAttribution, maplibregl, startView, styleUrl } from "./setup";
 import { pillImage, topdownImage, vehicleFeatures, wedgeImage, type ImageSpec } from "./vehicleFeatures";
+
 const PILL_MIN_ZOOM = 12.5;
 /** Redraw rate while vehicles glide; 20 fps is smooth at city zoom and cheap on phones. */
 const FRAME_MS = 50;
@@ -259,8 +261,8 @@ function addVehicleLayers(map: MLMap) {
   for (const k of KINDS) {
     addImage(map, `pill-${k}`, pillImage(KIND_COLORS[k], ratio));
     addImage(map, `wedge-${k}`, wedgeImage(KIND_COLORS[k], ratio));
-    addImage(map, `top-${k}`, topdownImage(k, KIND_COLORS[k], ratio));
   }
+  for (const l of LIVERIES) addImage(map, `top-${l}`, topdownImage(l, ratio));
   if (!map.getSource("vehicles")) {
     map.addSource("vehicles", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "id" });
   }
@@ -319,7 +321,7 @@ function addVehicleLayers(map: MLMap) {
     layout: { ...pillLayout, "icon-padding": 1 },
     paint: { "text-color": "#ffffff" },
   });
-  // Optional (Settings → Map): vehicles seen from above, turned the way they drive, the line beside them.
+  // Optional (Settings → Map): vehicles seen from above, turned the way they drive, the line number on the roof (upright).
   map.addLayer({
     id: "vehicle-topdown",
     type: "symbol",
@@ -327,17 +329,16 @@ function addVehicleLayers(map: MLMap) {
     minzoom: PILL_MIN_ZOOM,
     layout: {
       visibility: "none",
-      "icon-image": ["concat", "top-", ["get", "kind"]],
+      "icon-image": ["concat", "top-", ["get", "livery"]],
       "icon-rotate": ["max", ["get", "bearing"], 0],
       "icon-rotation-alignment": "map",
       "icon-allow-overlap": true,
       "icon-size": ["interpolate", ["linear"], ["zoom"], PILL_MIN_ZOOM, 0.9, 15, 1.3, 17, 1.9, 19, 2.8],
       "text-field": ["get", "text"],
       "text-font": ["Noto Sans Bold"],
-      "text-size": 12,
-      // Beside the (rotating) body, wherever it fits.
-      "text-variable-anchor": ["left", "right", "top", "bottom"],
-      "text-radial-offset": ["interpolate", ["linear"], ["zoom"], PILL_MIN_ZOOM, 1.2, 17, 2.2, 19, 3.2],
+      "text-size": ["interpolate", ["linear"], ["zoom"], PILL_MIN_ZOOM, 10, 15, 12, 17, 14, 19, 18],
+      "text-rotation-alignment": "viewport",
+      "text-padding": 0,
       "text-optional": true,
       "symbol-sort-key": ["get", "sort"],
     },

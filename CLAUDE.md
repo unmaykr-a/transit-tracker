@@ -40,12 +40,14 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
   ("Stockmann" → Liivalaia 53 → Lennuki, Tornimäe…), with "Trip here" (`/trips/new?to=`).
 - Feed health: a feed answering at night (00:45–05:00 Tallinn) with nothing new is `quiet`, not stale (no banner);
   an empty or frozen feed in service hours still warns. Public `/status` and live messages carry no feed error texts
-  (`publicFeeds`; admins see them in `/admin/health`). Requests via a proxy not in `BUS_TRUSTED_PROXIES` are marked
+  (`publicFeeds`; admins see them in `/admin/health`). An `https://` `BUS_BASE_URL` makes requests for its host HTTPS (`Server.httpsHost`). Requests via a proxy not in `BUS_TRUSTED_PROXIES` are marked
   `UntrustedProxy` (private `/metrics` refuses them; a warning is logged once).
 - Map kinds (`lib/types.ts` `Kind`/`kindOf`): the modes plus `county` (own colour, chip, pill); map filters saved
   before county had a chip get it added. Map prefs (`lib/mapPrefs.ts`, user_prefs `vehicle_icons` pill|topdown,
   `predict_positions`): top-down vehicle icons (`topdownImage`, layer `vehicle-topdown`) and turning dead reckoning
-  off. `components/VehicleArt.tsx` draws the selected vehicle's side view. Map page has Tallinn/Tartu jump buttons.
+  off. `components/VehicleArt.tsx` draws the selected vehicle's side view and `topdownImage` the map icon (`top-<livery>`,
+  line number on the roof), both in the operator's livery (`lib/livery.ts` `liveryOf`: TLT tram/bus/trolley, Tartu,
+  Elron, county — researched from 2026 fleet photos; pills keep the kind colours). Map page has Tallinn/Tartu jump buttons.
 - `internal/departures` — SIRI (15 s cache) for city platforms, OTP stoptimes (30 s cache) for rail, county-only and
   city platforms without live rows; city platforms county buses also serve get SIRI rows plus the county rows from OTP; `internal/cache.TTL` coalesces concurrent requests and serves stale on error.
 - `internal/auth` — argon2id passwords, cookie sessions (`bus_session`, HttpOnly, SameSite=Lax, Secure behind

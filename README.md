@@ -110,7 +110,7 @@ scrape_configs:
 | --- | --- | --- |
 | `BUS_ADDR` | `:8080` | Listen address |
 | `BUS_DATA_DIR` | `./data` | Database and caches |
-| `BUS_BASE_URL` | — | Public URL, also used as the contact in the upstream User-Agent |
+| `BUS_BASE_URL` | — | Public URL, also used as the contact in the upstream User-Agent. When it is `https://`, requests for its host get Secure cookies and HSTS even if the proxy is not in `BUS_TRUSTED_PROXIES` |
 | `BUS_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `BUS_ADMIN_USER`, `BUS_ADMIN_PASSWORD` | — | Create the first admin on an empty database |
 | `BUS_TRUSTED_PROXIES` | — | CIDRs whose `X-Forwarded-For`/`-Proto` are trusted (your reverse proxy) |
