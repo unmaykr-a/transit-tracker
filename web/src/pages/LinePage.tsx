@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { BookmarkPlus, Map as MapIcon } from "lucide-react";
+import { BookmarkPlus, Map as MapIcon, ChevronDown } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -20,12 +20,14 @@ import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 const LineMap = lazy(() => import("@/map/LineMap"));
 const LiveMapPane = lazy(() => import("@/map/LiveMapPane"));
 const route = getRouteApi("/lines/$mode/$line");
+/** Height of a stop row (h-12), for placing vehicles between rows. */
+const ROW_REM = 3;
 
 export default function LinePage() {
   const { t } = useTranslation();
   const { mode, line } = route.useParams();
   const q = useQuery({ queryKey: ["line", mode, line], queryFn: ({ signal }) => fetchLine(mode, line, signal), staleTime: 60 * 60_000 });
-  const live = useLiveState(2000);
+  const live = useLiveState(1000);
   const mains = useMemo(() => q.data?.patterns.filter((p) => p.main) ?? [], [q.data]);
   const [dir, setDir] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -129,10 +131,21 @@ export default function LinePage() {
         <section>
           <h2 className="mb-2 text-sm font-medium text-muted-foreground">{t("line.stops", { count: pattern.stops.length })}</h2>
           <ol className="relative">
+            {/* Each vehicle as a marker on the line, between the stops it is travelling between; it glides as it moves. */}
+            {here.map((h) => (
+              <span
+                key={h.vehicle.id}
+                aria-hidden
+                className="pointer-events-none absolute left-1 z-10 flex size-5 items-center justify-center rounded-full text-white shadow-md ring-2 ring-background transition-[top] duration-1000 ease-linear"
+                style={{ background: color, top: `calc(${(h.stopIndex - 1 + h.progress) * ROW_REM + ROW_REM / 2}rem - 0.625rem)` }}
+              >
+                <ChevronDown className="size-3.5" strokeWidth={3} />
+              </span>
+            ))}
             {pattern.stops.map((s, i) => {
               const at = here.filter((h) => h.stopIndex === i);
               return (
-                <li key={`${s.id}-${i}`} className="relative flex min-h-12 items-center gap-3 pl-8">
+                <li key={`${s.id}-${i}`} className="relative flex h-12 items-center gap-3 pl-8">
                   <span
                     aria-hidden
                     className="absolute top-0 bottom-0 left-3 w-1"

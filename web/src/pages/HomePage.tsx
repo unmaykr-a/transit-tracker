@@ -1,10 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LocateFixed, MapPin } from "lucide-react";
+import { LocateFixed, MapPin, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { fetchDashboard, myLines, places, type Dashboard as DashboardData, type Origin } from "@/api";
+import { AddPlaceForm } from "@/components/AddPlaceForm";
 import { LineCard } from "@/components/LineCard";
 import { StaleBanner } from "@/components/StaleBanner";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ function Dashboard() {
   const geo = useGeolocation();
   const [choice, setChoice] = useState<OriginChoice>(() => load<OriginChoice>(ORIGIN_KEY, "gps"));
   const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
   const saved = useQuery({ queryKey: ["places"], queryFn: ({ signal }) => places.list(signal) });
 
   let origin: Origin = null;
@@ -117,35 +119,69 @@ function Dashboard() {
           </div>
         </div>
         {/* One scrolling row on phones, so the cards stay near the top; wraps on wide screens. */}
-        <div role="radiogroup" aria-labelledby="origin-label" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:flex-wrap lg:overflow-visible">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={choice === "gps"}
-            tabIndex={radioTabIndex(choice === "gps", 0, originChecked)}
-            onKeyDown={radioKeyDown}
-            onClick={() => pickOrigin("gps")}
-            className={cn(chip, choice === "gps" ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
-          >
-            <LocateFixed className="size-4 shrink-0" aria-hidden />
-            {choice === "gps" && !geo.enabled ? t("home.useLocation") : gpsLabel}
-          </button>
-          {saved.data?.places.map((p, i) => (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:flex-wrap lg:overflow-visible">
+          <div role="radiogroup" aria-labelledby="origin-label" className="flex shrink-0 gap-2 lg:shrink lg:flex-wrap">
             <button
-              key={p.id}
               type="button"
               role="radio"
-              aria-checked={choice === p.id}
-              tabIndex={radioTabIndex(choice === p.id, i + 1, originChecked)}
+              aria-checked={choice === "gps"}
+              tabIndex={radioTabIndex(choice === "gps", 0, originChecked)}
               onKeyDown={radioKeyDown}
-              onClick={() => pickOrigin(p.id)}
-              className={cn(chip, choice === p.id ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
+              onClick={() => pickOrigin("gps")}
+              className={cn(chip, choice === "gps" ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
             >
-              <MapPin className="size-4 shrink-0" aria-hidden />
-              <span className="max-w-48 truncate">{p.label}</span>
+              <LocateFixed className="size-4 shrink-0" aria-hidden />
+              {choice === "gps" && !geo.enabled ? t("home.useLocation") : gpsLabel}
             </button>
-          ))}
+            {saved.data?.places.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                role="radio"
+                aria-checked={choice === p.id}
+                tabIndex={radioTabIndex(choice === p.id, i + 1, originChecked)}
+                onKeyDown={radioKeyDown}
+                onClick={() => pickOrigin(p.id)}
+                className={cn(chip, choice === p.id ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
+              >
+                <MapPin className="size-4 shrink-0" aria-hidden />
+                <span className="max-w-48 truncate">{p.label}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-expanded={adding}
+            aria-controls="add-place"
+            onClick={() => setAdding((a) => !a)}
+            className={cn(chip, "border-dashed text-muted-foreground hover:text-foreground")}
+          >
+            <Plus className="size-4 shrink-0" aria-hidden />
+            {t("home.addPlace")}
+          </button>
         </div>
+        {adding && (
+          <section id="add-place" aria-labelledby="add-place-title" className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="add-place-title" className="font-semibold">
+                  {t("home.addPlace")}
+                </h2>
+                <p className="text-sm text-muted-foreground">{t("home.addPlaceHint")}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setAdding(false)} aria-label={t("vehicle.close")}>
+                <X className="size-5" />
+              </Button>
+            </div>
+            <AddPlaceForm
+              autoFocus
+              onAdded={(p) => {
+                setAdding(false);
+                pickOrigin(p.id);
+              }}
+            />
+          </section>
+        )}
       </div>
       {dash.data && !dash.data.has_origin && <p className="text-sm text-muted-foreground">{t("home.noOrigin")}</p>}
       <div className="grid gap-4 lg:grid-cols-2">

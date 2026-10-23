@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { applyUserPrefs, useSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
+import { MapHost } from "@/map/MapHost";
+import { useMapPaneMode } from "@/map/mapPane";
 
 const OPEN_PATHS = ["/login", "/signup", "/setup"];
 
@@ -20,6 +23,7 @@ export function AppShell() {
   const session = useSession();
   const { pathname, href } = useLocation();
   const user = session.data?.user;
+  const mapShown = !!useMapPaneMode();
   useEffect(() => applyUserPrefs(user), [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const s = session.data;
@@ -30,9 +34,13 @@ export function AppShell() {
   }
   return (
     <div className="flex h-dvh flex-col md:flex-row-reverse">
-      <main className="relative min-h-0 flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+      {/* The shared live map sits behind the page; pages that show it let pointer events through to it. */}
+      <div className="relative min-h-0 flex-1">
+        <MapHost />
+        <main className={cn("relative h-full overflow-y-auto", mapShown && "pointer-events-none")}>
+          <Outlet />
+        </main>
+      </div>
       <nav
         aria-label={t("nav.main")}
         className="z-10 border-t bg-background pb-[env(safe-area-inset-bottom)] md:w-20 md:border-t-0 md:border-r md:pb-0"

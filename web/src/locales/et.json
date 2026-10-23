@@ -59,7 +59,8 @@
     "gone": "See sõiduk ei edasta enam asukohta.",
     "nextStops": "Järgmised peatused",
     "openLine": "Ava liin",
-    "nextStop": "Järgmine:"
+    "nextStop": "Järgmine:",
+    "follow": "Jälgi kaardil"
   },
   "home": {
     "title": "Minu liinid",
@@ -95,7 +96,9 @@
     "waitMin": "{{min}} min ootamist",
     "tightChange": "napp ümberistumine",
     "arrive": "Kohal",
-    "laterUnknown": "Järgmised sõidud pole veel teada"
+    "laterUnknown": "Järgmised sõidud pole veel teada",
+    "addPlace": "Lisa koht",
+    "addPlaceHint": "Jalutusaeg sinu liinideni arvutatakse valitud kohast."
   },
   "search": {
     "title": "Otsing",
