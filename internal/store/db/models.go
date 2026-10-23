@@ -158,4 +158,5 @@ type UserPref struct {
 	UserID       int64
 	WalkSpeedKmh float64
 	BufferMin    int64
+	ShowRail     int64
 }

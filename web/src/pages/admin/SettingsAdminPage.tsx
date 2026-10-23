@@ -29,7 +29,11 @@ const sources: { key: Key; label: string; kind?: "number" | "url" }[] = [
   { key: "elron_gtfs_url", label: "admin.elronGtfsUrl", kind: "url" },
   { key: "geocoder_url", label: "admin.geocoderUrl", kind: "url" },
   { key: "user_agent_contact", label: "admin.uaContact", kind: "url" },
+  { key: "transitous_url", label: "admin.transitousUrl", kind: "url" },
 ];
+
+// The straight-line estimate is always the last resort, so it is not listed.
+const WALK_PROVIDERS = ["otp", "transitous"] as const;
 
 function show(v: unknown): string {
   return Array.isArray(v) ? v.join(", ") : String(v ?? "");
@@ -96,6 +100,27 @@ export default function SettingsAdminPage() {
     );
   };
 
+  const section = (id: string, title: string, intro: string | undefined, children: React.ReactNode) => (
+    <section aria-labelledby={id} className="grid gap-4 rounded-xl border bg-card p-4">
+      <div>
+        <h2 id={id} className="font-medium">
+          {title}
+        </h2>
+        {intro && <p className="text-sm text-muted-foreground">{intro}</p>}
+      </div>
+      {children}
+    </section>
+  );
+  // A feed URL with its poll interval beside it.
+  const feed = (url: Key, urlLabel: string, interval: Key, intervalLabel: string) => (
+    <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
+      {input(url, urlLabel, "url")}
+      {input(interval, intervalLabel, "number")}
+    </div>
+  );
+  const providers = value("walk_providers");
+  const setProviders = (list: string[]) => set("walk_providers", list);
+
   return (
     <form
       className="flex flex-col gap-6"
@@ -104,20 +129,30 @@ export default function SettingsAdminPage() {
         save.mutate(draft);
       }}
     >
-      <section className="grid gap-4 rounded-xl border bg-card p-4">
-        <h2 className="font-medium">{t("admin.general")}</h2>
-        {input("instance_name", "admin.instanceName")}
-        <Field label={t("admin.signupMode")} error={err("signup_mode")}>
-          <Select value={value("signup_mode")} onChange={(e) => set("signup_mode", e.target.value)}>
-            <option value="off">{t("admin.signupOff")}</option>
-            <option value="invite">{t("admin.signupInvite")}</option>
-            <option value="open">{t("admin.signupOpen")}</option>
-          </Select>
-        </Field>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4" checked={value("public_map")} onChange={(e) => set("public_map", e.target.checked)} />
-          {t("admin.publicMap")}
-        </label>
+      {section(
+        "set-general",
+        t("admin.general"),
+        undefined,
+        <>
+          {input("instance_name", "admin.instanceName")}
+          <Field label={t("admin.signupMode")} error={err("signup_mode")}>
+            <Select value={value("signup_mode")} onChange={(e) => set("signup_mode", e.target.value)}>
+              <option value="off">{t("admin.signupOff")}</option>
+              <option value="invite">{t("admin.signupInvite")}</option>
+              <option value="open">{t("admin.signupOpen")}</option>
+            </Select>
+          </Field>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="size-4" checked={value("public_map")} onChange={(e) => set("public_map", e.target.checked)} />
+            {t("admin.publicMap")}
+          </label>
+        </>,
+      )}
+
+      {section(
+        "set-defaults",
+        t("admin.visitorDefaults"),
+        t("admin.visitorDefaultsIntro"),
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("admin.defaultLocale")}>
             <Select value={value("default_locale")} onChange={(e) => set("default_locale", e.target.value)}>
@@ -133,35 +168,114 @@ export default function SettingsAdminPage() {
               <option value="dark">{t("settings.themeDark")}</option>
             </Select>
           </Field>
-        </div>
-        {general.slice(1).map((f) => input(f.key, f.label, f.kind))}
-      </section>
+        </div>,
+      )}
 
-      <section className="grid gap-4 rounded-xl border bg-card p-4">
-        <h2 className="font-medium">{t("admin.dataSources")}</h2>
-        {sources.map((f) => input(f.key, f.label, f.kind))}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
-            {refresh.isPending ? t("admin.refreshing") : t("admin.refreshStatic")}
-          </Button>
-          {refresh.error && <span className="text-sm text-red-600 dark:text-red-400">{(refresh.error as Error).message}</span>}
-          {refresh.data?.static && (
-            <span className="text-sm text-muted-foreground">
-              {t("admin.stops")}: {refresh.data.static.stops} · {t("admin.routes")}: {refresh.data.static.routes}
-            </span>
-          )}
-        </div>
-      </section>
+      {section(
+        "set-map",
+        t("admin.mapSection"),
+        undefined,
+        <>
+          {input("map_style_light", "admin.mapStyleLight", "url")}
+          {input("map_style_dark", "admin.mapStyleDark", "url")}
+          <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
+            {input("map_center", "admin.mapCenter", "center")}
+            {input("map_zoom", "admin.mapZoom", "number")}
+          </div>
+        </>,
+      )}
+
+      {section(
+        "set-live",
+        t("admin.liveSection"),
+        t("admin.liveIntro"),
+        <>
+          {feed("gps_url", "admin.gpsUrl", "gps_interval_s", "admin.gpsInterval")}
+          {feed("elron_url", "admin.elronUrl", "elron_interval_s", "admin.elronInterval")}
+        </>,
+      )}
+
+      {section(
+        "set-static",
+        t("admin.timetableSection"),
+        t("admin.timetableIntro"),
+        <>
+          {input("siri_url", "admin.siriUrl", "url")}
+          {input("otp_url", "admin.otpUrl", "url")}
+          {input("stops_url", "admin.stopsUrl", "url")}
+          {input("elron_gtfs_url", "admin.elronGtfsUrl", "url")}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" disabled={refresh.isPending} onClick={() => refresh.mutate()}>
+              {refresh.isPending ? t("admin.refreshing") : t("admin.refreshStatic")}
+            </Button>
+            {refresh.error && <span className="text-sm text-red-600 dark:text-red-400">{(refresh.error as Error).message}</span>}
+            {refresh.data?.static && (
+              <span className="text-sm text-muted-foreground">
+                {t("admin.stops")}: {refresh.data.static.stops} · {t("admin.routes")}: {refresh.data.static.routes}
+              </span>
+            )}
+          </div>
+        </>,
+      )}
+
+      {section(
+        "set-walk",
+        t("admin.walkSection"),
+        undefined,
+        <>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium">{t("admin.walkProviders")}</legend>
+            <p className="text-sm text-muted-foreground">{t("admin.walkProvidersHint")}</p>
+            <ol className="divide-y rounded-lg border">
+              {WALK_PROVIDERS.map((name) => {
+                const at = providers.indexOf(name);
+                return (
+                  <li key={name} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <input
+                      id={`walk-${name}`}
+                      type="checkbox"
+                      className="size-4"
+                      checked={at >= 0}
+                      onChange={(e) => setProviders(e.target.checked ? [...providers, name] : providers.filter((p) => p !== name))}
+                    />
+                    <label htmlFor={`walk-${name}`} className="flex-1">
+                      {t(`admin.walk.${name}`)}
+                    </label>
+                    {at >= 0 && <span className="text-xs text-muted-foreground tabular-nums">#{at + 1}</span>}
+                    {at > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setProviders(providers.with(at - 1, name).with(at, providers[at - 1]!))}
+                        aria-label={t("admin.walkFirst", { name: t(`admin.walk.${name}`) })}
+                      >
+                        ↑
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+            {err("walk_providers") && <p className="text-sm text-red-600 dark:text-red-400">{err("walk_providers")}</p>}
+          </fieldset>
+          {input("transitous_url", "admin.transitousUrl", "url")}
+          {input("geocoder_url", "admin.geocoderUrl", "url")}
+        </>,
+      )}
+
+      {section("set-polite", t("admin.politeSection"), t("admin.politeIntro"), input("user_agent_contact", "admin.uaContact", "url"))}
 
       {save.error && !(save.error instanceof ApiError && save.error.field) && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {(save.error as Error).message}
         </p>
       )}
-      <div className="sticky bottom-0 flex items-center gap-3 bg-background py-3">
+      <div className="sticky bottom-0 flex items-center gap-3 border-t bg-background py-3">
         <Button type="submit" disabled={Object.keys(draft).length === 0 || save.isPending}>
           {t("account.save")}
         </Button>
+        {Object.keys(draft).length > 0 && <span className="text-sm text-muted-foreground">{t("admin.unsaved", { count: Object.keys(draft).length })}</span>}
         {save.isSuccess && Object.keys(draft).length === 0 && <span className="text-sm text-muted-foreground">{t("account.saved")}</span>}
       </div>
     </form>

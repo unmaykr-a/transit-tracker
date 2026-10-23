@@ -111,7 +111,13 @@
     "feeds": "Data feeds",
     "feedOk": "OK",
     "feedStale": "Delayed",
-    "credits": "Map © <ofm>OpenFreeMap</ofm>, <osm>OpenStreetMap</osm> contributors. Data: Tallinna Transpordiamet, Elron, Maa- ja Ruumiamet (addresses)."
+    "credits": "Map © <ofm>OpenFreeMap</ofm>, <osm>OpenStreetMap</osm> contributors. Data: Tallinna Transpordiamet, Elron, Maa- ja Ruumiamet (addresses).",
+    "display": "Display",
+    "apps": "Integrations",
+    "sections": "Sections",
+    "railLines": "Railway lines on the map",
+    "railLinesHint": "Draw the train tracks on the live map, also when zoomed out.",
+    "walkingIntro": "How fast you walk and where from, for “can I make it?”."
   },
   "time": {
     "now": "now",
@@ -217,7 +223,8 @@
       "adminGroup": "This provider account is not in the administrators group, so signing in with it makes this account a regular user (unless it is the last administrator). Add it to the group at your provider, or keep signing in with your password.",
       "sso_link_taken": "That provider account is already linked to another user. Unlink it there first.",
       "sso_link_session": "The link was finished in a different session. Start again from here."
-    }
+    },
+    "allSessions": "Show all {{count}}"
   },
   "admin": {
     "title": "Administration",
@@ -280,7 +287,7 @@
     "otpUrl": "OpenTripPlanner API",
     "stopsUrl": "Tallinn stops file",
     "elronGtfsUrl": "Elron GTFS",
-    "uaContact": "User-Agent contact URL",
+    "uaContact": "Contact (URL or email)",
     "resetDefault": "Reset to default",
     "overridden": "overridden",
     "default": "default: {{value}}",
@@ -313,7 +320,27 @@
     "tokens": "API tokens",
     "geocoderUrl": "Address search (In-ADS)",
     "invalidNumber": "Enter a number (the centre is “longitude, latitude”).",
-    "resetRevokes": "Their sessions and API tokens are revoked."
+    "resetRevokes": "Their sessions and API tokens are revoked.",
+    "visitorDefaults": "Defaults for visitors",
+    "visitorDefaultsIntro": "Used until someone picks their own language or theme.",
+    "mapSection": "Map",
+    "liveSection": "Live vehicles",
+    "liveIntro": "Polled continuously; never faster than the feeds update.",
+    "timetableSection": "Timetables and stops",
+    "timetableIntro": "Live departures per stop and the nightly import (03:30).",
+    "walkSection": "Walking and addresses",
+    "walkProviders": "Walking routes",
+    "walkProvidersHint": "Tried in this order; a straight-line estimate is the last resort.",
+    "walk": {
+      "otp": "OpenTripPlanner (peatus.ee)",
+      "transitous": "Transitous"
+    },
+    "walkFirst": "Try {{name}} earlier",
+    "transitousUrl": "Transitous API",
+    "politeSection": "Upstream contact",
+    "politeIntro": "Sent in the User-Agent of every upstream request, so data providers can reach you.",
+    "unsaved_one": "{{count}} unsaved change",
+    "unsaved_other": "{{count}} unsaved changes"
   },
   "verdict": {
     "leaveIn": "Leave in {{min}} min",

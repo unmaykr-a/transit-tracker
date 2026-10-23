@@ -140,11 +140,17 @@ export default function LinePage() {
                     {s.name}
                     {s.platform && <span className="text-muted-foreground"> · {s.platform}</span>}
                   </Link>
-                  {at.map((h) => (
-                    <span key={h.vehicle.id} className="rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ background: color }}>
-                      {h.atStop ? t("line.here") : t("line.approaching")}
-                    </span>
-                  ))}
+                  {/* One badge per kind; two trams approaching the same stop show "×2", not two badges. */}
+                  {([true, false] as const).map((atStop) => {
+                    const n = at.filter((h) => h.atStop === atStop).length;
+                    if (n === 0) return null;
+                    return (
+                      <span key={String(atStop)} className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ background: color }}>
+                        {atStop ? t("line.here") : t("line.approaching")}
+                        {n > 1 && ` ×${n}`}
+                      </span>
+                    );
+                  })}
                 </li>
               );
             })}

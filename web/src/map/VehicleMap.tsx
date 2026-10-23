@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { MapStop } from "@/api";
 import { pillText } from "@/lib/lines";
 import { live } from "@/lib/liveClient";
+import { useShowRail } from "@/lib/mapPrefs";
 import { loadShapes, patternRoutes, shapes } from "@/lib/shapes";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { prefersReducedMotion, useTheme } from "@/lib/theme";
@@ -490,8 +491,9 @@ export default function VehicleMap({ modes, lineTokens, stops, selected, onSelec
     mapRef.current?.getSource<GeoJSONSource>("places")?.setData(placeFeatures(places));
   }, [places]);
 
-  // Railway lines follow the train filter chip.
-  const showRail = modes.has("train");
+  // Railway lines are opt-in (Settings → Map) and follow the train filter chip.
+  const [railPref] = useShowRail();
+  const showRail = railPref && modes.has("train");
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;

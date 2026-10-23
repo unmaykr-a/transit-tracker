@@ -32,11 +32,9 @@ export function ApiTokensSection() {
   const err = create.error instanceof ApiError ? create.error.message : undefined;
 
   return (
-    <section className="flex flex-col gap-3" aria-labelledby="api-tokens">
+    <div className="flex flex-col gap-3">
       <div>
-        <h2 id="api-tokens" className="font-medium">
-          {t("tokens.title")}
-        </h2>
+        <h3 className="text-sm font-medium">{t("tokens.title")}</h3>
         <p className="text-sm text-muted-foreground">{t("tokens.intro")}</p>
       </div>
       <form
@@ -98,6 +96,6 @@ export function ApiTokensSection() {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }

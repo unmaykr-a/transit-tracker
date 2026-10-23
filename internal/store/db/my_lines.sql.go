@@ -246,13 +246,18 @@ func (q *Queries) GetSavedPlace(ctx context.Context, arg GetSavedPlaceParams) (S
 }
 
 const getUserPrefs = `-- name: GetUserPrefs :one
-SELECT user_id, walk_speed_kmh, buffer_min FROM user_prefs WHERE user_id = ?
+SELECT user_id, walk_speed_kmh, buffer_min, show_rail FROM user_prefs WHERE user_id = ?
 `
 
 func (q *Queries) GetUserPrefs(ctx context.Context, userID int64) (UserPref, error) {
 	row := q.db.QueryRowContext(ctx, getUserPrefs, userID)
 	var i UserPref
-	err := row.Scan(&i.UserID, &i.WalkSpeedKmh, &i.BufferMin)
+	err := row.Scan(
+		&i.UserID,
+		&i.WalkSpeedKmh,
+		&i.BufferMin,
+		&i.ShowRail,
+	)
 	return i, err
 }
 
@@ -457,17 +462,24 @@ func (q *Queries) UpdateSavedPlace(ctx context.Context, arg UpdateSavedPlacePara
 }
 
 const upsertUserPrefs = `-- name: UpsertUserPrefs :exec
-INSERT INTO user_prefs (user_id, walk_speed_kmh, buffer_min) VALUES (?, ?, ?)
-ON CONFLICT (user_id) DO UPDATE SET walk_speed_kmh = excluded.walk_speed_kmh, buffer_min = excluded.buffer_min
+INSERT INTO user_prefs (user_id, walk_speed_kmh, buffer_min, show_rail) VALUES (?, ?, ?, ?)
+ON CONFLICT (user_id) DO UPDATE SET walk_speed_kmh = excluded.walk_speed_kmh, buffer_min = excluded.buffer_min,
+    show_rail = excluded.show_rail
 `
 
 type UpsertUserPrefsParams struct {
 	UserID       int64
 	WalkSpeedKmh float64
 	BufferMin    int64
+	ShowRail     int64
 }
 
 func (q *Queries) UpsertUserPrefs(ctx context.Context, arg UpsertUserPrefsParams) error {
-	_, err := q.db.ExecContext(ctx, upsertUserPrefs, arg.UserID, arg.WalkSpeedKmh, arg.BufferMin)
+	_, err := q.db.ExecContext(ctx, upsertUserPrefs,
+		arg.UserID,
+		arg.WalkSpeedKmh,
+		arg.BufferMin,
+		arg.ShowRail,
+	)
 	return err
 }

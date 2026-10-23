@@ -111,7 +111,13 @@
     "feeds": "Andmeallikad",
     "feedOk": "Korras",
     "feedStale": "Hilineb",
-    "credits": "Kaart © <ofm>OpenFreeMap</ofm>, <osm>OpenStreetMapi</osm> kaastöötajad. Andmed: Tallinna Transpordiamet, Elron, Maa- ja Ruumiamet (aadressid)."
+    "credits": "Kaart © <ofm>OpenFreeMap</ofm>, <osm>OpenStreetMapi</osm> kaastöötajad. Andmed: Tallinna Transpordiamet, Elron, Maa- ja Ruumiamet (aadressid).",
+    "display": "Kuva",
+    "apps": "Ühendused",
+    "sections": "Jaotised",
+    "railLines": "Raudteed kaardil",
+    "railLinesHint": "Näita rongiteid reaalajas kaardil, ka välja suumituna.",
+    "walkingIntro": "Kui kiiresti ja kust sa kõnnid, et teada, kas jõuad peale."
   },
   "time": {
     "now": "kohe",
@@ -217,7 +223,8 @@
       "adminGroup": "See teenusepakkuja konto ei kuulu administraatorite gruppi, nii et sellega sisenedes muutub see konto tavakasutajaks (välja arvatud siis, kui see on viimane administraator). Lisa konto teenusepakkuja juures gruppi või jätka parooliga sisenemist.",
       "sso_link_taken": "See teenusepakkuja konto on juba seotud teise kasutajaga. Eemalda seos seal enne.",
       "sso_link_session": "Sidumine lõpetati teises sessioonis. Alusta siit uuesti."
-    }
+    },
+    "allSessions": "Näita kõiki ({{count}})"
   },
   "admin": {
     "title": "Haldus",
@@ -280,7 +287,7 @@
     "otpUrl": "OpenTripPlanneri API",
     "stopsUrl": "Tallinna peatuste fail",
     "elronGtfsUrl": "Elroni GTFS",
-    "uaContact": "User-Agenti kontakt-URL",
+    "uaContact": "Kontakt (URL või e-post)",
     "resetDefault": "Taasta vaikeväärtus",
     "overridden": "muudetud",
     "default": "vaikimisi: {{value}}",
@@ -313,7 +320,27 @@
     "tokens": "API-võtmed",
     "geocoderUrl": "Aadressiotsing (In-ADS)",
     "invalidNumber": "Sisesta arv (keskpunkt on „pikkuskraad, laiuskraad“).",
-    "resetRevokes": "Tema seansid ja API-võtmed tühistatakse."
+    "resetRevokes": "Tema seansid ja API-võtmed tühistatakse.",
+    "visitorDefaults": "Vaikimisi külastajatele",
+    "visitorDefaultsIntro": "Kehtib, kuni inimene valib oma keele või teema.",
+    "mapSection": "Kaart",
+    "liveSection": "Sõidukid reaalajas",
+    "liveIntro": "Päritakse pidevalt, kuid mitte tihedamini, kui andmed uuenevad.",
+    "timetableSection": "Sõiduplaanid ja peatused",
+    "timetableIntro": "Peatuste reaalajas väljumised ja öine import (03:30).",
+    "walkSection": "Kõndimine ja aadressid",
+    "walkProviders": "Kõnniteekonnad",
+    "walkProvidersHint": "Proovitakse selles järjekorras; viimane võimalus on linnulennuline hinnang.",
+    "walk": {
+      "otp": "OpenTripPlanner (peatus.ee)",
+      "transitous": "Transitous"
+    },
+    "walkFirst": "Proovi {{name}} varem",
+    "transitousUrl": "Transitous API",
+    "politeSection": "Kontakt andmepakkujatele",
+    "politeIntro": "Saadetakse iga päringu User-Agent päises, et andmepakkujad saaksid sinuga ühendust võtta.",
+    "unsaved_one": "{{count}} salvestamata muudatus",
+    "unsaved_other": "{{count}} salvestamata muudatust"
   },
   "verdict": {
     "leaveIn": "Mine {{min}} min pärast",

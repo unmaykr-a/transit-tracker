@@ -467,6 +467,7 @@ export interface DashboardEntry {
 export interface Prefs {
   walk_speed_kmh: number;
   buffer_min: number;
+  show_rail?: boolean;
 }
 
 export interface Place {
