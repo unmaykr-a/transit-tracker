@@ -17,6 +17,7 @@ import { useSession } from "@/lib/session";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/theme";
 import { useLiveState } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 function Segmented<T extends string>({
   value,
@@ -31,12 +32,14 @@ function Segmented<T extends string>({
 }) {
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex w-fit rounded-lg border bg-muted p-1">
-      {options.map((o) => (
+      {options.map((o, i) => (
         <button
           key={o.value}
           type="button"
           role="radio"
           aria-checked={value === o.value}
+          tabIndex={radioTabIndex(value === o.value, i, options.some((x) => x.value === value))}
+          onKeyDown={radioKeyDown}
           onClick={() => onChange(o.value)}
           className={cn(
             "rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

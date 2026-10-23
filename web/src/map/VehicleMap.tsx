@@ -69,7 +69,8 @@ function addRailLayers(map: MLMap) {
   if (!map.getSource("rail")) map.addSource("rail", { type: "geojson", data: NO_FEATURES });
   const width: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 7, 1.5, 12, 3, 16, 5];
   map.addLayer(
-    { id: "rail", type: "line", source: "rail", minzoom: 6, paint: { "line-color": MODE_COLORS.train, "line-opacity": 0.55, "line-width": width } },
+    // Hidden until the person turns railway lines on (the effect below shows them).
+    { id: "rail", type: "line", source: "rail", minzoom: 6, layout: { visibility: "none" }, paint: { "line-color": MODE_COLORS.train, "line-opacity": 0.55, "line-width": width } },
     "stops",
   );
   // White ties on the line, the usual way maps draw railways.
@@ -79,6 +80,7 @@ function addRailLayers(map: MLMap) {
       type: "line",
       source: "rail",
       minzoom: 11,
+      layout: { visibility: "none" },
       paint: { "line-color": "#ffffff", "line-opacity": 0.8, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 16, 2], "line-dasharray": [2, 3] },
     },
     "stops",

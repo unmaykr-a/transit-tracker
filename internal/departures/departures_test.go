@@ -192,3 +192,26 @@ func TestCountyBusesJoinCityBoards(t *testing.T) {
 		t.Errorf("siri=%d otp=%d calls", u.siriCalls.Load(), u.otpCalls.Load())
 	}
 }
+
+// On the day the clocks go back, "seconds since midnight" and the wall clock
+// differ by an hour; departures follow the board's own server clock either way.
+func TestSiriTimesOnClockChangeDay(t *testing.T) {
+	now := time.Date(2026, 10, 25, 10, 0, 0, 0, tallinn) // EET, an hour after the change
+	s := &Service{Location: tallinn, Index: func() *staticdata.Index { return nil }}
+	st := &staticdata.Stop{ID: "1"}
+	for name, server := range map[string]int{"wall clock": 10 * 3600, "elapsed": 11 * 3600} {
+		b := feeds.SiriBoard{ServerSecOfDay: server, Departures: []feeds.SiriDeparture{{Mode: feeds.ModeBus, Line: "17", ExpectedSec: server + 600, ScheduledSec: server + 540}}}
+		got := s.fromSiri(st, b, now)
+		if !got[0].ExpectedAt.Equal(now.Add(10*time.Minute)) || !got[0].ScheduledAt.Equal(now.Add(9*time.Minute)) {
+			t.Errorf("%s: expected %v scheduled %v, want %v", name, got[0].ExpectedAt, got[0].ScheduledAt, now.Add(10*time.Minute))
+		}
+	}
+	// Around midnight a row may count from the next day (small) or past 86400.
+	late := time.Date(2026, 10, 22, 23, 58, 0, 0, tallinn)
+	for _, sec := range []int{120, 86520} {
+		b := feeds.SiriBoard{ServerSecOfDay: 86280, Departures: []feeds.SiriDeparture{{Mode: feeds.ModeBus, Line: "17", ExpectedSec: sec, ScheduledSec: sec}}}
+		if got := s.fromSiri(st, b, late)[0].ExpectedAt; !got.Equal(late.Add(4 * time.Minute)) {
+			t.Errorf("row %d: %v, want %v", sec, got, late.Add(4*time.Minute))
+		}
+	}
+}

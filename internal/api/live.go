@@ -100,6 +100,8 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 	defer unsubscribe()
 	staleTick := time.NewTicker(5 * time.Second)
 	defer staleTick.Stop()
+	accessTick := time.NewTicker(streamRecheck)
+	defer accessTick.Stop()
 
 	filter := initial
 	var sent map[string]state.Vehicle // never modified: it is shared with other clients
@@ -110,7 +112,6 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 		return send("snapshot", fr.snapshot(filter, s))
 	}
 	lastStale := s.health.StaleMap()
-	ticks := 0
 	if err := snapshot(); err != nil {
 		return err
 	}
@@ -146,12 +147,13 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 			if err := send("diff", b); err != nil {
 				return err
 			}
-		case <-staleTick.C:
+		case <-accessTick.C:
 			// Access is checked when a stream opens; re-check now and then, so turning the
 			// public map off, logging out or disabling the user also ends open streams.
-			if ticks++; ticks%6 == 0 && !s.mayStream(r) {
+			if !s.mayStream(r) {
 				return nil
 			}
+		case <-staleTick.C:
 			if st := s.health.StaleMap(); !maps.Equal(st, lastStale) {
 				lastStale = st
 				b, err := json.Marshal(liveMessage{Type: "stale", Version: s.store.Version(), ServerTime: time.Now(), Feeds: s.health.Snapshot()})
@@ -165,6 +167,9 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 		}
 	}
 }
+
+// streamRecheck is how often an open stream re-checks that its client may still see the map.
+var streamRecheck = 30 * time.Second
 
 // clientMessage is what a client may send on /ws.
 type clientMessage struct {

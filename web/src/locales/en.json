@@ -194,6 +194,10 @@
       "sso_failed": "Single sign-on failed. Try again.",
       "sso_no_account": "There is no account for this sign-in. If you already have one, log in with your password and link it under Settings → Single sign-on; otherwise ask an administrator for an invite.",
       "sso_disabled": "This account is disabled."
+    },
+    "roleNames": {
+      "user": "User",
+      "admin": "Administrator"
     }
   },
   "account": {

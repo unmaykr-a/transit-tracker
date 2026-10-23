@@ -15,6 +15,7 @@ import { useSession } from "@/lib/session";
 import { useLiveState } from "@/lib/useLive";
 import { useWide } from "@/lib/useWide";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 const LineMap = lazy(() => import("@/map/LineMap"));
 const LiveMapPane = lazy(() => import("@/map/LiveMapPane"));
@@ -92,12 +93,14 @@ export default function LinePage() {
 
         {mains.length > 1 && (
           <div role="radiogroup" aria-label={t("line.direction")} className="grid grid-cols-2 gap-2">
-            {mains.map((p) => (
+            {mains.map((p, i) => (
               <button
                 key={p.id}
                 type="button"
                 role="radio"
                 aria-checked={p.id === pattern.id}
+                tabIndex={radioTabIndex(p.id === pattern.id, i, true)}
+                onKeyDown={radioKeyDown}
                 onClick={() => setDir(p.direction)}
                 className={cn(
                   "truncate rounded-xl border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 const tripRoute = getRouteApi("/trips/new");
 
@@ -192,7 +193,9 @@ export default function TripPage() {
             <ul className="divide-y rounded-lg border bg-card">
               {found.map((l) => (
                 <li key={l.route_id + l.board_stop.id} className="flex items-center gap-3 px-3 py-2">
-                  <LinePill mode={l.mode} line={l.short_name} className="h-7 min-w-10" />
+                  <span className="flex w-12 shrink-0">
+                    <LinePill mode={l.mode} line={l.short_name} className="h-7 min-w-10" />
+                  </span>
                   <div className="min-w-0 flex-1 text-sm">
                     <p className="truncate font-medium">→ {l.headsigns[0]}</p>
                     <p className="truncate text-muted-foreground">
@@ -224,12 +227,14 @@ export default function TripPage() {
             </span>
             <p className="text-sm text-muted-foreground">{t("trip.startPlaceHint")}</p>
             <div role="radiogroup" aria-labelledby="trip-start" className="flex flex-wrap gap-2">
-              {[{ id: null, label: t("trip.noStartPlace") }, ...placeOptions].map((p) => (
+              {[{ id: null, label: t("trip.noStartPlace") }, ...placeOptions].map((p, i, all) => (
                 <button
                   key={p.id ?? "none"}
                   type="button"
                   role="radio"
                   aria-checked={placeValue === p.id}
+                  tabIndex={radioTabIndex(placeValue === p.id, i, all.some((x) => x.id === placeValue))}
+                  onKeyDown={radioKeyDown}
                   onClick={() => setPlace(p.id)}
                   className={cn(
                     "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

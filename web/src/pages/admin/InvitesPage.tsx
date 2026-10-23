@@ -38,8 +38,8 @@ export default function InvitesPage() {
       >
         <Field label={t("admin.role")}>
           <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            <option value="user">{t("auth.roles.user")}</option>
-            <option value="admin">{t("auth.roles.admin")}</option>
+            <option value="user">{t("auth.roleNames.user")}</option>
+            <option value="admin">{t("auth.roleNames.admin")}</option>
           </Select>
         </Field>
         <Field label={t("admin.expiresIn")}>
@@ -82,7 +82,7 @@ export default function InvitesPage() {
             <li key={inv.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
-                  {t(`auth.roles.${inv.role}`)} · {state}
+                  {t(`auth.roleNames.${inv.role}`)} · {state}
                 </p>
                 <p className="text-muted-foreground">
                   {inv.created_by} · {relative(inv.created_at, i18n.resolvedLanguage, now)} · {t("admin.expires")}{" "}

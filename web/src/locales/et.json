@@ -194,6 +194,10 @@
       "sso_failed": "Ühekordne sisselogimine ebaõnnestus. Proovi uuesti.",
       "sso_no_account": "Selle sisselogimise jaoks pole kontot. Kui sul on konto olemas, logi sisse parooliga ja seo see jaotises Seaded → Ühekordne sisselogimine; muidu küsi administraatorilt kutset.",
       "sso_disabled": "See konto on keelatud."
+    },
+    "roleNames": {
+      "user": "Kasutaja",
+      "admin": "Administraator"
     }
   },
   "account": {

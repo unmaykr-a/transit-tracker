@@ -13,6 +13,7 @@ import { useSession } from "@/lib/session";
 import { load, save } from "@/lib/storage";
 import { useNow } from "@/lib/useLive";
 import { cn } from "@/lib/utils";
+import { radioKeyDown, radioTabIndex } from "@/lib/radioGroup";
 
 type OriginChoice = "gps" | number;
 const chip = "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm";
@@ -66,6 +67,7 @@ function Dashboard() {
     reorder.mutate(ids);
   };
 
+  const originChecked = choice === "gps" || !!saved.data?.places.some((p) => p.id === choice);
   const gpsLabel =
     geo.state.status === "locating" ? t("home.locating") : geo.state.status === "denied" ? t("home.locationDenied") : t("home.myLocation");
 
@@ -120,18 +122,22 @@ function Dashboard() {
             type="button"
             role="radio"
             aria-checked={choice === "gps"}
+            tabIndex={radioTabIndex(choice === "gps", 0, originChecked)}
+            onKeyDown={radioKeyDown}
             onClick={() => pickOrigin("gps")}
             className={cn(chip, choice === "gps" ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
           >
             <LocateFixed className="size-4 shrink-0" aria-hidden />
             {choice === "gps" && !geo.enabled ? t("home.useLocation") : gpsLabel}
           </button>
-          {saved.data?.places.map((p) => (
+          {saved.data?.places.map((p, i) => (
             <button
               key={p.id}
               type="button"
               role="radio"
               aria-checked={choice === p.id}
+              tabIndex={radioTabIndex(choice === p.id, i + 1, originChecked)}
+              onKeyDown={radioKeyDown}
               onClick={() => pickOrigin(p.id)}
               className={cn(chip, choice === p.id ? "border-foreground bg-card font-medium" : "text-muted-foreground")}
             >

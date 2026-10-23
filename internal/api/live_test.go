@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -207,4 +208,54 @@ func TestVehiclesREST(t *testing.T) {
 	if res, body := get(t, srv.URL+"/api/v1/status"); res.StatusCode != 200 || !strings.Contains(body, `"feeds"`) {
 		t.Errorf("status: %d %s", res.StatusCode, body)
 	}
+}
+
+// Open streams end when their access goes: logging out, or the map stops being public.
+func TestStreamsEndWhenAccessGoes(t *testing.T) {
+	old := streamRecheck
+	streamRecheck = 50 * time.Millisecond
+	t.Cleanup(func() { streamRecheck = old })
+	srv, newClient, _ := accountServer(t)
+	admin := newClient()
+	admin.do("POST", "/api/v1/auth/setup", map[string]string{"username": "andri", "password": "hunter2hunter2"})
+
+	open := func(c *client) (done chan struct{}) {
+		t.Helper()
+		req, _ := http.NewRequest("GET", srv.URL+"/api/v1/vehicles/stream", nil)
+		res, err := c.http.Do(req)
+		if err != nil || res.StatusCode != 200 {
+			t.Fatalf("stream: %v %v", err, res)
+		}
+		done = make(chan struct{})
+		go func() {
+			defer close(done)
+			defer res.Body.Close()
+			_, _ = io.Copy(io.Discard, res.Body) // returns when the server ends the stream
+		}()
+		return done
+	}
+	ended := func(done chan struct{}, what string) {
+		t.Helper()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatalf("stream still open after %s", what)
+		}
+	}
+
+	anon := newClient()
+	anonStream := open(anon)
+	if code, _ := admin.do("PATCH", "/api/v1/admin/settings", map[string]any{"public_map": false}); code != 200 {
+		t.Fatal("settings")
+	}
+	ended(anonStream, "the map stopped being public")
+
+	adminStream := open(admin)
+	select {
+	case <-adminStream:
+		t.Fatal("a signed-in stream must stay open")
+	case <-time.After(200 * time.Millisecond):
+	}
+	admin.do("POST", "/api/v1/auth/logout", nil)
+	ended(adminStream, "logout")
 }
