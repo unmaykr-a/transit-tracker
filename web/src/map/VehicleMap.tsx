@@ -327,6 +327,21 @@ function addVehicleLayers(map: MLMap) {
   });
 }
 
+/**
+ * How much of the map's bottom a full-width sheet over it covers (MapSheet marks
+ * itself with data-map-cover). Side cards on wide screens cover no full width: 0.
+ */
+function coveredBottom(container: HTMLElement): number {
+  const box = container.getBoundingClientRect();
+  let covered = 0;
+  for (const el of document.querySelectorAll<HTMLElement>("[data-map-cover]")) {
+    const r = el.getBoundingClientRect();
+    if (r.width < box.width * 0.9 || r.bottom < box.top || r.top > box.bottom) continue;
+    covered = Math.max(covered, box.bottom - Math.max(r.top, box.top));
+  }
+  return Math.min(Math.round(covered), Math.round(box.height * 0.7));
+}
+
 export default function VehicleMap({
   modes,
   lineTokens,
@@ -453,7 +468,11 @@ export default function VehicleMap({
         for (const id of tweens.keys()) if (!applied.state.vehicles.has(id)) tweens.delete(id);
       }
       for (const id of applied.removed) tweens.delete(id);
-      for (const v of applied.changed) tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate, shapeOf));
+      // How old each fix is now, by the server's clock: drives dead reckoning (lib/tween.ts).
+      const serverNow = Date.now() + applied.state.clockSkewMs;
+      for (const v of applied.changed) {
+        tweens.set(v.id, nextTween(tweens.get(v.id), v, now, animate, shapeOf, serverNow - Date.parse(v.updated_at)));
+      }
       dirtyRef.current = true;
     });
     // The snapshot may have arrived before this (lazy-loaded) map subscribed;
@@ -481,11 +500,14 @@ export default function VehicleMap({
       if (followed) {
         const [lat, lon] = positionAt(followed, now, shapeOf);
         const c = map.getCenter();
+        // On phones the vehicle sheet covers the bottom of the map: centre in what is left.
+        const padding = { top: 0, left: 0, right: 0, bottom: coveredBottom(map.getContainer()) };
+        const pad = map.getPadding();
         if (followZoomRef.current) {
           followZoomRef.current = false;
-          map.jumpTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 15) });
-        } else if (Math.abs(c.lat - lat) > 1e-6 || Math.abs(c.lng - lon) > 1e-6) {
-          map.jumpTo({ center: [lon, lat] });
+          map.jumpTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 15), padding });
+        } else if (Math.abs(c.lat - lat) > 1e-6 || Math.abs(c.lng - lon) > 1e-6 || Math.abs((pad.bottom ?? 0) - padding.bottom) > 4) {
+          map.jumpTo({ center: [lon, lat], padding });
         }
       }
       if (!moving && !dirtyRef.current) return;

@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"embed"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -70,6 +71,9 @@ func (f FakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		body, err = zipFS("testdata/elron_gtfs")
 	case "graphql":
 		return f.fakeOTP(req)
+	case "vehicle-positions.pb", "trip-updates.pb":
+		// County GTFS-RT: no county lines offline (see fakeOTP), so an empty, fresh feed.
+		body = emptyGTFSRT(tick)
 	case "gazetteer": // In-ADS address search: one fixed answer
 		body, err = fakeFS.ReadFile("testdata/inads_parnu_mnt_20.json")
 		if err != nil {
@@ -86,6 +90,13 @@ func (f FakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return respond(req, http.StatusNotModified, nil, tick), nil
 	}
 	return respond(req, http.StatusOK, body, tick), nil
+}
+
+// emptyGTFSRT is a FeedMessage with only a header (version, timestamp).
+func emptyGTFSRT(at time.Time) []byte {
+	header := append([]byte{0x0a, 3}, "2.0"...)
+	header = binary.AppendUvarint(append(header, 0x18), uint64(at.Unix()))
+	return append(binary.AppendUvarint([]byte{0x0a}, uint64(len(header))), header...)
 }
 
 func respond(req *http.Request, status int, body []byte, lastModified time.Time) *http.Response {

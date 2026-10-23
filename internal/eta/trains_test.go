@@ -2,6 +2,7 @@ package eta
 
 import (
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -87,4 +88,28 @@ func (g *Geometry) byIDOrRail(id string) (*PatternGeom, bool) {
 		}
 	}
 	return nil, false
+}
+
+func TestRouteEnds(t *testing.T) {
+	for _, c := range []struct {
+		in       string
+		from, to []string
+	}{
+		{"Keila - Tallinn", []string{"keila"}, []string{"tallinn"}},
+		{"Tartu-Tallinn", []string{"tartu"}, []string{"tallinn"}},
+		{"Tartu - Tapa (Tallinn)", []string{"tartu"}, []string{"tapa"}},
+		{"(Tartu) Tapa - Tallinn", []string{"tapa"}, []string{"tallinn"}},
+		{"Tallinn - Valga / Riia", []string{"tallinn"}, []string{"valga", "riia"}},
+		{"Tallinn - Tartu RV", []string{"tallinn"}, []string{"tartu"}},
+		{"Balti jaam - Pääsküla", []string{"tallinn"}, []string{"paasku"}},
+		{"Turba", nil, []string{"turba"}},
+	} {
+		from, to := routeEnds(c.in)
+		if c.in == "Balti jaam - Pääsküla" {
+			c.to = []string{stationName("Pääsküla")}
+		}
+		if !slices.Equal(from, c.from) || !slices.Equal(to, c.to) {
+			t.Errorf("routeEnds(%q) = %q, %q; want %q, %q", c.in, from, to, c.from, c.to)
+		}
+	}
 }

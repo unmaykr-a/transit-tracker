@@ -14,11 +14,24 @@ import (
 // Departures give the real start of a ride; this fills in when it ends.
 func (t *Tracker) PatternTimes(ix *staticdata.Index, p *staticdata.Pattern) []float64 {
 	if g := t.geo.Load(); g != nil {
-		if pg, ok := g.byID[p.ID]; ok {
+		if pg, ok := g.byID[p.ID]; ok && t.hasLive(ix, p) {
 			return t.learnedTimes(pg)
 		}
 	}
 	return StaticTimes(ix, p)
+}
+
+// hasLive reports whether live data can inform a pattern's ride times: city
+// lines always (their default speeds are city speeds), county lines once one of
+// their buses has been followed (until then StaticTimes' county speed is better).
+func (t *Tracker) hasLive(ix *staticdata.Index, p *staticdata.Pattern) bool {
+	if r, ok := ix.Route(p.RouteID); !ok || r.Source != "county" {
+		return true
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	_, ok := t.routeSpeed[p.RouteID]
+	return ok
 }
 
 func (t *Tracker) learnedTimes(pg *PatternGeom) []float64 {

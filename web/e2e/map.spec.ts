@@ -162,13 +162,20 @@ test("follow a vehicle: the map keeps it in the centre until it is dragged", asy
   const offCentre = () =>
     page.evaluate((id) => {
       const m = (globalThis as unknown as {
-        __tramMap: { queryRenderedFeatures: (o: object) => { properties: { id: string }; geometry: { coordinates: [number, number] } }[]; project: (c: [number, number]) => { x: number; y: number }; getCanvas: () => HTMLCanvasElement };
+        __tramMap: {
+          queryRenderedFeatures: (o: object) => { properties: { id: string }; geometry: { coordinates: [number, number] } }[];
+          project: (c: [number, number]) => { x: number; y: number };
+          getCanvas: () => HTMLCanvasElement;
+          getPadding: () => { bottom?: number };
+        };
       }).__tramMap;
       const f = m.queryRenderedFeatures({ layers: ["vehicle-pills", "vehicle-pill-selected", "vehicle-dots"] }).find((x) => x.properties.id === id);
       if (!f) return Infinity;
       const p = m.project(f.geometry.coordinates);
       const c = m.getCanvas();
-      return Math.hypot(p.x - c.clientWidth / 2, p.y - c.clientHeight / 2);
+      // The centre of what the sheet leaves visible (on phones it covers the bottom).
+      const pad = m.getPadding();
+      return Math.hypot(p.x - c.clientWidth / 2, p.y - (c.clientHeight - (pad.bottom ?? 0)) / 2);
     }, target.id);
   await page.waitForTimeout(6000);
   expect(await offCentre()).toBeLessThan(30);
@@ -202,4 +209,70 @@ test("wide screens keep one live map from a line to a stop to the map page", asy
   const target = pills.find((p) => p.y > 200 && p.y < vp.height - 250 && p.x > 120 && p.x < vp.width - 60) ?? pills[0]!;
   await page.mouse.click(target.x, target.y);
   await expect(page.locator("section[aria-label]").filter({ hasText: "towards" })).toBeVisible();
+});
+
+test("on board: pick the stop to get off at and the sheet counts down to it", async ({ page, request }) => {
+  await page.goto("/map");
+  const pills = await renderedPills(page, 10);
+  const vehicles: { id: string; pattern_id?: string }[] = (await (await request.get("/api/v1/vehicles")).json()).vehicles;
+  const matched = new Set(vehicles.filter((v) => v.pattern_id).map((v) => v.id));
+  const vp = page.viewportSize()!;
+  const target = pills.find((p) => matched.has(p.id) && p.y > 200 && p.y < vp.height - 250 && p.x > 120 && p.x < vp.width - 60);
+  test.skip(!target, "no matched vehicle on screen");
+  await page.mouse.click(target!.x, target!.y);
+  const sheet = page.locator("section[aria-label]").filter({ hasText: "towards" });
+  await expandSheet(sheet);
+  await sheet.getByRole("button", { name: "I'm on board" }).click();
+  await expect(sheet.getByText("Where do you get off?")).toBeVisible();
+  const choices = sheet.getByRole("button", { name: /^Get off at / });
+  await expect(choices.first()).toBeVisible();
+  const pick = choices.nth(Math.min(2, (await choices.count()) - 1));
+  const name = ((await pick.getAttribute("aria-label")) ?? "").replace("Get off at ", "");
+  await pick.click();
+  const status = sheet.getByRole("status");
+  await expect(status).toContainText(new RegExp(`(stops? before|Get ready:|next stop:).*${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  // Riding follows the vehicle; Stop ends the ride.
+  await expect(sheet.getByRole("button", { name: "Follow on the map" })).toHaveAttribute("aria-pressed", "true");
+  await status.getByRole("button", { name: "Stop" }).click();
+  await expect(status).toBeHidden();
+});
+
+test("phones: map sheets drag down to close; text fields do not make iOS zoom", async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 768, "phones only");
+  await page.goto("/map");
+  const pills = await renderedPills(page);
+  const vp = page.viewportSize()!;
+  const target = pills.find((p) => p.y > 200 && p.y < vp.height - 250 && p.x > 60 && p.x < vp.width - 60) ?? pills[0]!;
+  await page.mouse.click(target.x, target.y);
+  const sheet = page.locator("section[aria-label]").filter({ hasText: "towards" });
+  await expect(sheet).toBeVisible();
+  // Up opens it, down makes it compact again, down once more closes it.
+  const handle = sheet.getByRole("button", { name: "Show details" }).first();
+  // A finger, not a mouse: phones send touch events.
+  const cdp = await page.context().newCDPSession(page);
+  const drag = async (dy: number) => {
+    await page.waitForTimeout(250); // the sheet settles back from the previous drag
+    const box = (await sheet.boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + 30; // the header: part of the drag area
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 6; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + (dy * i) / 6 }] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  };
+  await expect(handle).toBeVisible();
+  await drag(-80);
+  await expect(sheet.getByRole("button", { name: "Show less" })).toBeVisible();
+  await drag(90);
+  await expect(sheet.getByRole("button", { name: "Show details" }).first()).toBeVisible();
+  await drag(70); // the compact sheet is near the bottom edge: a short drag
+
+  await expect(sheet).toBeHidden();
+
+  // Safari zooms into fields with text under 16 px.
+  const small = await page.evaluate(() =>
+    [...document.querySelectorAll("input:not([type=checkbox]), select, textarea")]
+      .map((e) => parseFloat(getComputedStyle(e).fontSize))
+      .filter((s) => s < 16),
+  );
+  expect(small).toEqual([]);
 });

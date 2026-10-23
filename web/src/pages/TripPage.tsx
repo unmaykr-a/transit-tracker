@@ -195,9 +195,15 @@ export default function TripPage() {
     queryFn: ({ signal }) => fetchStop(search.from!, signal),
     enabled: !!search.from && !editId,
   });
+  const presetTo = useQuery({
+    queryKey: ["stop", search.to],
+    queryFn: ({ signal }) => fetchStop(search.to!, signal),
+    enabled: !!search.to && !editId,
+  });
   const initialFrom = existing?.from ?? (preset.data ? { id: preset.data.id, name: preset.data.name } : undefined);
+  const initialTo = existing?.to ?? (presetTo.data ? { id: presetTo.data.id, name: presetTo.data.name } : undefined);
   const fromValue = from === undefined ? initialFrom : (from ?? undefined);
-  const toValue = to === undefined ? existing?.to : (to ?? undefined);
+  const toValue = to === undefined ? initialTo : (to ?? undefined);
   const labelValue = label ?? existing?.label ?? "";
   const placeValue = place === undefined ? (existing?.origin_place_id ?? null) : place;
 

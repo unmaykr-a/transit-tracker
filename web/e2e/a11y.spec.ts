@@ -45,7 +45,7 @@ for (const scheme of ["light", "dark"] as const) {
 
 test("keyboard only: search, open a stop, switch platform, open a line", async ({ page }) => {
   await page.goto("/search");
-  const box = page.getByRole("searchbox", { name: "Search lines and stops" });
+  const box = page.getByRole("searchbox", { name: "Search lines, stops and places" });
   await box.focus();
   await page.keyboard.type("balti jaam");
   const first = page.getByRole("link", { name: /^Balti jaam/ }).first();

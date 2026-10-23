@@ -22,7 +22,7 @@ test("Trips: pick two stops, see the lines between them, save the trip", async (
   await expect(page.getByRole("heading", { name: "Trip between two stops" })).toBeVisible();
   await expect(page.getByText(a.name, { exact: true })).toBeVisible();
 
-  await page.getByLabel("To").fill(b.name);
+  await page.getByLabel("To", { exact: true }).fill(b.name);
   await page.getByRole("list", { name: "To: results" }).getByRole("button", { name: new RegExp(b.name) }).first().click();
   const found = page.getByRole("region", { name: "How to ride" });
   await expect(found.getByRole("radio", { name: /Direct/ })).toHaveAttribute("aria-checked", "true");
@@ -75,7 +75,7 @@ test("Trips with a change: no line rides directly, so the form offers ways with 
 
   await page.goto("/trips/new?from=a13012");
   await expect(page.getByText(opts.from.name, { exact: true })).toBeVisible();
-  await page.getByLabel("To").fill(opts.to.name);
+  await page.getByLabel("To", { exact: true }).fill(opts.to.name);
   await page.getByRole("list", { name: "To: results" }).getByRole("button", { name: new RegExp(opts.to.name) }).first().click();
 
   const how = page.getByRole("region", { name: "How to ride" });

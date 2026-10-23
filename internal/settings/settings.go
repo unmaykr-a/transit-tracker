@@ -29,15 +29,18 @@ type Settings struct {
 	MapCenter     [2]float64 `json:"map_center"` // lon, lat
 	MapZoom       float64    `json:"map_zoom"`
 
-	GPSURL           string `json:"gps_url"`
-	GPSIntervalS     int    `json:"gps_interval_s"`
-	ElronURL         string `json:"elron_url"`
-	ElronIntervalS   int    `json:"elron_interval_s"`
-	SiriURL          string `json:"siri_url"`
-	OTPURL           string `json:"otp_url"`
-	StopsURL         string `json:"stops_url"`
-	ElronGTFSURL     string `json:"elron_gtfs_url"`
-	UserAgentContact string `json:"user_agent_contact"`
+	GPSURL         string `json:"gps_url"`
+	GPSIntervalS   int    `json:"gps_interval_s"`
+	ElronURL       string `json:"elron_url"`
+	ElronIntervalS int    `json:"elron_interval_s"`
+	SiriURL        string `json:"siri_url"`
+	OTPURL         string `json:"otp_url"`
+	StopsURL       string `json:"stops_url"`
+	ElronGTFSURL   string `json:"elron_gtfs_url"`
+	// County buses live (GTFS-RT); empty turns that feed off.
+	CountyVehiclesURL string `json:"county_vehicles_url"`
+	CountyTripsURL    string `json:"county_trips_url"`
+	UserAgentContact  string `json:"user_agent_contact"`
 
 	// WalkProviders is the order walking routes are tried in; a straight-line
 	// estimate is always the last resort.
@@ -125,6 +128,13 @@ func (s Settings) Validate() error {
 	} {
 		if err := checkURL(field, v); err != nil {
 			return err
+		}
+	}
+	for field, v := range map[string]string{"county_vehicles_url": s.CountyVehiclesURL, "county_trips_url": s.CountyTripsURL} {
+		if v != "" {
+			if err := checkURL(field, v); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

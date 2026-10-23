@@ -1,13 +1,16 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 
@@ -426,10 +429,88 @@ func (s *Server) mountStatic(r chi.Router) {
 	r.Get("/vehicles/{id}/trip", s.handleVehicleTrip)
 	r.Get("/patterns/{id}", s.handlePattern)
 	r.Get("/search", s.handleSearch)
+	r.Get("/places", s.handlePlaces)
 	r.Get("/stops", s.handleAllStops)
 	r.Get("/stops/search", s.handleStopSearch)
 	r.Get("/stops/{id}", s.handleStop)
 	r.Get("/stops/{id}/departures", s.handleStopDepartures)
 	r.Get("/lines/search", s.handleLineSearch)
 	r.Get("/lines/{mode}/{line}", s.handleLine)
+}
+
+// placesPerMinute caps upstream address searches (cache misses) across all
+// visitors: the gazetteer is a public service, and place search is public.
+const placesPerMinute = 60
+
+type placeHit struct {
+	feeds.Address
+	Stops []nearbyJSON `json:"stops"`
+}
+
+type nearbyJSON struct {
+	areaJSON
+	DistM int `json:"dist_m"`
+}
+
+// handlePlaces finds addresses and named places ("Stockmann" → Liivalaia 53)
+// with the stop areas nearest to each: how to get somewhere whose stop you do
+// not know. Answers are cached for an hour (shared with /geocode).
+func (s *Server) handlePlaces(w http.ResponseWriter, r *http.Request) {
+	q := strings.Join(strings.Fields(r.URL.Query().Get("q")), " ")
+	if s.geocode == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"places": []placeHit{}})
+		return
+	}
+	if n := utf8.RuneCountInString(q); n < 3 || n > 100 {
+		s.writeErr(w, invalid("q", "must be 3–100 characters"))
+		return
+	}
+	addrs, err := s.geocodeCache.Get(r.Context(), strings.ToLower(q), func(ctx context.Context) ([]feeds.Address, error) {
+		if !s.placesBudget() {
+			return nil, errPlacesBusy
+		}
+		return s.geocode(ctx, q)
+	})
+	if err != nil {
+		if errors.Is(err, errPlacesBusy) {
+			writeError(w, http.StatusTooManyRequests, "place search is busy, try again in a minute", "")
+			return
+		}
+		s.log.Warn("places", "err", err)
+		writeError(w, http.StatusBadGateway, "place search failed", "")
+		return
+	}
+	ix := s.index()
+	out := []placeHit{}
+	for _, a := range addrs {
+		near := ix.NearestAreas(a.Lat, a.Lon, 1500, 3)
+		if len(near) == 0 {
+			continue // far from every stop this instance knows (another county)
+		}
+		p := placeHit{Address: a, Stops: make([]nearbyJSON, 0, len(near))}
+		for _, n := range near {
+			p.Stops = append(p.Stops, nearbyJSON{areaJSON{n.Area, areaLines(ix, n.Area)}, int(n.DistM)})
+		}
+		out = append(out, p)
+		if len(out) == 5 {
+			break
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"places": out})
+}
+
+var errPlacesBusy = errors.New("place search budget used up")
+
+// placesBudget takes one upstream search from this minute's budget.
+func (s *Server) placesBudget() bool {
+	s.placesMu.Lock()
+	defer s.placesMu.Unlock()
+	if now := time.Now(); now.Sub(s.placesWindow) >= time.Minute {
+		s.placesWindow, s.placesUsed = now, 0
+	}
+	if s.placesUsed >= placesPerMinute {
+		return false
+	}
+	s.placesUsed++
+	return true
 }

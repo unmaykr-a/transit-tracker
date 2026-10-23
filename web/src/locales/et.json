@@ -29,7 +29,9 @@
     "vehicles_other": "{{count}} sõidukit",
     "feed": {
       "gps": "linnatransport",
-      "elron": "rongid"
+      "elron": "rongid",
+      "county": "maakonnabussid",
+      "county-trips": "maakonnabusside ajad"
     }
   },
   "map": {
@@ -60,7 +62,8 @@
     "nextStops": "Järgmised peatused",
     "openLine": "Ava liin",
     "nextStop": "Järgmine:",
-    "follow": "Jälgi kaardil"
+    "follow": "Jälgi kaardil",
+    "county": "Maakonnabuss"
   },
   "home": {
     "title": "Minu liinid",
@@ -103,12 +106,17 @@
   "search": {
     "title": "Otsing",
     "soon": "Liini numbri ja peatuse nime järgi otsing tuleb järgmisena.",
-    "placeholder": "Liini number või peatuse nimi",
+    "placeholder": "Liin, peatus või koht",
     "lines": "Liinid",
     "stops": "Peatused",
     "noResults": "Päringule „{{q}}” ei leitud midagi.",
-    "hint": "Proovi liini numbrit, nt 4 või 24A, või peatust, nt Balti jaam.",
-    "label": "Otsi liine ja peatusi"
+    "hint": "Proovi liini numbrit, nt 4 või 24A, peatust, nt Balti jaam, või kohta, nt Stockmann.",
+    "label": "Otsi liine, peatusi ja kohti",
+    "places": "Kohad",
+    "nearestStops": "Lähimad peatused",
+    "distance": "{{m}} m",
+    "tripTo": "Sõit siia",
+    "tripToLabel": "Planeeri sõit peatusesse {{stop}}"
   },
   "settings": {
     "title": "Seaded",
@@ -355,7 +363,10 @@
     "politeSection": "Kontakt andmepakkujatele",
     "politeIntro": "Saadetakse iga päringu User-Agent päises, et andmepakkujad saaksid sinuga ühendust võtta.",
     "unsaved_one": "{{count}} salvestamata muudatus",
-    "unsaved_other": "{{count}} salvestamata muudatust"
+    "unsaved_other": "{{count}} salvestamata muudatust",
+    "countyVehiclesUrl": "Maakonnabussid (GTFS-RT sõidukite asukohad)",
+    "countyTripsUrl": "Maakonnabusside ajad (GTFS-RT reisid)",
+    "countyHint": "Harjumaa bussid ÜTK Põhjast. Jäta tühjaks, et välja lülitada."
   },
   "verdict": {
     "leaveIn": "Mine {{min}} min pärast",
@@ -453,5 +464,20 @@
     "changeAt": "Ümberistumine: {{stop}}",
     "walkChange": "Ümberistumine: kõnni {{m}} m peatusest {{from}} peatusse {{to}}",
     "leg": "{{from}} → {{to}}"
+  },
+  "ride": {
+    "onBoard": "Olen peal",
+    "choose": "Kus väljud?",
+    "hint": "Puuduta oma peatust. Telefon väriseb peatus enne ja uuesti järgmise peatuse eel (Androidis, kui see leht on avatud).",
+    "getOffAt": "Välju peatuses {{stop}}",
+    "stopsLeft_one": "{{count}} peatus enne peatust {{stop}}",
+    "stopsLeft_other": "{{count}} peatust enne peatust {{stop}}",
+    "prepare": "Valmistu: {{stop}} on ülejärgmine peatus",
+    "next": "Välju järgmises peatuses: {{stop}}",
+    "arrived": "Jõudsid peatusesse {{stop}}",
+    "waiting": "Väljud peatuses {{stop}}",
+    "eta": "Kohal: {{when}}",
+    "stop": "Lõpeta",
+    "done": "Valmis"
   }
 }

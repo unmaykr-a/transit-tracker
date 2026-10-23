@@ -113,7 +113,9 @@ func serve(cfg config.Config) error {
 		ElronGTFSURL:       func() string { return cur().ElronGTFSURL },
 	}
 	go importer.Run(ctx)
-	deps := &departures.Service{Fetcher: fetcher, OTP: otp, SiriURL: func() string { return cur().SiriURL }, Index: importer.Index, Location: tallinn}
+	countyTrips := &ingest.CountyTrips{URL: func() string { return cur().CountyTripsURL }, Fetcher: fetcher}
+	deps := &departures.Service{Fetcher: fetcher, OTP: otp, SiriURL: func() string { return cur().SiriURL }, Index: importer.Index, Location: tallinn,
+		CountyLive: countyTrips.Expected}
 
 	vehicles := state.NewStore()
 	health := ingest.NewHealth()
@@ -122,6 +124,13 @@ func serve(cfg config.Config) error {
 	// Live feeds retry at least every minute, so the map recovers soon after the upstream does.
 	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll, MaxBackoff: time.Minute})
 	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll, MaxBackoff: time.Minute})
+	if cfg.County {
+		// Live Harju county buses: positions as often as the feed changes (~5 s), predicted times less often.
+		county := &ingest.CountyPoller{URL: func() string { return cur().CountyVehiclesURL }, Fetcher: fetcher, Store: vehicles,
+			Known: func(line string) bool { return isCountyLine(importer.Index(), line) }, Annotate: tracker.AnnotateCounty}
+		go health.Run(ctx, log, ingest.Feed{Name: "county", Interval: func() time.Duration { return 5 * time.Second }, Poll: county.Poll, MaxBackoff: time.Minute})
+		go health.Run(ctx, log, ingest.Feed{Name: "county-trips", Interval: func() time.Duration { return 20 * time.Second }, Poll: countyTrips.Poll, MaxBackoff: 2 * time.Minute})
+	}
 	go cleanupSessions(ctx, log, db)
 	go prewarmSaved(ctx, log, db, importer.Index, deps)
 	walker := walk.NewService([]walk.Provider{
@@ -182,6 +191,15 @@ func serve(cfg config.Config) error {
 	return nil
 }
 
+// isCountyLine reports whether a bus line is a Harju county route of the static data.
+func isCountyLine(ix *staticdata.Index, line string) bool {
+	if ix == nil {
+		return false
+	}
+	r, ok := ix.Route(staticdata.RouteID(feeds.ModeBus, line))
+	return ok && r.Source == "county"
+}
+
 // defaultSettings are the environment-derived values admin settings override.
 func defaultSettings(cfg config.Config) settings.Settings {
 	return settings.Settings{
@@ -192,6 +210,7 @@ func defaultSettings(cfg config.Config) settings.Settings {
 		GPSURL: cfg.Feeds.GPSURL, GPSIntervalS: int(cfg.Feeds.GPSInterval / time.Second),
 		ElronURL: cfg.Feeds.ElronURL, ElronIntervalS: int(cfg.Feeds.ElronInterval / time.Second),
 		SiriURL: cfg.Feeds.SiriURL, OTPURL: cfg.Feeds.OTPURL, StopsURL: cfg.Feeds.StopsURL, ElronGTFSURL: cfg.Feeds.ElronGTFSURL,
+		CountyVehiclesURL: cfg.Feeds.CountyVehiclesURL, CountyTripsURL: cfg.Feeds.CountyTripsURL,
 		UserAgentContact: cfg.Contact,
 		WalkProviders:    []string{walk.ProviderOTP, walk.ProviderTransitous, walk.ProviderHaversine},
 		TransitousURL:    "https://api.transitous.org/api/v5/plan",

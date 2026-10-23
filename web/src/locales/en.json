@@ -29,7 +29,9 @@
     "vehicles_other": "{{count}} vehicles",
     "feed": {
       "gps": "city transport",
-      "elron": "trains"
+      "elron": "trains",
+      "county": "county buses",
+      "county-trips": "county bus times"
     }
   },
   "map": {
@@ -60,7 +62,8 @@
     "nextStops": "Next stops",
     "openLine": "Open line",
     "nextStop": "Next:",
-    "follow": "Follow on the map"
+    "follow": "Follow on the map",
+    "county": "County bus"
   },
   "home": {
     "title": "My lines",
@@ -103,12 +106,17 @@
   "search": {
     "title": "Search",
     "soon": "Search by line number or stop name is coming next.",
-    "placeholder": "Line number or stop name",
+    "placeholder": "Line, stop or place",
     "lines": "Lines",
     "stops": "Stops",
     "noResults": "Nothing found for “{{q}}”.",
-    "hint": "Try a line number such as 4 or 24A, or a stop such as Balti jaam.",
-    "label": "Search lines and stops"
+    "hint": "Try a line number such as 4 or 24A, a stop such as Balti jaam, or a place such as Stockmann.",
+    "label": "Search lines, stops and places",
+    "places": "Places",
+    "nearestStops": "Nearest stops",
+    "distance": "{{m}} m",
+    "tripTo": "Trip here",
+    "tripToLabel": "Plan a trip to {{stop}}"
   },
   "settings": {
     "title": "Settings",
@@ -355,7 +363,10 @@
     "politeSection": "Upstream contact",
     "politeIntro": "Sent in the User-Agent of every upstream request, so data providers can reach you.",
     "unsaved_one": "{{count}} unsaved change",
-    "unsaved_other": "{{count}} unsaved changes"
+    "unsaved_other": "{{count}} unsaved changes",
+    "countyVehiclesUrl": "County buses (GTFS-RT vehicle positions)",
+    "countyTripsUrl": "County bus times (GTFS-RT trip updates)",
+    "countyHint": "Harju county buses from ÜTK Põhja. Leave empty to turn off."
   },
   "verdict": {
     "leaveIn": "Leave in {{min}} min",
@@ -453,5 +464,20 @@
     "changeAt": "Change at {{stop}}",
     "walkChange": "Change: walk {{m}} m from {{from}} to {{to}}",
     "leg": "{{from}} → {{to}}"
+  },
+  "ride": {
+    "onBoard": "I'm on board",
+    "choose": "Where do you get off?",
+    "hint": "Tap your stop. The phone buzzes a stop before it and again at the next stop (Android, while this page is open).",
+    "getOffAt": "Get off at {{stop}}",
+    "stopsLeft_one": "{{count}} stop before {{stop}}",
+    "stopsLeft_other": "{{count}} stops before {{stop}}",
+    "prepare": "Get ready: {{stop}} is after the next stop",
+    "next": "Get off at the next stop: {{stop}}",
+    "arrived": "You have reached {{stop}}",
+    "waiting": "Getting off at {{stop}}",
+    "eta": "Arrival: {{when}}",
+    "stop": "Stop",
+    "done": "Done"
   }
 }

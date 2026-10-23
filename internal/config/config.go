@@ -65,6 +65,9 @@ type FeedConfig struct {
 	OTPURL        string        // BUS_OTP_URL, peatus.ee OpenTripPlanner GraphQL
 	StopsURL      string        // BUS_STOPS_URL, Tallinn stops.txt
 	ElronGTFSURL  string        // BUS_ELRON_GTFS_URL
+	// County buses live (GTFS-RT, ÜTK Põhja via Ridango); "off" disables.
+	CountyVehiclesURL string // BUS_COUNTY_VEHICLES_URL
+	CountyTripsURL    string // BUS_COUNTY_TRIPS_URL
 }
 
 const repoURL = "https://github.com/unmaykr-a/transit-tracker"
@@ -80,12 +83,14 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	c.Contact = or(getenv("BUS_CONTACT"), or(c.BaseURL, repoURL))
 	c.Feeds = FeedConfig{
-		GPSURL:       or(getenv("BUS_GPS_URL"), "https://transport.tallinn.ee/gps.txt"),
-		ElronURL:     or(getenv("BUS_ELRON_URL"), "https://elron.ee/map_data.json"),
-		SiriURL:      or(getenv("BUS_SIRI_URL"), "https://transport.tallinn.ee/siri-stop-departures.php"),
-		OTPURL:       or(getenv("BUS_OTP_URL"), "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql"),
-		StopsURL:     or(getenv("BUS_STOPS_URL"), "https://transport.tallinn.ee/data/stops.txt"),
-		ElronGTFSURL: or(getenv("BUS_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
+		GPSURL:            or(getenv("BUS_GPS_URL"), "https://transport.tallinn.ee/gps.txt"),
+		ElronURL:          or(getenv("BUS_ELRON_URL"), "https://elron.ee/map_data.json"),
+		SiriURL:           or(getenv("BUS_SIRI_URL"), "https://transport.tallinn.ee/siri-stop-departures.php"),
+		OTPURL:            or(getenv("BUS_OTP_URL"), "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql"),
+		StopsURL:          or(getenv("BUS_STOPS_URL"), "https://transport.tallinn.ee/data/stops.txt"),
+		ElronGTFSURL:      or(getenv("BUS_ELRON_GTFS_URL"), "https://eu-gtfs.remix.com/elron.zip"),
+		CountyVehiclesURL: orOff(getenv("BUS_COUNTY_VEHICLES_URL"), "https://ytkpohja-avl-prod.ridango.cloud/data/gtfs/vehicle-positions.pb"),
+		CountyTripsURL:    orOff(getenv("BUS_COUNTY_TRIPS_URL"), "https://ytkpohja-avl-prod.ridango.cloud/data/gtfs/trip-updates.pb"),
 	}
 	var err error
 	if c.County, err = parseBoolDefault(getenv("BUS_COUNTY"), true); err != nil {
@@ -189,6 +194,14 @@ func duration(getenv func(string) string, key string, def, minimum time.Duration
 		return 0, fmt.Errorf("%s %q: must be at least %s", key, v, minimum)
 	}
 	return d, nil
+}
+
+// orOff is or, with "off" meaning none.
+func orOff(v, def string) string {
+	if v == "off" {
+		return ""
+	}
+	return or(v, def)
 }
 
 func or(v, def string) string {

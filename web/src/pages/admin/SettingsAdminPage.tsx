@@ -23,6 +23,8 @@ const sources: { key: Key; label: string; kind?: "number" | "url" }[] = [
   { key: "gps_interval_s", label: "admin.gpsInterval", kind: "number" },
   { key: "elron_url", label: "admin.elronUrl", kind: "url" },
   { key: "elron_interval_s", label: "admin.elronInterval", kind: "number" },
+  { key: "county_vehicles_url", label: "admin.countyVehiclesUrl", kind: "url" },
+  { key: "county_trips_url", label: "admin.countyTripsUrl", kind: "url" },
   { key: "siri_url", label: "admin.siriUrl", kind: "url" },
   { key: "otp_url", label: "admin.otpUrl", kind: "url" },
   { key: "stops_url", label: "admin.stopsUrl", kind: "url" },
@@ -192,6 +194,9 @@ export default function SettingsAdminPage() {
         <>
           {feed("gps_url", "admin.gpsUrl", "gps_interval_s", "admin.gpsInterval")}
           {feed("elron_url", "admin.elronUrl", "elron_interval_s", "admin.elronInterval")}
+          {input("county_vehicles_url", "admin.countyVehiclesUrl", "url")}
+          {input("county_trips_url", "admin.countyTripsUrl", "url")}
+          <p className="text-xs text-muted-foreground">{t("admin.countyHint")}</p>
         </>,
       )}
 
