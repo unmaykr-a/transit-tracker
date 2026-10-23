@@ -71,6 +71,9 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - Instance defaults (`lib/mapConfig.ts`, applied in the session query before anything renders): admin map styles and
   start view feed every map via `styleUrl`/`startView`; `default_theme`/`default_locale` apply only to visitors without
   their own choice (`bus.theme`, `bus.lang`; the language is saved only by `setLanguage`, not by detection).
+- Railway lines are opt-in: `lib/mapPrefs.ts` `useShowRail()` (`user_prefs.show_rail` for accounts, `bus.map.rail`
+  for visitors); the rail layers start hidden. Settings pages use `components/SettingsGroup.tsx` (`SettingsGroup`,
+  `SettingRow`); button radio groups use `lib/radioGroup.ts` (one Tab stop, arrow keys).
 - `liveClient` closes the stream 30 s after the last listener leaves or the tab is hidden, and reconnects at once on
   `visibilitychange`/`online`. Destructive actions use `components/ConfirmButton.tsx`.
 - Static API: `/api/v1/search?q=`, `/stops/search`, `/lines/search`, `/stops` (all platforms, ETag),

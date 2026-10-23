@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.7.0 — 2026-10-23
+
+Upgrading: pull the new image; the first start adds one column (`user_prefs.show_rail`).
+
+- **Railway lines are now opt-in**: off by default, switched on under Settings → Display (saved in your account,
+  or in the browser for visitors).
+- **Settings are grouped**: Account, Display, Walking, Integrations and About, with a bar to jump between them.
+  Admin settings are grouped too (general, visitor defaults, map, live vehicles, timetables, walking and
+  addresses, upstream contact), and the walking route providers and Transitous URL can now be edited there.
+- **Built for many users at once**, tested with up to 3,500 simultaneous live-map clients plus browsing and
+  signed-in users (`tools/loadtest`, results in `docs/load-testing.md`):
+  - Live updates are encoded once per update and shared by every client with the same view. At 1,800 clients,
+    worst-case response times fell from 1.4 s to 60 ms and memory from 719 MB to 112 MB.
+  - The database keeps a pool of connections instead of reopening them under load (dashboard p95 400 ms → 2 ms).
+  - Sign-ups no longer hold the database while hashing the password, which made other changes fail with
+    "database is locked" during bursts of sign-ups.
+- **Times on clock-change days**: live departures follow the feed's own clock, so they no longer shift by an hour
+  on the day the clocks change (next: 25 October).
+- **Keyboard**: choice groups (theme, language, walking-from, directions, stops) have one Tab stop and work with
+  the arrow keys.
+- **Layout fixes**:
+  - Home has a tidy header with the walking-from choices in one row.
+  - Removing a line asks on its own row.
+  - Line names line up in lists.
+  - Two vehicles approaching the same stop show "×2" instead of two badges.
+  - Feed and role names are capitalised, and long session lists collapse.
+- Open live streams re-check access on their own timer (tested). CI actions are pinned to commit SHAs, and
+  Dependabot is set up to propose updates.
+
 ## 1.6.0 — 2026-10-22
 
 A review and polish pass over the whole project; no new features. Upgrading: pull the new image, and update the Home
