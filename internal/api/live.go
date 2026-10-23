@@ -82,9 +82,8 @@ func positionOnly(old, cur state.Vehicle) bool {
 }
 
 func (s *Server) filtered(f Filter) (uint64, map[string]state.Vehicle) {
-	version, all := s.store.Snapshot()
-	maps.DeleteFunc(all, func(_ string, v state.Vehicle) bool { return !f.match(v) })
-	return version, all
+	fr := s.frame()
+	return fr.version, fr.view(f).vehicles
 }
 
 func sortedVehicles(m map[string]state.Vehicle) []state.Vehicle {
@@ -94,20 +93,21 @@ func sortedVehicles(m map[string]state.Vehicle) []state.Vehicle {
 }
 
 // liveSession streams a snapshot, then diffs against what this client last
-// received. Diffing per client (instead of fanning out one global diff) makes
-// slow clients self-healing: they simply get a larger diff next time.
-func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filter, filters <-chan Filter, send func(liveMessage) error) error {
+// received (see livehub.go: clients that kept up share one encoded diff per
+// update; the others get their own, so slow clients self-heal).
+func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filter, filters <-chan Filter, send func(typ string, b []byte) error) error {
 	notify, unsubscribe := s.store.Subscribe()
 	defer unsubscribe()
 	staleTick := time.NewTicker(5 * time.Second)
 	defer staleTick.Stop()
 
 	filter := initial
-	var sent map[string]state.Vehicle
+	var sent map[string]state.Vehicle // never modified: it is shared with other clients
+	var sentVersion uint64
 	snapshot := func() error {
-		version, cur := s.filtered(filter)
-		sent = cur
-		return send(liveMessage{Type: "snapshot", Version: version, ServerTime: time.Now(), Vehicles: sortedVehicles(cur), Feeds: s.health.Snapshot()})
+		fr := s.frame()
+		sent, sentVersion = fr.view(filter).vehicles, fr.version
+		return send("snapshot", fr.snapshot(filter, s))
 	}
 	lastStale := s.health.StaleMap()
 	ticks := 0
@@ -124,31 +124,26 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 				return err
 			}
 		case <-notify:
-			version, cur := s.filtered(filter)
-			msg := liveMessage{Type: "diff", Version: version, ServerTime: time.Now()}
-			for id, v := range cur {
-				old, ok := sent[id]
-				switch {
-				case ok && old.Equal(v):
-				case ok && positionOnly(old, v):
-					msg.Move = append(msg.Move, move{v})
-				default:
-					msg.Upsert = append(msg.Upsert, v)
-				}
-			}
-			for id := range sent {
-				if _, ok := cur[id]; !ok {
-					msg.Remove = append(msg.Remove, id)
-				}
-			}
-			if len(msg.Upsert) == 0 && len(msg.Move) == 0 && len(msg.Remove) == 0 {
+			fr := s.frame()
+			if fr.version == sentVersion {
 				continue
 			}
-			slices.SortFunc(msg.Upsert, func(a, b state.Vehicle) int { return strings.Compare(a.ID, b.ID) })
-			slices.SortFunc(msg.Move, func(a, b move) int { return strings.Compare(a.v.ID, b.v.ID) })
-			slices.Sort(msg.Remove)
-			sent = cur
-			if err := send(msg); err != nil {
+			b, shared := fr.sharedDiff(filter, sentVersion)
+			cur := fr.view(filter).vehicles
+			if !shared {
+				msg, changed := diffMessage(sent, cur, fr.version, time.Now())
+				if changed {
+					var err error
+					if b, err = json.Marshal(msg); err != nil {
+						return err
+					}
+				}
+			}
+			sent, sentVersion = cur, fr.version
+			if b == nil {
+				continue
+			}
+			if err := send("diff", b); err != nil {
 				return err
 			}
 		case <-staleTick.C:
@@ -159,7 +154,11 @@ func (s *Server) liveSession(ctx context.Context, r *http.Request, initial Filte
 			}
 			if st := s.health.StaleMap(); !maps.Equal(st, lastStale) {
 				lastStale = st
-				if err := send(liveMessage{Type: "stale", Version: s.store.Version(), ServerTime: time.Now(), Feeds: s.health.Snapshot()}); err != nil {
+				b, err := json.Marshal(liveMessage{Type: "stale", Version: s.store.Version(), ServerTime: time.Now(), Feeds: s.health.Snapshot()})
+				if err != nil {
+					return err
+				}
+				if err := send("stale", b); err != nil {
 					return err
 				}
 			}
@@ -225,11 +224,7 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	err = s.liveSession(ctx, r, filterFromQuery(r), filters, func(m liveMessage) error {
-		b, err := json.Marshal(m)
-		if err != nil {
-			return err
-		}
+	err = s.liveSession(ctx, r, filterFromQuery(r), filters, func(_ string, b []byte) error {
 		wctx, wcancel := context.WithTimeout(ctx, 10*time.Second)
 		defer wcancel()
 		return c.Write(wctx, websocket.MessageText, b)
@@ -285,12 +280,10 @@ func (s *Server) vehicleStream(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	})
-	_ = s.liveSession(ctx, r, filterFromQuery(r), nil, func(m liveMessage) error {
-		b, err := json.Marshal(m)
-		if err != nil {
-			return err
-		}
-		return write([]byte("event: " + m.Type + "\ndata: " + string(b) + "\n\n"))
+	_ = s.liveSession(ctx, r, filterFromQuery(r), nil, func(typ string, b []byte) error {
+		chunk := make([]byte, 0, len(b)+len(typ)+16)
+		chunk = append(append(append(append(chunk, "event: "...), typ...), "\ndata: "...), b...)
+		return write(append(chunk, "\n\n"...))
 	})
 }
 
