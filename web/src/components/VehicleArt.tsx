@@ -1,29 +1,31 @@
-import { KIND_COLORS } from "@/lib/modeColors";
-import type { Kind } from "@/lib/types";
+import { LIVERY_COLORS, type Livery, type LiveryColors } from "@/lib/livery";
 
 /**
- * A side view of the vehicle, drawn after the real ones: Tallinn's low-floor
- * articulated trams (pantograph, three sections), its trolleybuses (two poles to
- * the wires), city buses (three doors), coach-like county buses, and Elron's
- * electric/diesel units (sloped cab). In the kind's colour; facing right.
+ * A side view of the vehicle in its operator's current livery (see lib/livery):
+ * TLT's Pesa/CAF trams, Solaris buses and Škoda trolleybuses (white, black window
+ * band, slanted skirt blocks and a dashed roof line in the mode's colour), GoBus's
+ * red Tartu Scanias with the white skyline, Elron's orange-nosed units and the
+ * white county coaches. Facing right.
  */
-export function VehicleArt({ kind, className }: { kind: Kind; className?: string }) {
-  const c = KIND_COLORS[kind];
+export function VehicleArt({ livery, className }: { livery: Livery; className?: string }) {
+  const c = LIVERY_COLORS[livery];
   return (
     <svg viewBox="0 0 240 72" role="img" aria-hidden className={className}>
       {/* road / rail */}
       <line x1="4" y1="66" x2="236" y2="66" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
-      {kind === "tram" && <Tram c={c} />}
-      {kind === "trolley" && <Bus c={c} doors={3} poles />}
-      {kind === "bus" && <Bus c={c} doors={3} />}
-      {kind === "county" && <Coach c={c} />}
-      {kind === "train" && <Train c={c} />}
+      {livery === "tlt-tram" && <Tram c={c} />}
+      {livery === "tlt-trolley" && <CityBus c={c} poles />}
+      {livery === "tlt-bus" && <CityBus c={c} gas />}
+      {livery === "tartu" && <TartuBus c={c} />}
+      {livery === "county" && <Coach c={c} />}
+      {livery === "elron" && <Train c={c} />}
     </svg>
   );
 }
 
-const GLASS = "#1e293b";
+const OUTLINE = "#94a3b8";
 const WHEEL = "#111827";
+const POLE = "#475569";
 
 function Wheels({ xs, y = 62, r = 5.5 }: { xs: number[]; y?: number; r?: number }) {
   return (
@@ -38,105 +40,178 @@ function Wheels({ xs, y = 62, r = 5.5 }: { xs: number[]; y?: number; r?: number 
   );
 }
 
-function Windows({ from, to, y, h, gap = 3, n }: { from: number; to: number; y: number; h: number; gap?: number; n: number }) {
-  const w = (to - from - gap * (n - 1)) / n;
+/** TLT's slanted skirt blocks between x0 and x1, leaning forward. */
+function Blocks({ x0, x1, y, h, w, gap, fill }: { x0: number; x1: number; y: number; h: number; w: number; gap: number; fill: string }) {
+  const n = Math.floor((x1 - x0 + gap) / (w + gap));
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => {
+        const x = x0 + i * (w + gap);
+        return <path key={i} d={`M${x + 4} ${y} h${w} l-4 ${h} h-${w} z`} fill={fill} />;
+      })}
+    </>
+  );
+}
+
+/** TLT's dashed line under the roof. */
+function RoofDashes({ x0, x1, y, fill }: { x0: number; x1: number; y: number; fill: string }) {
+  const n = Math.floor((x1 - x0) / 7);
   return (
     <>
       {Array.from({ length: n }, (_, i) => (
-        <rect key={i} x={from + i * (w + gap)} y={y} width={w} height={h} rx="1.5" fill={GLASS} opacity="0.85" />
+        <rect key={i} x={x0 + i * 7} y={y} width="4" height="2" fill={fill} />
       ))}
     </>
   );
 }
 
-function Tram({ c }: { c: string }) {
-  // Three low-floor sections with joints, pantograph on the middle one.
+/** Door panels: glass down to the floor, framed by the body colour. */
+function Doors({ xs, y, h, w = 13, c }: { xs: number[]; y: number; h: number; w?: number; c: LiveryColors }) {
   return (
-    <g>
-      <path d="M118 22 l8 -9 h10 l-6 9" fill="none" stroke="#475569" strokeWidth="1.6" />
-      <line x1="112" y1="13" x2="142" y2="13" stroke="#475569" strokeWidth="1.6" />
-      {(
-        [
-          [10, 80],
-          [84, 156],
-          [160, 228],
-        ] as const
-      ).map(([a, b], i) => (
-        <g key={a}>
-          <path
-            d={i === 2 ? `M${a} 22 h${b - a - 10} q10 0 10 12 v26 h-${b - a} z` : i === 0 ? `M${a + 10} 22 h${b - a - 10} v38 h-${b - a} v-26 q0 -12 10 -12 z` : `M${a} 22 h${b - a} v38 h-${b - a} z`}
-            fill={c}
-          />
-          <rect x={a} y="50" width={b - a} height="4" fill="#ffffff" opacity="0.9" />
+    <>
+      {xs.map((x) => (
+        <g key={x}>
+          <rect x={x} y={y} width={w} height={h} rx="1" fill={c.band} stroke={c.body} strokeWidth="1.4" />
+          <line x1={x + w / 2} y1={y + 2} x2={x + w / 2} y2={y + h - 2} stroke={c.body} strokeWidth="0.7" opacity="0.5" />
         </g>
       ))}
-      <rect x="80" y="24" width="4" height="34" fill="#334155" />
-      <rect x="156" y="24" width="4" height="34" fill="#334155" />
-      <Windows from={16} to={74} y={27} h={15} n={3} />
-      <Windows from={90} to={150} y={27} h={15} n={3} />
-      <Windows from={166} to={214} y={27} h={15} n={2} />
-      <path d="M216 27 h4 q6 0 6 8 v7 h-10 z" fill={GLASS} opacity="0.85" />
-      <Wheels xs={[30, 62, 120, 194, 214]} y={62} r={4.5} />
+    </>
+  );
+}
+
+function Tram({ c }: { c: LiveryColors }) {
+  // Low-floor articulated tram: three sections, pantograph in the middle, red nose.
+  const sections = [
+    [10, 80],
+    [84, 156],
+    [160, 228],
+  ] as const;
+  return (
+    <g>
+      <path d="M118 21 l8 -9 h10 l-6 9" fill="none" stroke={POLE} strokeWidth="1.6" />
+      <line x1="112" y1="12" x2="142" y2="12" stroke={POLE} strokeWidth="1.6" />
+      {sections.map(([a, b], i) => (
+        <path
+          key={a}
+          d={
+            i === 2
+              ? `M${a} 21 h${b - a - 12} q12 0 12 14 v25 h-${b - a} z`
+              : i === 0
+                ? `M${a + 8} 21 h${b - a - 8} v39 h-${b - a} v-29 q0 -10 8 -10 z`
+                : `M${a} 21 h${b - a} v39 h-${b - a} z`
+          }
+          fill={c.body}
+          stroke={OUTLINE}
+          strokeWidth="0.8"
+        />
+      ))}
+      <rect x="80" y="23" width="4" height="35" fill="#334155" />
+      <rect x="156" y="23" width="4" height="35" fill="#334155" />
+      {/* black window band, the cab glass running round the front */}
+      <rect x="12" y="27" width="68" height="17" fill={c.band} />
+      <rect x="84" y="27" width="72" height="17" fill={c.band} />
+      <path d="M160 27 h56 q9 0 11 10 v7 h-67 z" fill={c.band} />
+      <Doors xs={[30, 112, 182]} y={27} h={31} w={12} c={c} />
+      <RoofDashes x0={14} x1={80} y={23} fill={c.accent} />
+      <RoofDashes x0={86} x1={156} y={23} fill={c.accent} />
+      <RoofDashes x0={162} x1={214} y={23} fill={c.accent} />
+      <Blocks x0={12} x1={78} y={50} h={8} w={11} gap={10} fill={c.accent} />
+      <Blocks x0={86} x1={154} y={50} h={8} w={11} gap={10} fill={c.accent} />
+      <Blocks x0={162} x1={210} y={50} h={8} w={11} gap={10} fill={c.accent} />
+      <path d="M214 48 h14 v12 h-18 z" fill={c.accent} />
+      <Wheels xs={[30, 62, 120, 194, 214]} y={62} r={4} />
     </g>
   );
 }
 
-function Bus({ c, doors, poles = false }: { c: string; doors: number; poles?: boolean }) {
+function CityBus({ c, poles = false, gas = false }: { c: LiveryColors; poles?: boolean; gas?: boolean }) {
+  // Low-floor city bus with three doors; gas tanks on the roof (CNG Solaris) or
+  // trolley poles to the wires (Škoda), whose front mask is dark.
   return (
     <g>
       {poles && (
         <>
-          <line x1="70" y1="20" x2="200" y2="4" stroke="#475569" strokeWidth="1.8" />
-          <line x1="76" y1="20" x2="206" y2="6" stroke="#475569" strokeWidth="1.8" />
-          <rect x="62" y="17" width="22" height="4" rx="1" fill="#475569" />
+          <line x1="70" y1="19" x2="200" y2="3" stroke={POLE} strokeWidth="1.8" />
+          <line x1="76" y1="19" x2="206" y2="5" stroke={POLE} strokeWidth="1.8" />
+          <rect x="62" y="16" width="22" height="4" rx="1" fill={POLE} />
         </>
       )}
-      <rect x="150" y="16" width="30" height="5" rx="2" fill="#cbd5e1" />
-      <path d="M14 22 h196 q14 0 16 12 l2 18 v8 h-214 z" fill={c} />
-      <rect x="14" y="50" width="214" height="4" fill="#ffffff" opacity="0.9" />
-      <Windows from={22} to={196} y={27} h={16} n={7} />
-      <path d="M200 27 h12 q8 0 10 9 l1 6 h-23 z" fill={GLASS} opacity="0.85" />
-      {Array.from({ length: doors }, (_, i) => {
-        const x = [30, 110, 196][i] ?? 30;
-        return <rect key={x} x={x} y="26" width="13" height="32" rx="1" fill="#e2e8f0" stroke={GLASS} strokeWidth="1" />;
-      })}
-      <Wheels xs={[44, 176]} />
+      {gas && <path d="M120 21 v-4 q0 -3 4 -3 h76 q6 0 8 7 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />}
+      <path d="M14 21 h196 q14 0 16 12 l2 19 v8 h-214 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />
+      <rect x="18" y="26" width="184" height="18" fill={c.band} />
+      <path d="M200 26 h12 q9 0 11 10 l1 8 h-24 z" fill={c.band} />
+      {poles && <path d="M212 44 h12 l3 8 v8 h-15 z" fill={c.band} />}
+      <RoofDashes x0={20} x1={206} y={22} fill={c.accent} />
+      <Blocks x0={46} x1={104} y={47} h={12} w={9} gap={9} fill={c.accent} />
+      <Blocks x0={124} x1={186} y={47} h={12} w={9} gap={9} fill={c.accent} />
+      <path d="M14 46 h22 l-5 14 h-17 z" fill={c.accent} />
+      <Doors xs={[34, 108, 196]} y={26} h={32} c={c} />
+      <Wheels xs={[54, 176]} />
     </g>
   );
 }
 
-function Coach({ c }: { c: string }) {
-  // Higher floor, one door at the front, luggage bays below the windows.
+function TartuBus({ c }: { c: LiveryColors }) {
+  // GoBus Scania in Tartu: red below the windows with the city's skyline in white.
   return (
     <g>
-      <path d="M12 16 h196 q16 0 18 12 l2 24 v8 h-216 z" fill={c} />
-      <rect x="12" y="42" width="216" height="3" fill="#ffffff" opacity="0.9" />
-      <Windows from={20} to={190} y={21} h={17} gap={2} n={7} />
-      <path d="M196 21 h14 q10 0 12 10 l1 7 h-27 z" fill={GLASS} opacity="0.85" />
-      <rect x="198" y="40" width="13" height="18" rx="1" fill="#e2e8f0" stroke={GLASS} strokeWidth="1" />
+      <path d="M120 21 v-4 q0 -3 4 -3 h76 q6 0 8 7 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />
+      <path d="M14 21 h196 q14 0 16 12 l2 19 v8 h-214 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />
+      <path d="M14 43 h214 v9 l0 8 h-214 z" fill={c.accent} />
+      <rect x="18" y="25" width="184" height="18" fill={c.band} />
+      <path d="M200 25 h12 q9 0 11 10 l1 8 h-24 z" fill={c.band} />
+      {/* skyline: town hall, church spire, the arch bridge, houses */}
+      <path
+        d="M50 58 v-8 h4 v-4 l2 -2 l2 2 v4 h4 v8 M66 58 v-6 h6 v6 M120 58 v-6 h3 v-6 l2 -5 l2 5 v6 h3 v6 M134 58 v-4 h8 v4 M146 58 q10 -10 20 0 M150 58 v-5 M162 58 v-5 M172 58 v-7 l4 -3 l4 3 v7"
+        fill="none"
+        stroke={c.body}
+        strokeWidth="1"
+      />
+      <Doors xs={[34, 108, 196]} y={25} h={33} c={c} />
+      <Wheels xs={[54, 176]} />
+    </g>
+  );
+}
+
+function Coach({ c }: { c: LiveryColors }) {
+  // Higher-floor county coach, one door at the front, luggage bays below the windows.
+  return (
+    <g>
+      <path d="M12 16 h196 q16 0 18 12 l2 24 v8 h-216 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />
+      <rect x="18" y="21" width="174" height="17" rx="1.5" fill={c.band} />
+      <path d="M196 21 h14 q10 0 12 10 l1 7 h-27 z" fill={c.band} />
+      <rect x="12" y="42" width="216" height="2.5" fill={c.accent} />
+      <rect x="198" y="40" width="13" height="18" rx="1" fill={c.band} />
       {[60, 100, 140].map((x) => (
-        <rect key={x} x={x} y="48" width="30" height="9" rx="1" fill="none" stroke="#ffffff" strokeOpacity="0.6" strokeWidth="1" />
+        <rect key={x} x={x} y="48" width="30" height="9" rx="1" fill="none" stroke={OUTLINE} strokeWidth="1" />
       ))}
       <Wheels xs={[40, 176]} />
     </g>
   );
 }
 
-function Train({ c }: { c: string }) {
-  // Two cars of a low-floor unit with a sloped cab.
+function Train({ c }: { c: LiveryColors }) {
+  // Two cars of Elron's unit: orange nose and skirt, white sides with black
+  // swooshes and the cyan line sweeping up to the cab.
   return (
     <g>
-      <path d="M150 18 l10 -8 h10 l-6 8" fill="none" stroke="#475569" strokeWidth="1.6" />
-      <line x1="146" y1="10" x2="176" y2="10" stroke="#475569" strokeWidth="1.6" />
-      <path d="M6 18 h104 v42 h-104 z" fill={c} />
-      <path d="M114 18 h86 q22 0 30 24 l2 18 h-118 z" fill={c} />
-      <rect x="110" y="20" width="4" height="38" fill="#334155" />
-      <rect x="6" y="48" width="226" height="4" fill="#d1d5db" opacity="0.95" />
-      <Windows from={12} to={104} y={24} h={15} n={4} />
-      <Windows from={120} to={196} y={24} h={15} n={3} />
-      <path d="M200 24 h4 q12 0 18 14 l1 3 h-23 z" fill={GLASS} opacity="0.85" />
-      <rect x="54" y="24" width="12" height="32" rx="1" fill="#e2e8f0" stroke={GLASS} strokeWidth="1" />
-      <rect x="150" y="24" width="12" height="32" rx="1" fill="#e2e8f0" stroke={GLASS} strokeWidth="1" />
+      <path d="M150 17 l10 -8 h10 l-6 8" fill="none" stroke={POLE} strokeWidth="1.6" />
+      <line x1="146" y1="9" x2="176" y2="9" stroke={POLE} strokeWidth="1.6" />
+      <path d="M6 17 h104 v43 h-104 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />
+      <path d="M114 17 h86 q22 0 30 24 l2 19 h-118 z" fill={c.body} stroke={OUTLINE} strokeWidth="0.8" />
+      <rect x="110" y="19" width="4" height="39" fill="#334155" />
+      <rect x="8" y="24" width="100" height="15" fill={c.band} />
+      <rect x="116" y="24" width="80" height="15" fill={c.band} />
+      {/* orange cab and skirt */}
+      <path d="M196 17 h4 q22 0 30 24 l2 19 h-44 l6 -19 z" fill={c.accent} />
+      <path d="M200 24 h4 q12 0 18 14 l1 3 h-23 z" fill={c.band} />
+      <rect x="6" y="54" width="104" height="6" fill={c.accent} />
+      <rect x="114" y="54" width="74" height="6" fill={c.accent} />
+      {/* swooshes and the cyan line */}
+      <path d="M150 52 L194 40 L194 44 L156 52 z M166 52 L194 46 L194 49 L172 52 z" fill={c.band} />
+      <path d="M114 50 h44 L190 42 v2 L160 52 h-46 z" fill={c.line} />
+      <path d="M6 50 h104 v2 h-104 z" fill={c.line} />
+      <Doors xs={[54, 140]} y={24} h={30} w={12} c={c} />
       <Wheels xs={[20, 40, 104, 120, 196, 216]} y={63} r={4} />
     </g>
   );

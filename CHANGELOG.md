@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.12.0 — 2026-10-23
+
+- **Real liveries.** The vehicle drawings and the top-down map icons now wear the operators' current paint:
+  Tallinn's trams, buses and trolleybuses in TLT's white design with slanted blocks and a dashed roof line (red,
+  turquoise, blue), Tartu's red GoBus Scanias with the city skyline, Elron's orange-nosed trains and the white county
+  coaches.
+- **Line numbers on top-down vehicles.** The number now sits upright on the vehicle's roof instead of beside it.
+- **Front page fits phones.** A long walk-from place name no longer makes line cards wider than the screen (which
+  made phones zoom the page out); in Edit, the move and remove buttons get their own row on phones.
+- **`BUS_BASE_URL` with `https://`** now marks requests for that host as HTTPS (Secure cookies, HSTS) even when the
+  proxy in front is not in `BUS_TRUSTED_PROXIES`; other addresses (a LAN IP) keep working over plain HTTP.
+
 ## 1.11.0 — 2026-10-23
 
 Upgrading: pull the new image; the first start adds two preference columns and re-imports the timetables (Tartu).

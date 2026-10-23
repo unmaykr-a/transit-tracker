@@ -19,7 +19,7 @@ describe("vehicleFeatures", () => {
     expect(fc.features[0]).toMatchObject({
       id: "tram-1",
       geometry: { coordinates: [24.7, 59.4] },
-      properties: { mode: "tram", text: "T4", bearing: 45, sort: 1 },
+      properties: { mode: "tram", livery: "tlt-tram", text: "T4", bearing: 45, sort: 1 },
     });
   });
 

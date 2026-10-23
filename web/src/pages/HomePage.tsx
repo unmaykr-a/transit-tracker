@@ -184,7 +184,7 @@ function Dashboard() {
         )}
       </div>
       {dash.data && !dash.data.has_origin && <p className="text-sm text-muted-foreground">{t("home.noOrigin")}</p>}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {entries.map((e, i) => (
           <LineCard
             key={e.line.id}

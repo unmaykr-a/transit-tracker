@@ -8,6 +8,7 @@ import { fetchTrip } from "@/api";
 import { Button } from "@/components/ui/button";
 import { countdown } from "@/lib/format";
 import { pillText } from "@/lib/lines";
+import { liveryOf } from "@/lib/livery";
 import { buzz, loadRide, ridePhase, saveRide, type Ride, type RidePhase } from "@/lib/ride";
 import { useLiveState, useNow } from "@/lib/useLive";
 import { kindOf } from "@/lib/types";
@@ -129,7 +130,7 @@ export function VehicleSheet({
         </div>
       }
     >
-      {v && <VehicleArt kind={kindOf(v)} className="mt-3 h-14 w-full text-foreground" />}
+      {v && <VehicleArt livery={liveryOf(v)} className="mt-3 h-14 w-full text-foreground" />}
       {v && ride && phase && (
         <div
           role="status"

@@ -52,7 +52,7 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
 
   return (
     <article aria-label={l.label || title} className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
-      <header className="flex items-start gap-3">
+      <header className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
         {trip ? (
           <div className="flex max-w-28 shrink-0 flex-wrap gap-1" aria-label={t("trip.linesLabel")}>
             {tripLines.slice(0, 4).map((x) => (
@@ -68,7 +68,7 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
             {l.label ? <>{l.label} · </> : null}
             {trip ? title : <>→ {l.headsign}</>}
           </p>
-          <p className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+          <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
             {trip && l.from && (
               <Link to="/stops/$id" params={{ id: l.from.id }} className="min-w-0 truncate hover:underline">
                 {t("home.from", { stop: `${l.from.name}${head?.platform ? " " + head.platform : ""}` })}
@@ -80,17 +80,21 @@ export function LineCard({ entry, now, bufferMin, editing, onMove, onRemove, fir
               </Link>
             )}
             {walk && (
-              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
-                · <Footprints className="size-3.5" aria-hidden />
-                {walk.approx ? t("home.walkApprox", { min: walk.minutes }) : t("home.walk", { min: walk.minutes })}
-                {entry.walk_from && <> {t("home.walkFromPlace", { place: entry.walk_from })}</>}
+              // Wraps under the stop on narrow cards; a long place name is cut, never the card widened.
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                · <Footprints className="size-3.5 shrink-0" aria-hidden />
+                <span className="truncate">
+                  {walk.approx ? t("home.walkApprox", { min: walk.minutes }) : t("home.walk", { min: walk.minutes })}
+                  {entry.walk_from && <> {t("home.walkFromPlace", { place: entry.walk_from })}</>}
+                </span>
               </span>
             )}
           </p>
           {via.length > 0 && <p className="truncate text-sm text-muted-foreground">{t("home.via", { stops: via.join(", ") })}</p>}
         </div>
         {editing && (
-          <div className="flex gap-1">
+          // A row of its own on phones, so the title keeps its width.
+          <div className="flex w-full justify-end gap-1 sm:w-auto">
             <Button variant="ghost" size="icon" disabled={first} onClick={() => onMove?.(-1)} aria-label={t("home.moveUp")}>
               <ArrowUp className="size-4" />
             </Button>

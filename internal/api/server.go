@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +47,7 @@ type Server struct {
 	db             *store.Store
 	dataDir        string
 	trustedProxies []netip.Prefix
+	httpsHost      string // host of an https:// BUS_BASE_URL: requests for it count as HTTPS
 	refreshStatic  func(context.Context) error
 	dashboard      *dashboard.Builder
 	tracker        *eta.Tracker
@@ -79,9 +82,12 @@ type Deps struct {
 	DB             *store.Store
 	DataDir        string
 	TrustedProxies []netip.Prefix
-	RefreshStatic  func(context.Context) error
-	Dashboard      *dashboard.Builder
-	Tracker        *eta.Tracker
+	// BaseURL is BUS_BASE_URL. When it is https://, requests for its host count as
+	// HTTPS (Secure cookies, HSTS) even if the proxy in front is not trusted.
+	BaseURL       string
+	RefreshStatic func(context.Context) error
+	Dashboard     *dashboard.Builder
+	Tracker       *eta.Tracker
 	// MetricsMode is BUS_METRICS ("private" when empty); MetricsToken BUS_METRICS_TOKEN.
 	MetricsMode, MetricsToken string
 	// OIDC enables single sign-on; nil when not configured.
@@ -106,6 +112,9 @@ func NewServer(log *slog.Logger, d Deps) *Server {
 		auth: d.Auth, settings: d.Settings, db: d.DB, dataDir: d.DataDir, trustedProxies: d.TrustedProxies, refreshStatic: d.RefreshStatic,
 		dashboard: d.Dashboard, tracker: d.Tracker, metricsMode: d.MetricsMode, metricsToken: d.MetricsToken,
 		oidc: d.OIDC, oidcConfig: d.OIDCConfig, geocode: d.Geocode}
+	if u, err := url.Parse(d.BaseURL); err == nil && strings.EqualFold(u.Scheme, "https") {
+		s.httpsHost = u.Host
+	}
 	s.geocodeCache.TTL = time.Hour
 	s.initMetrics()
 	return s

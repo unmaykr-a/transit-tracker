@@ -330,3 +330,27 @@ func TestClientMetaIgnoresUntrustedForwarding(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPSBaseURL(t *testing.T) {
+	// An https:// BUS_BASE_URL makes its host HTTPS even through an untrusted
+	// proxy; another host (a LAN address) stays plain.
+	s := NewServer(slog.New(slog.DiscardHandler), Deps{BaseURL: "https://bus.example.org"})
+	for host, want := range map[string]bool{"bus.example.org": true, "BUS.example.org": true, "192.168.1.5:8095": false} {
+		r := httptest.NewRequest("GET", "http://"+host+"/", nil)
+		r.RemoteAddr = "203.0.113.1:5000"
+		if got := s.clientMeta(r).HTTPS; got != want {
+			t.Errorf("host %s: https=%v, want %v", host, got, want)
+		}
+	}
+	plain := NewServer(slog.New(slog.DiscardHandler), Deps{BaseURL: "http://bus.example.org"})
+	if plain.clientMeta(httptest.NewRequest("GET", "http://bus.example.org/", nil)).HTTPS {
+		t.Error("http:// base URL made requests HTTPS")
+	}
+	// The session cookie and HSTS follow.
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "http://bus.example.org/healthz", nil)
+	s.Handler(http.NotFoundHandler()).ServeHTTP(rec, r)
+	if rec.Header().Get("Strict-Transport-Security") == "" {
+		t.Error("no HSTS behind an https base URL")
+	}
+}
