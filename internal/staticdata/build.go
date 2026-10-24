@@ -18,6 +18,7 @@ type Sources struct {
 	CityRoutes   []feeds.OTPRoute    // Tallinn city routes with patterns (peatus.ee OTP)
 	CountyRoutes []feeds.OTPRoute    // Harju county bus routes
 	TartuRoutes  []feeds.OTPRoute    // Tartu city bus routes
+	Regions      []RegionRoutes      // more counties and long-distance lines (see Regions)
 	TallinnStops []feeds.TallinnStop // names and SIRI ids (transport.tallinn.ee)
 	Elron        *feeds.GTFS         // rail routes, trips, shapes (Elron GTFS)
 }
@@ -45,6 +46,9 @@ func Build(src Sources, now time.Time) Dataset {
 	b.city(src.CityRoutes, byCode, aliases)
 	b.otherBuses(src.CountyRoutes, byCode, aliases, "county", "")
 	b.otherBuses(src.TartuRoutes, byCode, aliases, "tartu", TartuPrefix)
+	for _, r := range src.Regions {
+		b.otherBuses(r.Routes, byCode, aliases, r.Source, r.Prefix)
+	}
 	if src.Elron != nil {
 		b.rail(src.Elron)
 	}
@@ -143,6 +147,43 @@ func (b *builder) city(routes []feeds.OTPRoute, byCode map[string]feeds.TallinnS
 // "tartu-2" (route bus:tartu-2, /lines/bus/tartu-2); the web shows it as "2".
 const TartuPrefix = "tartu-"
 
+// Region is a set of national timetable agencies imported like Harju county:
+// another county (source "county", live from the same feed as Harju) or the
+// long-distance lines (source "intercity", timetable only). Their short names
+// are keyed with Prefix because numbers repeat across regions (Rapla's bus 5,
+// Tallinn's bus 5); the web shows them without it.
+type Region struct {
+	Agency string // agency id prefix in the national timetable
+	Source string
+	Prefix string
+	// RT is the region's name in the county GTFS-RT feed ("" = no live buses).
+	RT string
+}
+
+// Regions are imported when county buses (Rapla, Lääne-Viru, Läänemaa) or
+// long-distance lines are on. Harju county and Tartu have their own fields.
+var Regions = []Region{
+	{Agency: "estonia:raplamaa_", Source: "county", Prefix: "raplamaa-", RT: "raplamaa"},
+	{Agency: "estonia:laane_virumaa_", Source: "county", Prefix: "laane-virumaa-", RT: "laane_viru"},
+	{Agency: "estonia:laanemaa_", Source: "county", Prefix: "laanemaa-", RT: "laanemaa"},
+	{Agency: "estonia:kaugliinid", Source: "intercity", Prefix: "intercity-"},
+}
+
+// RegionRoutes are one Region's routes from an import.
+type RegionRoutes struct {
+	Region
+	Routes []feeds.OTPRoute
+}
+
+// LinePrefixes are the prefixes of lines keyed apart from Tallinn's (Tartu and Regions).
+func LinePrefixes() []string {
+	out := []string{TartuPrefix}
+	for _, r := range Regions {
+		out = append(out, r.Prefix)
+	}
+	return out
+}
+
 // otherBuses adds bus routes from another source: Harju county (source
 // "county"; short names never clash with city routes today, and a clash is
 // skipped rather than let a county route take over a city line's id) or Tartu
@@ -156,12 +197,24 @@ func (b *builder) otherBuses(routes []feeds.OTPRoute, byCode map[string]feeds.Ta
 	for _, r := range routes {
 		short := prefix + r.ShortName
 		id := RouteID(feeds.ModeBus, short)
-		if r.ShortName == "" || taken[id] {
+		if r.ShortName == "" {
+			continue
+		}
+		if taken[id] {
+			// The same line from another agency (a shared or seasonal route): one route, both timetable ids.
+			for i := range b.routes {
+				if b.routes[i].ID == id && b.routes[i].Source == source && r.GtfsID != "" {
+					b.routes[i].OTPIDs = append(b.routes[i].OTPIDs, r.GtfsID)
+				}
+			}
 			continue
 		}
 		taken[id] = true
 		route := Route{ID: id, Mode: feeds.ModeBus, ShortName: short, LongName: r.LongName,
 			Color: color(r.Color), TextColor: color(r.TextColor), Source: source}
+		if r.GtfsID != "" {
+			route.OTPIDs = []string{r.GtfsID}
+		}
 		b.routes = append(b.routes, route)
 		for i, p := range r.Patterns {
 			ids := make([]string, 0, len(p.Stops))

@@ -13,16 +13,29 @@ import (
 	"github.com/unmaykr-a/transit-tracker/internal/state"
 )
 
-// CountyRegion is the county whose buses are taken from the county feed; its
-// lines are the Harju county routes of the static data.
+// CountyRegion is Harju county in the county feed; its lines are keyed by
+// number alone ("174"), other counties' with a prefix (see Regions).
 const CountyRegion = "harjumaa"
 
+// lineKey is a feed line's key in the static data for a region in regions
+// (feed region → line prefix; nil means Harju only), or false for regions not followed.
+func lineKey(regions map[string]string, region, line string) (string, bool) {
+	if regions == nil {
+		return line, region == CountyRegion
+	}
+	prefix, ok := regions[region]
+	return prefix + line, ok
+}
+
 // CountyPoller polls the ÜTK Põhja GTFS-RT VehiclePositions into the store
-// (source "county"): Harju county buses on lines the static data knows.
+// (source "county"): buses of the followed counties on lines the static data knows.
 type CountyPoller struct {
 	URL     func() string
 	Fetcher *feeds.Fetcher
 	Store   *state.Store
+	// Regions maps the feed's regions to line prefixes ("harjumaa" → "",
+	// "raplamaa" → "raplamaa-"); nil follows Harju county only.
+	Regions map[string]string
 	// Known reports whether a line is a county route of the static data; others
 	// (other counties' buses, lines missing from the timetable) are left out.
 	Known func(line string) bool
@@ -61,7 +74,8 @@ func (p *CountyPoller) Poll(ctx context.Context) (Result, error) {
 	vs := make([]state.Vehicle, 0, len(f.Vehicles))
 	seen := map[string]bool{}
 	for _, rv := range f.Vehicles {
-		if rv.Region != CountyRegion || rv.Line == "" || (p.Known != nil && !p.Known(rv.Line)) {
+		line, ok := lineKey(p.Regions, rv.Region, rv.Line)
+		if !ok || rv.Line == "" || (p.Known != nil && !p.Known(line)) {
 			continue
 		}
 		id := "bus-" + rv.ID
@@ -80,7 +94,7 @@ func (p *CountyPoller) Poll(ctx context.Context) (Result, error) {
 		v := state.Vehicle{
 			ID:        id,
 			Mode:      feeds.ModeBus,
-			Line:      rv.Line,
+			Line:      line,
 			Label:     rv.Line,
 			Lat:       rv.Lat,
 			Lon:       rv.Lon,
@@ -111,6 +125,7 @@ func (p *CountyPoller) Poll(ctx context.Context) (Result, error) {
 type CountyTrips struct {
 	URL     func() string
 	Fetcher *feeds.Fetcher
+	Regions map[string]string // as CountyPoller.Regions
 	Now     func() time.Time
 
 	mu    sync.RWMutex
@@ -153,7 +168,7 @@ func (c *CountyTrips) Poll(ctx context.Context) (Result, error) {
 	trips := make(map[string]map[string]time.Time, len(f.Trips))
 	n := 0
 	for _, t := range f.Trips {
-		if t.Region != CountyRegion {
+		if _, ok := lineKey(c.Regions, t.Region, ""); !ok {
 			continue
 		}
 		stops := make(map[string]time.Time, len(t.Stops))

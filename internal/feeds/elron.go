@@ -1,6 +1,7 @@
 package feeds
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -62,9 +63,9 @@ func (s flexString) float() (float64, bool) {
 	return v, err == nil
 }
 
-type elronEnvelope[T any] struct {
-	Status json.Number `json:"status"`
-	Data   []T         `json:"data"`
+type elronEnvelope struct {
+	Status json.Number     `json:"status"`
+	Data   json.RawMessage `json:"data"`
 }
 
 type elronTrainJSON struct {
@@ -88,14 +89,29 @@ func (t *elronTrainJSON) UnmarshalJSON(b []byte) error {
 }
 
 func decodeElron[T any](r io.Reader) ([]T, error) {
-	var env elronEnvelope[T]
+	var env elronEnvelope
 	if err := json.NewDecoder(r).Decode(&env); err != nil {
 		return nil, fmt.Errorf("elron: %w", err)
 	}
 	if env.Status.String() != "1" {
 		return nil, fmt.Errorf("elron: status %q", env.Status)
 	}
-	return env.Data, nil
+	// With no trains running (at night) data is {"text":"Pole andmeid"} ("no data"), not a list.
+	if d := bytes.TrimSpace(env.Data); len(d) == 0 || d[0] != '[' {
+		var msg struct{ Text string }
+		if len(d) > 0 && d[0] == '{' && json.Unmarshal(d, &msg) == nil {
+			return nil, nil
+		}
+		if len(d) == 0 || string(d) == "null" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("elron: unexpected data %.40s", d)
+	}
+	var out []T
+	if err := json.Unmarshal(env.Data, &out); err != nil {
+		return nil, fmt.Errorf("elron: %w", err)
+	}
+	return out, nil
 }
 
 // ParseElronTrains parses map_data.json. Timestamps are interpreted in loc

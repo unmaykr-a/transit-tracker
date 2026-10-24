@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,10 +29,12 @@ type Importer struct {
 	CountyAgencyPrefix string
 	// TartuAgencyPrefix, if set, also imports Tartu's city bus routes (feeds.TartuCityAgencyPrefix).
 	TartuAgencyPrefix string
-	Store             *store.Store
-	Log               *slog.Logger
-	Location          *time.Location
-	Now               func() time.Time
+	// Regions are more agencies imported like the county (other counties, long-distance lines).
+	Regions  []Region
+	Store    *store.Store
+	Log      *slog.Logger
+	Location *time.Location
+	Now      func() time.Time
 	// OnSwap is called after a new index is installed.
 	OnSwap func(*Index)
 
@@ -171,6 +174,17 @@ func (im *Importer) fetchAndBuild(ctx context.Context) (Dataset, error) {
 			src.TartuRoutes = tartu
 		}
 	}
+	for _, r := range im.Regions {
+		routes, err := im.agencyRoutes(ctx, r.Agency)
+		switch {
+		case err == nil:
+			src.Regions = append(src.Regions, RegionRoutes{Region: r, Routes: routes})
+		case im.hasPrefix(r.Prefix): // keep yesterday's lines rather than drop them for a day
+			return Dataset{}, fmt.Errorf("%s routes (kept the previous data): %w", r.Agency, err)
+		default:
+			im.Log.Warn("routes unavailable, importing without them", "agency", r.Agency, "err", err)
+		}
+	}
 	// Trains are optional for a first import (keep the city importable when
 	// Elron's feed is down), but once we have them, a failure keeps the old data.
 	res, err = im.Fetcher.Get(ctx, im.ElronGTFSURL(), false)
@@ -197,6 +211,20 @@ func (im *Importer) hasSource(source string) bool {
 	}
 	for _, r := range ix.Routes() {
 		if r.Source == source {
+			return true
+		}
+	}
+	return false
+}
+
+// hasPrefix reports whether the installed data has lines keyed with prefix.
+func (im *Importer) hasPrefix(prefix string) bool {
+	ix := im.Index()
+	if ix == nil {
+		return false
+	}
+	for _, r := range ix.Routes() {
+		if strings.HasPrefix(r.ShortName, prefix) {
 			return true
 		}
 	}

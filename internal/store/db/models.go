@@ -60,6 +60,7 @@ type Route struct {
 	TextColor string
 	Source    string
 	Sort      int64
+	OtpIds    string
 }
 
 type SavedLine struct {

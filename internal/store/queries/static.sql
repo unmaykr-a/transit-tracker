@@ -18,8 +18,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 INSERT INTO stop_areas (id, name, lat, lon, modes) VALUES (?, ?, ?, ?, ?);
 
 -- name: InsertRoute :exec
-INSERT INTO routes (id, mode, short_name, long_name, color, text_color, source, sort)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO routes (id, mode, short_name, long_name, color, text_color, source, sort, otp_ids)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: InsertPattern :exec
 INSERT INTO patterns (id, route_id, direction, headsign, stop_ids, shape, trips, sort)

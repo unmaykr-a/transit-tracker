@@ -53,9 +53,10 @@ func (t *Tracker) learnedTimes(pg *PatternGeom) []float64 {
 var staticSpeed = map[feeds.Mode]float64{feeds.ModeTram: 4.7, feeds.ModeBus: 5.5, feeds.ModeTrolley: 5.0, feeds.ModeTrain: 15}
 
 const (
-	countySpeed = 8.0 // county buses run mostly outside the city
-	roadDetour  = 1.25
-	railDetour  = 1.1
+	countySpeed    = 8.0  // county buses run mostly outside the city
+	intercitySpeed = 15.0 // long-distance buses: highways between towns, few stops
+	roadDetour     = 1.25
+	railDetour     = 1.1
 )
 
 // StaticTimes estimates riding times from the straight distances between
@@ -70,6 +71,9 @@ func StaticTimes(ix *staticdata.Index, p *staticdata.Pattern) []float64 {
 	}
 	if r != nil && r.Source == "county" {
 		speed = countySpeed
+	}
+	if r != nil && r.Source == "intercity" {
+		speed = intercitySpeed
 	}
 	if speed == 0 {
 		speed = staticSpeed[feeds.ModeBus]

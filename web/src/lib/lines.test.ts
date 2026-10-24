@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { displayLine, lineCity, matchesFilter, matchesLine, parseLineQuery } from "./lines";
+import { displayLine, lineRegion, matchesFilter, matchesLine, parseLineQuery } from "./lines";
 import { kindOf, type Kind, type Mode, type Vehicle } from "./types";
 
 const v = (mode: Mode, line: string, label = line) =>
@@ -39,8 +39,12 @@ describe("line matching", () => {
     expect(matchesLine(v("bus", "2"), ["=2"])).toBe(true);
     expect(displayLine("tartu-2")).toBe("2");
     expect(displayLine("17A")).toBe("17A");
-    expect(lineCity("tartu-31R")).toBe("Tartu");
-    expect(lineCity("31")).toBe("");
+    expect(displayLine("raplamaa-K28")).toBe("K28");
+    expect(displayLine("laane-virumaa-18V")).toBe("18V");
+    expect(displayLine("intercity-164")).toBe("164");
+    expect(lineRegion("tartu-31R")).toBe("tartu");
+    expect(lineRegion("laanemaa-13")).toBe("laanemaa");
+    expect(lineRegion("31")).toBeUndefined();
   });
 
   it("filters county buses with their own chip", () => {

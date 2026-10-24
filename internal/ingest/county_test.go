@@ -104,3 +104,37 @@ func TestTripKey(t *testing.T) {
 		}
 	}
 }
+
+func TestCountyPollerRegions(t *testing.T) {
+	srv, _ := fixtureServer(t, "ytkpohja_vehicle_positions.pb", "application/octet-stream", "")
+	store := state.NewStore()
+	p := &CountyPoller{
+		URL: feeds.Const(srv.URL), Fetcher: feeds.NewFetcher(srv.Client(), "test"), Store: store,
+		Now:     func() time.Time { return countyAt },
+		Regions: map[string]string{CountyRegion: "", "raplamaa": "raplamaa-", "laane_viru": "laane-virumaa-"},
+	}
+	if _, err := p.Poll(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	_, vs := store.Snapshot()
+	byPrefix := map[string]int{}
+	for _, v := range vs {
+		switch {
+		case strings.HasPrefix(v.Line, "raplamaa-"):
+			byPrefix["rapla"]++
+			if v.Label != strings.TrimPrefix(v.Line, "raplamaa-") || !v.County {
+				t.Errorf("Rapla bus %+v", v)
+			}
+		case strings.HasPrefix(v.Line, "laane-virumaa-"):
+			byPrefix["laane-viru"]++
+		case strings.Contains(v.Line, "-"):
+			t.Errorf("unexpected line key %q", v.Line)
+		default:
+			byPrefix["harju"]++
+		}
+	}
+	// The fixture has 140 Harju, 21 Rapla, 18 Lääne-Viru and 7 Läänemaa (not followed here) buses.
+	if byPrefix["harju"] < 100 || byPrefix["rapla"] < 10 || byPrefix["laane-viru"] < 10 || len(vs) > 140+21+18 {
+		t.Errorf("by region %v of %d", byPrefix, len(vs))
+	}
+}

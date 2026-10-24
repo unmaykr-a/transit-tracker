@@ -126,7 +126,8 @@
     "distance": "{{m}} m",
     "tripTo": "Sõit siia",
     "tripToLabel": "Planeeri sõit peatusesse {{stop}}",
-    "tartu": "Tartu"
+    "tartu": "Tartu",
+    "intercity": "Kaugliin"
   },
   "settings": {
     "title": "Seaded",
@@ -186,9 +187,10 @@
     "live_other": "{{count}} sõidukit liinil",
     "notFound": "Liini ei leitud.",
     "showOnMap": "Näita kaardil",
-    "county": "Harjumaa maakonnaliin",
+    "county": "{{region}} maakonnaliin",
     "noPatterns": "Sellel liinil praegu sõiduplaani pole.",
-    "tartu": "Tartu linnaliin"
+    "tartu": "Tartu linnaliin",
+    "intercity": "Kaugliin"
   },
   "common": {
     "loading": "Laen…",
@@ -497,5 +499,11 @@
     "eta": "Kohal: {{when}}",
     "stop": "Lõpeta",
     "done": "Valmis"
+  },
+  "region": {
+    "harjumaa": "Harjumaa",
+    "raplamaa": "Raplamaa",
+    "laane-virumaa": "Lääne-Virumaa",
+    "laanemaa": "Läänemaa"
   }
 }

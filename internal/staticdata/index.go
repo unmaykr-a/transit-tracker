@@ -26,6 +26,7 @@ type Index struct {
 	byCode     map[string]*Stop
 	areas      map[string]*Area
 	routes     map[string]*Route
+	byOTP      map[string]*Route // national timetable route id → route
 	routeList  []*Route
 	patterns   map[string][]*Pattern // by route id, main pattern per direction first
 	stopLines  map[string][]LineRef  // by stop id
@@ -50,6 +51,7 @@ func NewIndex(d Dataset) *Index {
 		byCode:     make(map[string]*Stop, len(d.Stops)),
 		areas:      make(map[string]*Area, len(d.Areas)),
 		routes:     make(map[string]*Route, len(d.Routes)),
+		byOTP:      map[string]*Route{},
 		patterns:   map[string][]*Pattern{},
 		stopLines:  map[string][]LineRef{},
 	}
@@ -75,6 +77,9 @@ func NewIndex(d Dataset) *Index {
 	for i := range d.Routes {
 		r := &d.Routes[i]
 		ix.routes[r.ID] = r
+		for _, id := range r.OTPIDs {
+			ix.byOTP[id] = r
+		}
 		ix.routeList = append(ix.routeList, r)
 	}
 	sort.SliceStable(ix.routeList, func(a, b int) bool { return ix.routeList[a].Sort < ix.routeList[b].Sort })
@@ -167,6 +172,13 @@ func (ix *Index) Stop(id string) (*Stop, bool) { s, ok := ix.stops[id]; return s
 func (ix *Index) StopByCode(code string) (*Stop, bool) { s, ok := ix.byCode[code]; return s, ok }
 
 func (ix *Index) Area(id string) (*Area, bool) { a, ok := ix.areas[id]; return a, ok }
+
+// RouteByOTP returns the route behind a national timetable route id, if it is
+// one of the routes imported with their ids (county, Tartu, long-distance).
+func (ix *Index) RouteByOTP(gtfsID string) (*Route, bool) {
+	r, ok := ix.byOTP[gtfsID]
+	return r, ok
+}
 
 func (ix *Index) Route(id string) (*Route, bool) { r, ok := ix.routes[id]; return r, ok }
 
@@ -287,8 +299,9 @@ func (ix *Index) SearchRoutes(q string, limit int) []*Route {
 	for _, r := range ix.routeList {
 		short := strings.ToLower(r.ShortName)
 		long := Fold(r.LongName)
-		// Tartu's lines are keyed "tartu-2" and shown as "2": "2" finds them after Tallinn's.
-		shown, other := strings.CutPrefix(short, TartuPrefix)
+		// Tartu's and other regions' lines are keyed "tartu-2", "raplamaa-5" and shown
+		// as "2", "5": the number finds them after Tallinn's.
+		shown, other := cutLinePrefix(short)
 		score := 0
 		switch {
 		case short == fq || (r.Mode == feeds.ModeTram && short == "t"+fq) || short == strings.Replace(fq, "tartu ", TartuPrefix, 1):
@@ -321,3 +334,13 @@ func (ix *Index) SearchRoutes(q string, limit int) []*Route {
 
 // AreaModes is the set of modes at an area, in display order.
 func (ix *Index) AreaModes(a *Area) []feeds.Mode { return slices.Clone(a.Modes) }
+
+// cutLinePrefix strips a region prefix (Tartu, other counties, long-distance) off a short name.
+func cutLinePrefix(short string) (string, bool) {
+	for _, p := range LinePrefixes() {
+		if rest, ok := strings.CutPrefix(short, p); ok {
+			return rest, true
+		}
+	}
+	return short, false
+}

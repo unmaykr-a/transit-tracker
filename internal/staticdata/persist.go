@@ -23,7 +23,7 @@ const (
 // BuildVersion changes whenever Build's output for the same sources changes
 // (naming, grouping, ids). A saved dataset with another version is re-imported
 // at startup instead of waiting for the nightly refresh.
-const BuildVersion = "4"
+const BuildVersion = "5"
 
 func joinModes(ms []feeds.Mode) string {
 	parts := make([]string, len(ms))
@@ -67,7 +67,7 @@ func Save(ctx context.Context, st *store.Store, d Dataset) error {
 		for _, r := range d.Routes {
 			if err := q.InsertRoute(ctx, db.InsertRouteParams{
 				ID: r.ID, Mode: string(r.Mode), ShortName: r.ShortName, LongName: r.LongName,
-				Color: r.Color, TextColor: r.TextColor, Source: r.Source, Sort: int64(r.Sort),
+				Color: r.Color, TextColor: r.TextColor, Source: r.Source, Sort: int64(r.Sort), OtpIds: strings.Join(r.OTPIDs, ","),
 			}); err != nil {
 				return fmt.Errorf("route %s: %w", r.ID, err)
 			}
@@ -127,8 +127,12 @@ func Load(ctx context.Context, st *store.Store) (Dataset, error) {
 		return d, err
 	}
 	for _, r := range routes {
-		d.Routes = append(d.Routes, Route{ID: r.ID, Mode: feeds.Mode(r.Mode), ShortName: r.ShortName, LongName: r.LongName,
-			Color: r.Color, TextColor: r.TextColor, Source: r.Source, Sort: int(r.Sort)})
+		route := Route{ID: r.ID, Mode: feeds.Mode(r.Mode), ShortName: r.ShortName, LongName: r.LongName,
+			Color: r.Color, TextColor: r.TextColor, Source: r.Source, Sort: int(r.Sort)}
+		if r.OtpIds != "" {
+			route.OTPIDs = strings.Split(r.OtpIds, ",")
+		}
+		d.Routes = append(d.Routes, route)
 	}
 	patterns, err := st.Q.ListPatterns(ctx)
 	if err != nil {
