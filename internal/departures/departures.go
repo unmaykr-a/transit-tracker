@@ -281,11 +281,15 @@ func (s *Service) fromOTP(st *staticdata.Stop, times []feeds.OTPStopTime) []Depa
 	for _, t := range times {
 		mode := otpMode(t.Trip.Route.Mode)
 		line := t.Trip.Route.ShortName
-		if st.Source == "tartu" && mode == feeds.ModeBus && s.routeID(mode, staticdata.TartuPrefix+line) != "" {
-			line = staticdata.TartuPrefix + line // Tartu's bus 2, not Tallinn's
-		}
-		if mode == feeds.ModeBus && s.routeID(feeds.ModeTrolley, line) != "" && s.routeID(feeds.ModeBus, line) == "" {
-			mode = feeds.ModeTrolley // OTP files Tallinn trolleybuses under BUS
+		if r := s.routeByOTP(t.Trip.Route.GtfsID); r != nil {
+			mode, line = r.Mode, r.ShortName // Rapla's bus 5 or Tartu's bus 2, not Tallinn's
+		} else {
+			if st.Source == "tartu" && mode == feeds.ModeBus && s.routeID(mode, staticdata.TartuPrefix+line) != "" {
+				line = staticdata.TartuPrefix + line // data imported before routes kept their timetable ids
+			}
+			if mode == feeds.ModeBus && s.routeID(feeds.ModeTrolley, line) != "" && s.routeID(feeds.ModeBus, line) == "" {
+				mode = feeds.ModeTrolley // OTP files Tallinn trolleybuses under BUS
+			}
 		}
 		headsign := t.Headsign
 		if headsign == "" {
@@ -312,7 +316,23 @@ func (s *Service) fromOTP(st *staticdata.Stop, times []feeds.OTPStopTime) []Depa
 	return out
 }
 
-// countyAt reports whether county bus routes call at a platform.
+func (s *Service) routeByOTP(gtfsID string) *staticdata.Route {
+	if s.Index == nil || gtfsID == "" {
+		return nil
+	}
+	ix := s.Index()
+	if ix == nil {
+		return nil
+	}
+	r, _ := ix.RouteByOTP(gtfsID)
+	return r
+}
+
+// timetableOnly reports whether a route's departures come only from the national
+// timetable even at platforms the city's live feed covers (county, long-distance).
+func timetableOnly(source string) bool { return source == "county" || source == "intercity" }
+
+// countyAt reports whether county or long-distance bus routes call at a platform.
 func (s *Service) countyAt(st *staticdata.Stop) bool {
 	if s.Index == nil {
 		return false
@@ -322,7 +342,7 @@ func (s *Service) countyAt(st *staticdata.Stop) bool {
 		return false
 	}
 	for _, l := range ix.Lines(st.ID) {
-		if r, ok := ix.Route(l.RouteID); ok && r.Source == "county" {
+		if r, ok := ix.Route(l.RouteID); ok && timetableOnly(r.Source) {
 			return true
 		}
 	}
@@ -351,7 +371,7 @@ func (s *Service) isCounty(routeID string) bool {
 		return false
 	}
 	r, ok := ix.Route(routeID)
-	return ok && r.Source == "county"
+	return ok && timetableOnly(r.Source)
 }
 
 // staticTerminus takes the last place of "Tallinn - Paldiski" style names.

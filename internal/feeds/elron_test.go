@@ -74,6 +74,17 @@ func TestParseElronErrors(t *testing.T) {
 	}
 }
 
+func TestParseElronNoTrains(t *testing.T) {
+	// At night (recorded 2026-10-24 01:10) the feed answers with a message instead of a list.
+	trains, skipped, err := ParseElronTrains(strings.NewReader(`{"status":1,"data":{"text":"Pole andmeid"},"src":"cache"}`), time.UTC)
+	if err != nil || len(trains) != 0 || skipped != 0 {
+		t.Errorf("no-data answer: %v %d %v", trains, skipped, err)
+	}
+	if _, _, err := ParseElronTrains(strings.NewReader(`{"status":1,"data":"oops"}`), time.UTC); err == nil {
+		t.Error("a string as data: want an error")
+	}
+}
+
 func TestParseElronStationsFixture(t *testing.T) {
 	st, skipped, err := ParseElronStations(openFixture(t, "elron_stops_data.json"))
 	if err != nil || skipped != 0 {

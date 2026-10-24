@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.13.0 — 2026-10-24
+
+Upgrading: pull the new image; the first start adds a column and re-imports the timetables (about 10 s).
+
+- **Long-distance buses.** Lux Express, GoBus, Taisto Express, Estonian Lines and the other long-distance operators:
+  their lines, stops and timetables, and their departures on stop pages (scheduled times; none of them publish live
+  positions). Search finds them by number ("164" → Tartu – Tallinn) and name, tagged "Long-distance".
+- **More county buses live.** Rapla, Lääne-Viru and Läänemaa county lines join Harju's: timetables, and the buses live
+  on the map with predicted times, from the same county feed. Their numbers repeat other regions', so they are tagged
+  with their county ("5 · Rapla").
+- Elron's train feed no longer counts as failing at night, when it answers "no data" instead of an empty list.
+- The stop and line-shape lists are sent compressed (about a tenth of the size).
+
 ## 1.12.0 — 2026-10-23
 
 - **Real liveries.** The vehicle drawings and the top-down map icons now wear the operators' current paint:

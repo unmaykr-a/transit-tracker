@@ -20,8 +20,8 @@ export interface Route {
   long_name: string;
   color?: string;
   text_color?: string;
-  /** "tallinn" (city), "county" (Harju county), "tartu" (Tartu city) or "elron". */
-  source?: "tallinn" | "county" | "tartu" | "elron";
+  /** "tallinn" (city), "county" (Harju, Rapla, Lääne-Viru, Läänemaa), "tartu" (Tartu city), "intercity" (long-distance) or "elron". */
+  source?: "tallinn" | "county" | "tartu" | "intercity" | "elron";
 }
 
 export interface AreaHit {

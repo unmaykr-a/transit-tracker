@@ -394,3 +394,71 @@ func TestBuildMergesDuplicateCityRoutes(t *testing.T) {
 		t.Errorf("%s has %d patterns, want %d", id, n, 2*len(dup.Patterns))
 	}
 }
+
+func TestBuildRegions(t *testing.T) {
+	src := fixtureSources(t)
+	b, err := os.ReadFile(testdata + "otp_county_routes.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	county, err := feeds.ParseAgencyRoutes(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src.CountyRoutes = county
+	// Rapla's lines reuse numbers: the same routes, keyed apart.
+	rapla := make([]feeds.OTPRoute, len(county))
+	copy(rapla, county)
+	for i := range rapla {
+		rapla[i].GtfsID = "estonia:raplamaa" + rapla[i].ShortName
+		rapla[i].Patterns = append([]feeds.OTPPattern(nil), rapla[i].Patterns...)
+		for j := range rapla[i].Patterns {
+			rapla[i].Patterns[j].Code = "rapla:" + rapla[i].Patterns[j].Code // pattern ids are per timetable route
+		}
+	}
+	// One line from two agencies is one route with both timetable ids.
+	dup := rapla[0]
+	dup.GtfsID = "estonia:raplamaa-other"
+	src.Regions = []RegionRoutes{{Region: Regions[0], Routes: append(rapla, dup)}}
+	d := Build(src, fixtureTime)
+	ix := NewIndex(d)
+
+	r, ok := ix.Route("bus:raplamaa-120")
+	if !ok || r.Source != "county" || len(ix.Patterns("bus:raplamaa-120")) == 0 {
+		t.Fatalf("Rapla's 120 = %+v", r)
+	}
+	if h, _ := ix.Route("bus:120"); h == nil || h.Source != "county" {
+		t.Error("Harju's 120 lost to Rapla's")
+	}
+	for _, id := range []string{"estonia:raplamaa120", "estonia:raplamaa-other"} {
+		if got, ok := ix.RouteByOTP(id); !ok || got.ID != "bus:raplamaa-120" {
+			t.Errorf("RouteByOTP(%s) = %+v", id, got)
+		}
+	}
+	if got, ok := ix.RouteByOTP("estonia:harjumaa120"); !ok || got.ID != "bus:120" {
+		t.Errorf("RouteByOTP(harjumaa120) = %+v", got)
+	}
+	// "120" finds Harju's first, then Rapla's.
+	res := ix.SearchRoutes("120", 5)
+	if len(res) < 2 || res[0].ID != "bus:120" || res[1].ID != "bus:raplamaa-120" {
+		t.Errorf("search 120 = %v", res)
+	}
+
+	// Timetable ids survive saving.
+	ctx := context.Background()
+	st, err := store.Open(ctx, t.TempDir(), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := Save(ctx, st, d); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(ctx, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, ok := NewIndex(got).RouteByOTP("estonia:raplamaa-other"); !ok || r.ID != "bus:raplamaa-120" {
+		t.Errorf("after load: %+v", r)
+	}
+}

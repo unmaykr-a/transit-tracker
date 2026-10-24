@@ -180,6 +180,9 @@ func TestAllStopsCaching(t *testing.T) {
 	if res.StatusCode != 200 || etag == "" || !strings.Contains(res.Header.Get("Cache-Control"), "max-age") {
 		t.Fatalf("status %d etag %q cc %q", res.StatusCode, etag, res.Header.Get("Cache-Control"))
 	}
+	if !res.Uncompressed { // the client asked for gzip (Go's default) and the server sent it
+		t.Error("stops list not compressed")
+	}
 	var d struct {
 		Stops []struct{ ID, AreaID string } `json:"stops"`
 	}

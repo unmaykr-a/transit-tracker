@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/unmaykr-a/transit-tracker/internal/departures"
 	"github.com/unmaykr-a/transit-tracker/internal/eta"
@@ -425,12 +426,14 @@ func (s *Server) handleAllPatterns(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) mountStatic(r chi.Router) {
 	r.Get("/trips", s.handleTripPreview)
-	r.Get("/patterns", s.handleAllPatterns)
+	// The whole-country lists are large (≈0.8 MB of stops) and compress about tenfold.
+	gzip := middleware.Compress(5, "application/json")
+	r.With(gzip).Get("/patterns", s.handleAllPatterns)
 	r.Get("/vehicles/{id}/trip", s.handleVehicleTrip)
 	r.Get("/patterns/{id}", s.handlePattern)
 	r.Get("/search", s.handleSearch)
 	r.Get("/places", s.handlePlaces)
-	r.Get("/stops", s.handleAllStops)
+	r.With(gzip).Get("/stops", s.handleAllStops)
 	r.Get("/stops/search", s.handleStopSearch)
 	r.Get("/stops/{id}", s.handleStop)
 	r.Get("/stops/{id}/departures", s.handleStopDepartures)

@@ -110,11 +110,13 @@ func serve(cfg config.Config) error {
 		Fetcher: fetcher, OTP: otp, AgencyID: feeds.TallinnAgencyID, Store: db, Log: log, Location: tallinn,
 		CountyAgencyPrefix: countyPrefix(cfg.County),
 		TartuAgencyPrefix:  tartuPrefix(cfg.Tartu),
+		Regions:            regions(cfg.County, cfg.Intercity),
 		StopsURL:           func() string { return cur().StopsURL },
 		ElronGTFSURL:       func() string { return cur().ElronGTFSURL },
 	}
 	go importer.Run(ctx)
-	countyTrips := &ingest.CountyTrips{URL: func() string { return cur().CountyTripsURL }, Fetcher: fetcher}
+	liveRegions := countyLive(cfg.County, cfg.Intercity)
+	countyTrips := &ingest.CountyTrips{URL: func() string { return cur().CountyTripsURL }, Fetcher: fetcher, Regions: liveRegions}
 	vehicles := state.NewStore()
 	deps := &departures.Service{Fetcher: fetcher, OTP: otp, SiriURL: func() string { return cur().SiriURL }, Index: importer.Index, Location: tallinn,
 		Live: func(trip string, st *staticdata.Stop) (time.Time, bool) {
@@ -128,8 +130,8 @@ func serve(cfg config.Config) error {
 	go health.Run(ctx, log, ingest.Feed{Name: "gps", Interval: func() time.Duration { return time.Duration(cur().GPSIntervalS) * time.Second }, Poll: gps.Poll, MaxBackoff: time.Minute})
 	go health.Run(ctx, log, ingest.Feed{Name: "elron", Interval: func() time.Duration { return time.Duration(cur().ElronIntervalS) * time.Second }, Poll: elron.Poll, MaxBackoff: time.Minute})
 	if cfg.County {
-		// Live Harju county buses: positions as often as the feed changes (~5 s), predicted times less often.
-		county := &ingest.CountyPoller{URL: func() string { return cur().CountyVehiclesURL }, Fetcher: fetcher, Store: vehicles,
+		// Live county buses (Harju, Rapla, Lääne-Viru, Läänemaa): positions as often as the feed changes (~5 s), predicted times less often.
+		county := &ingest.CountyPoller{URL: func() string { return cur().CountyVehiclesURL }, Fetcher: fetcher, Store: vehicles, Regions: liveRegions,
 			Known: func(line string) bool { return isLine(importer.Index(), line, "county") }, Annotate: tracker.AnnotateCounty}
 		go health.Run(ctx, log, ingest.Feed{Name: "county", Interval: func() time.Duration { return 5 * time.Second }, Poll: county.Poll, MaxBackoff: time.Minute})
 		go health.Run(ctx, log, ingest.Feed{Name: "county-trips", Interval: func() time.Duration { return 20 * time.Second }, Poll: countyTrips.Poll, MaxBackoff: 2 * time.Minute})
@@ -335,6 +337,30 @@ func fakeLines(ix *staticdata.Index, stopID string) []feeds.FakeLine {
 		}
 	}
 	return out
+}
+
+// regions are the extra timetable regions: other counties with county buses,
+// long-distance lines when they are on.
+func regions(county, intercity bool) []staticdata.Region {
+	var out []staticdata.Region
+	for _, r := range staticdata.Regions {
+		if (r.Source == "county" && county) || (r.Source == "intercity" && intercity) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// countyLive maps the county feed's regions to line prefixes: Harju (unprefixed)
+// and the other imported counties.
+func countyLive(county, intercity bool) map[string]string {
+	m := map[string]string{ingest.CountyRegion: ""}
+	for _, r := range regions(county, intercity) {
+		if r.RT != "" {
+			m[r.RT] = r.Prefix
+		}
+	}
+	return m
 }
 
 // tartuPrefix selects Tartu's city bus operators when Tartu is on.

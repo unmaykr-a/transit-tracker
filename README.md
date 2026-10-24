@@ -119,7 +119,8 @@ scrape_configs:
 | `BUS_OIDC_ISSUER`, `BUS_OIDC_CLIENT_ID`, `BUS_OIDC_CLIENT_SECRET` | — | Single sign-on (see above) |
 | `BUS_OIDC_ADMIN_GROUP` | — | Members of this group are admins (others are demoted) |
 | `BUS_OIDC_NAME`, `BUS_OIDC_AUTO_CREATE` | `single sign-on`, `true` | Button label; create accounts on first sign-in |
-| `BUS_COUNTY` | `true` | Harju county buses too (timetables, and live positions and times) |
+| `BUS_COUNTY` | `true` | County buses too: Harju, Rapla, Lääne-Viru and Läänemaa (timetables, and live positions and times) |
+| `BUS_INTERCITY` | `true` | Long-distance buses too (Lux Express, GoBus, Taisto…; timetables only, no live positions exist) |
 | `BUS_COUNTY_VEHICLES_URL`, `BUS_COUNTY_TRIPS_URL` | ÜTK Põhja GTFS-RT | Live county buses; `off` disables |
 | `BUS_TARTU` | `true` | Tartu city buses too (timetables and live positions) |
 | `BUS_TARTU_LIVE_URL` | Ridango realtime WebSocket | Live Tartu buses; `off` disables |

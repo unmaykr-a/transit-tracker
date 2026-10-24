@@ -23,8 +23,13 @@ Work milestone by milestone (M0 → M7); each ends with tests green, `docker com
 - `internal/staticdata` — nightly import (03:30 Tallinn, on start if missing/older than 20 h or built by another
   `BuildVersion`): OTP city routes + Tallinn stops.txt (names, SIRI ids) + Elron GTFS (rail) + Harju county bus
   routes (`BUS_COUNTY`, every OTP agency `estonia:harjumaa*`; route source `county`, `bus:<short>` ids, county-only
-  stops have no SIRI id). Live county buses: `ingest.CountyPoller` (ÜTK Põhja GTFS-RT VehiclePositions, hand-decoded in
-  `feeds/gtfsrt.go`, region `harjumaa` and lines the index knows; ids `bus-<plate>`, `county: true`; matched by
+  stops have no SIRI id). More regions (`staticdata.Regions`, `Importer.Regions`): Rapla, Lääne-Viru, Läänemaa
+  (source `county`, lines keyed `raplamaa-5`, `laane-virumaa-18V`, `laanemaa-13`) and long-distance lines (`BUS_INTERCITY`,
+  agencies `estonia:kaugliinid*`, source `intercity`, `intercity-164`, timetable only); the web strips the prefix
+  (`lib/lines.ts` `lineRegion`/`displayLine`, tags via `lineTag`/`lineKindLabel`). Routes keep their national
+  timetable ids (`Route.OTPIDs`, column `routes.otp_ids`) so OTP departures resolve the right route
+  (`Index.RouteByOTP`) when numbers repeat. Live county buses: `ingest.CountyPoller` (ÜTK Põhja GTFS-RT VehiclePositions, hand-decoded in
+  `feeds/gtfsrt.go`, regions `harjumaa`, `raplamaa`, `laane_viru`, `laanemaa` via `CountyPoller.Regions` → line prefix, lines the index knows; ids `bus-<plate>`, `county: true`; matched by
   `Tracker.AnnotateCounty` — the tracker keeps per-source groups so one poller never drops the other's tracks; county
   buses skip ETA calibration) and `ingest.CountyTrips` (TripUpdates → `departures.Service.CountyLive`, joined to OTP
   rows by `TripKey`). Tartu city buses (`BUS_TARTU`): OTP agencies `estonia:tartu_*` imported like county routes with

@@ -228,3 +228,25 @@ func TestSiriTimesOnClockChangeDay(t *testing.T) {
 		}
 	}
 }
+
+func TestTimetableRowsFindTheirRegionsRoute(t *testing.T) {
+	ix := staticdata.NewIndex(staticdata.Dataset{Routes: []staticdata.Route{
+		{ID: "bus:17", Mode: feeds.ModeBus, ShortName: "17", Source: "tallinn"},
+		{ID: "bus:raplamaa-17", Mode: feeds.ModeBus, ShortName: "raplamaa-17", Source: "county", OTPIDs: []string{"estonia:raplamaa17"}},
+		{ID: "bus:intercity-164", Mode: feeds.ModeBus, ShortName: "intercity-164", Source: "intercity", OTPIDs: []string{"estonia:kaugliin164"}},
+	}})
+	s := &Service{Index: func() *staticdata.Index { return ix }, Location: tallinn}
+	var times []feeds.OTPStopTime
+	_ = json.Unmarshal([]byte(`[
+	 {"serviceDay": 1792616400, "scheduledDeparture": 36000, "realtimeDeparture": 36000, "trip": {"route": {"gtfsId": "estonia:raplamaa17", "shortName": "17", "mode": "BUS"}}},
+	 {"serviceDay": 1792616400, "scheduledDeparture": 36060, "realtimeDeparture": 36060, "trip": {"route": {"gtfsId": "estonia:kaugliin164", "shortName": "164", "mode": "BUS"}}},
+	 {"serviceDay": 1792616400, "scheduledDeparture": 36120, "realtimeDeparture": 36120, "trip": {"route": {"gtfsId": "tallinna-lin_bus_17", "shortName": "17", "mode": "BUS"}}}]`), &times)
+	var got []string
+	for _, d := range s.fromOTP(&staticdata.Stop{ID: "x"}, times) {
+		got = append(got, d.RouteID+" "+d.Line)
+	}
+	want := "bus:raplamaa-17 raplamaa-17|bus:intercity-164 intercity-164|bus:17 17"
+	if strings.Join(got, "|") != want {
+		t.Errorf("got %v, want %s", got, want)
+	}
+}

@@ -87,8 +87,8 @@ func (q *Queries) InsertPattern(ctx context.Context, arg InsertPatternParams) er
 }
 
 const insertRoute = `-- name: InsertRoute :exec
-INSERT INTO routes (id, mode, short_name, long_name, color, text_color, source, sort)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO routes (id, mode, short_name, long_name, color, text_color, source, sort, otp_ids)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertRouteParams struct {
@@ -100,6 +100,7 @@ type InsertRouteParams struct {
 	TextColor string
 	Source    string
 	Sort      int64
+	OtpIds    string
 }
 
 func (q *Queries) InsertRoute(ctx context.Context, arg InsertRouteParams) error {
@@ -112,6 +113,7 @@ func (q *Queries) InsertRoute(ctx context.Context, arg InsertRouteParams) error 
 		arg.TextColor,
 		arg.Source,
 		arg.Sort,
+		arg.OtpIds,
 	)
 	return err
 }
@@ -214,7 +216,7 @@ func (q *Queries) ListPatterns(ctx context.Context) ([]Pattern, error) {
 }
 
 const listRoutes = `-- name: ListRoutes :many
-SELECT id, mode, short_name, long_name, color, text_color, source, sort FROM routes ORDER BY sort, id
+SELECT id, mode, short_name, long_name, color, text_color, source, sort, otp_ids FROM routes ORDER BY sort, id
 `
 
 func (q *Queries) ListRoutes(ctx context.Context) ([]Route, error) {
@@ -235,6 +237,7 @@ func (q *Queries) ListRoutes(ctx context.Context) ([]Route, error) {
 			&i.TextColor,
 			&i.Source,
 			&i.Sort,
+			&i.OtpIds,
 		); err != nil {
 			return nil, err
 		}

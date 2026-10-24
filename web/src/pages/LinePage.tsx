@@ -9,6 +9,7 @@ import { LinePill } from "@/components/LinePill";
 import { SplitLayout } from "@/components/SplitLayout";
 import { SaveLineSheet } from "@/components/SaveLineSheet";
 import { Button } from "@/components/ui/button";
+import { lineKindLabel, routeKind } from "@/lib/lines";
 import { placeVehicles } from "@/lib/lineVehicles";
 import { MODE_COLORS } from "@/lib/modeColors";
 import { useSession } from "@/lib/session";
@@ -65,11 +66,11 @@ export default function LinePage() {
     >
       <div className="mx-auto flex max-w-xl flex-col gap-5 px-4 py-6">
         <header className="flex items-start gap-3">
-          <LinePill mode={r.mode} kind={r.source === "county" ? "county" : undefined} line={r.short_name} className="h-9 min-w-12 text-base" />
+          <LinePill mode={r.mode} kind={routeKind(r)} line={r.short_name} className="h-9 min-w-12 text-base" />
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold tracking-tight">{r.long_name}</h1>
             <p className="text-sm text-muted-foreground">
-              {`${r.source === "county" ? t("line.county") : r.source === "tartu" ? t("line.tartu") : t(`mode.${r.mode}`)} · ${t("line.live", { count: vehicles.length })}`}
+              {`${lineKindLabel(r, t)} · ${t("line.live", { count: vehicles.length })}`}
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>

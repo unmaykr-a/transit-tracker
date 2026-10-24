@@ -21,8 +21,12 @@ type Config struct {
 
 	// FakeFeeds replays recorded fixtures instead of calling upstream, BUS_FAKE_FEEDS=1.
 	FakeFeeds bool
-	// County imports Harju county bus timetables too (BUS_COUNTY, default true).
+	// County imports the county bus timetables too (Harju, Rapla, Lääne-Viru and
+	// Läänemaa, all live from one feed; BUS_COUNTY, default true).
 	County bool
+	// Intercity imports the long-distance bus timetables (Lux Express, GoBus…;
+	// BUS_INTERCITY, default true). They have no live positions.
+	Intercity bool
 	// Tartu imports Tartu's city buses too (BUS_TARTU, default true).
 	Tartu bool
 	// Contact goes into the upstream User-Agent so operators can reach us, BUS_CONTACT.
@@ -100,6 +104,9 @@ func load(getenv func(string) string) (Config, error) {
 	var err error
 	if c.County, err = parseBoolDefault(getenv("BUS_COUNTY"), true); err != nil {
 		return c, fmt.Errorf("BUS_COUNTY: %w", err)
+	}
+	if c.Intercity, err = parseBoolDefault(getenv("BUS_INTERCITY"), true); err != nil {
+		return c, fmt.Errorf("BUS_INTERCITY: %w", err)
 	}
 	if c.Tartu, err = parseBoolDefault(getenv("BUS_TARTU"), true); err != nil {
 		return c, fmt.Errorf("BUS_TARTU: %w", err)

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { fetchPlaces, fetchSearch } from "@/api";
 import { LinePill } from "@/components/LinePill";
+import { lineTag, routeKind } from "@/lib/lines";
 import { MODE_BG } from "@/lib/modeColors";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -76,11 +77,11 @@ export default function SearchPage() {
                 >
                   {/* A fixed column, so the names line up whether the pill says 2 or 24A. */}
                   <span className="flex w-12 shrink-0">
-                    <LinePill mode={l.mode} kind={l.source === "county" ? "county" : undefined} line={l.short_name} />
+                    <LinePill mode={l.mode} kind={routeKind(l)} line={l.short_name} />
                   </span>
                   <span className="min-w-0 flex-1 truncate">{l.long_name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {l.source === "county" ? t("modeShort.county") : l.source === "tartu" ? t("search.tartu") : t(`modeShort.${l.mode}`)}
+                    {lineTag(l, t)}
                   </span>
                 </Link>
               </li>

@@ -46,8 +46,11 @@ type Route struct {
 	LongName  string     `json:"long_name"`
 	Color     string     `json:"color,omitempty"` // "#rrggbb"
 	TextColor string     `json:"text_color,omitempty"`
-	Source    string     `json:"source"` // tallinn, county, tartu or elron
+	Source    string     `json:"source"` // tallinn, county, tartu, intercity or elron
 	Sort      int        `json:"-"`
+	// OTPIDs are the national timetable's ids of this route (county, Tartu and
+	// long-distance lines), for departures where numbers repeat across regions.
+	OTPIDs []string `json:"-"`
 }
 
 // RouteID builds the route id for a mode and short name.
